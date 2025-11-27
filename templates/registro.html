@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block title %}Registro - Slot Machine D.R.S.{% endblock %}
+{% block page_title %}Registro de Lecturas{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        
+        {% if not turno_abierto %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>No hay turno abierto.</strong>
+                Debe iniciar un turno en la pestaña <a href="{% url 'control:turno' %}" class="alert-link">"Turno"</a> antes de registrar lecturas.
+            </div>
+        {% else %}
+            <!-- Información del Contexto -->
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Contexto del Turno</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <small class="text-muted">Sucursal</small>
+                            <p class="mb-0">{{ turno_abierto.sucursal.nombre }}</p>
+                        </div>
+                        <!-- Eliminada zona del contexto del turno -->
+                        <div class="col-md-4">
+                            <small class="text-muted">Fecha</small>
+                            <p class="mb-0">{{ turno_abierto.fecha|date:"d/m/Y" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted">Turno</small>
+                            <p class="mb-0">{{ turno_abierto.tipo_turno }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Formulario de Lectura -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-data"></i> Registrar Lectura de Máquina</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="lecturaForm">
+                        {% csrf_token %}
+                        
+                        <!-- Sección: Selección de Zona y Máquina -->
+                        <h6 class="mb-3 text-primary">Datos de la Máquina</h6>
+                        
+                        <!-- Agregado campo de zona antes de máquina -->
+                        <div class="mb-3">
+                            <label for="id_zona" class="form-label">Zona</label>
+                            {{ form.zona }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_maquina" class="form-label">Seleccionar Máquina</label>
+                            {{ form.maquina }}
+                        </div>
+                        
+                        <div id="maquinaInfo" class="mb-4" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">Número de Máquina</label>
+                                    <input type="text" id="numeroMaquina" class="form-control" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Juego</label>
+                                    <input type="text" id="nombreJuego" class="form-control" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Sección: Datos de Lectura -->
+                        <h6 class="mb-3 text-primary">Datos de Lectura</h6>
+                        
+                        <div class="mb-3">
+                            <label for="id_entrada" class="form-label">Entrada</label>
+                            {{ form.entrada }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_salida" class="form-label">Salida</label>
+                            {{ form.salida }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_total" class="form-label">Total (Entrada - Salida)</label>
+                            {{ form.total }}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="id_nota" class="form-label">Nota (Opcional)</label>
+                            {{ form.nota }}
+                        </div>
+                        
+                        <!-- Botón IA -->
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="button" class="btn btn-warning btn-lg-tablet" id="btnIA">
+                                <i class="bi bi-camera"></i> Escanear pantalla con IA
+                            </button>
+                            <small class="text-muted text-center">
+                                <i class="bi bi-info-circle"></i> Función en desarrollo. Por ahora simula la captura.
+                            </small>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Botón Guardar -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg-tablet">
+                                <i class="bi bi-save"></i> Guardar Lectura
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+        
+    </div>
+</div>
+
+<script>
+    document.getElementById('id_zona').addEventListener('change', function() {
+        const zonaId = this.value;
+        const maquinaSelect = document.getElementById('id_maquina');
+        
+        if (zonaId) {
+            fetch(`/api/maquinas/${zonaId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    maquinaSelect.innerHTML = '<option value="">---------</option>';
+                    data.forEach(maquina => {
+                        const option = document.createElement('option');
+                        option.value = maquina.id;
+                        option.textContent = `M${maquina.numero_maquina} - ${maquina.nombre_juego}`;
+                        maquinaSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar máquinas:', error);
+                    alert('Error al cargar las máquinas');
+                });
+        } else {
+            maquinaSelect.innerHTML = '<option value="">---------</option>';
+        }
+    });
+    
+    // Mostrar info de máquina al seleccionar
+    document.getElementById('id_maquina').addEventListener('change', function() {
+        const maquinaSelect = this;
+        const selectedOption = maquinaSelect.options[maquinaSelect.selectedIndex];
+        
+        if (maquinaSelect.value) {
+            const maquinaText = selectedOption.text;
+            const parts = maquinaText.split(' - ');
+            
+            if (parts.length >= 2) {
+                const numero = parts[0].replace('M', '');
+                const juego = parts[1];
+                
+                document.getElementById('numeroMaquina').value = numero;
+                document.getElementById('nombreJuego').value = juego;
+                document.getElementById('maquinaInfo').style.display = 'block';
+            }
+        } else {
+            document.getElementById('maquinaInfo').style.display = 'none';
+        }
+    });
+    
+    // Calcular total automáticamente
+    function calcularTotal() {
+        const entrada = parseInt(document.getElementById('id_entrada').value) || 0;
+        const salida = parseInt(document.getElementById('id_salida').value) || 0;
+        const total = entrada - salida;
+        document.getElementById('id_total').value = total;
+    }
+    
+    document.getElementById('id_entrada').addEventListener('input', calcularTotal);
+    document.getElementById('id_salida').addEventListener('input', calcularTotal);
+    
+    // Botón IA (simulación)
+    document.getElementById('btnIA').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="bi bi-hourglass-split"></i> Capturando...';
+        
+        fetch('/api/ia/capturar/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('id_entrada').value = data.entrada;
+                    document.getElementById('id_salida').value = data.salida;
+                    document.getElementById('id_total').value = data.total;
+                    
+                    alert(data.mensaje);
+                }
+            })
+            .catch(error => {
+                alert('Error al capturar datos: ' + error);
+            })
+            .finally(() => {
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-camera"></i> Escanear pantalla con IA';
+            });
+    });
+</script>
+{% endblock %}

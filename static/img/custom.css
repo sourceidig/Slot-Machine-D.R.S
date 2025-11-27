@@ -1,0 +1,28 @@
+/* Barra lateral completa con imagen */
+.sidebar {
+    position: relative;
+    height: 100vh; /* que ocupe todo el alto */
+    background-image: url("../img/sidebar_bg.jpg");
+    background-size: cover;      /* cubrir todo el espacio */
+    background-position: center; /* centrar imagen */
+    background-repeat: no-repeat;
+    background-attachment: fixed; /* opcional: efecto fijo */
+}
+
+/* Capa para oscurecer la imagen (mejor contraste) */
+.sidebar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.55); /* oscurece para que se lea el texto */
+    z-index: 0;
+}
+
+/* Todo el contenido debe quedar sobre la imagen */
+.sidebar * {
+    position: relative;
+    z-index: 1;
+}

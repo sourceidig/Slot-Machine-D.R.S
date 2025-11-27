@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Tablas - Slot Machine D.R.S.{% endblock %}
+{% block page_title %}Tablas de Lecturas{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-table"></i> Lecturas Registradas</h5>
+            <a href="{% url 'control:export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">
+                <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        
+        <!-- Filtros -->
+        <form method="get" class="row g-3 mb-4">
+            {% if user.role == 'admin' %}
+                <div class="col-md-3">
+                    <label class="form-label">Sucursal</label>
+                    <select name="sucursal" class="form-control">
+                        <option value="">Todas</option>
+                        {% for sucursal in sucursales %}
+                            <option value="{{ sucursal.id }}" {% if request.GET.sucursal == sucursal.id|stringformat:"s" %}selected{% endif %}>
+                                {{ sucursal.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Zona</label>
+                    <select name="zona" class="form-control">
+                        <option value="">Todas</option>
+                        {% for zona in zonas %}
+                            <option value="{{ zona.id }}" {% if request.GET.zona == zona.id|stringformat:"s" %}selected{% endif %}>
+                                {{ zona.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Usuario</label>
+                    <select name="usuario" class="form-control">
+                        <option value="">Todos</option>
+                        {% for usuario in usuarios %}
+                            <option value="{{ usuario.id }}" {% if request.GET.usuario == usuario.id|stringformat:"s" %}selected{% endif %}>
+                                {{ usuario.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Desde</label>
+                    <input type="date" name="fecha_desde" class="form-control" value="{{ request.GET.fecha_desde }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Hasta</label>
+                    <input type="date" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
+                </div>
+            {% else %}
+                <div class="col-md-4">
+                    <label class="form-label">Fecha</label>
+                    <input type="date" name="fecha" class="form-control" value="{{ request.GET.fecha }}">
+                </div>
+            {% endif %}
+            
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+                <a href="{% url 'control:tablas' %}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Limpiar
+                </a>
+            </div>
+        </form>
+        
+        <!-- Tabla -->
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Sucursal</th>
+                        <th>Zona</th>
+                        <th>Máquina</th>
+                        <th>Juego</th>
+                        <th class="text-end">Entrada</th>
+                        <th class="text-end">Salida</th>
+                        <th class="text-end">Total</th>
+                        <th>Usuario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lectura in lecturas %}
+                        <tr>
+                            <td>{{ lectura.fecha_registro|date:"d/m/Y H:i" }}</td>
+                            <td>{{ lectura.sucursal.nombre }}</td>
+                            <td>{{ lectura.zona.nombre }}</td>
+                            <td>M{{ lectura.numero_maquina|stringformat:"02d" }}</td>
+                            <td>{{ lectura.nombre_juego }}</td>
+                            <td class="text-end">{{ lectura.entrada|floatformat:0 }}</td>
+                            <td class="text-end">{{ lectura.salida|floatformat:0 }}</td>
+                            <td class="text-end"><strong>{{ lectura.total|floatformat:0 }}</strong></td>
+                            <td>{{ lectura.usuario.nombre }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted">No hay lecturas registradas</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                    <tr>
+                        <th colspan="5" class="text-end">TOTALES:</th>
+                        <th class="text-end">{{ total_entrada|floatformat:0 }}</th>
+                        <th class="text-end">{{ total_salida|floatformat:0 }}</th>
+                        <th class="text-end"><strong>{{ total_total|floatformat:0 }}</strong></th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}
