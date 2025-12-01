@@ -1,0 +1,10 @@
+{
+  "name": "Django Environment with Tesseract",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/apt-get:1": {
+      "packages": "tesseract-ocr"
+    }
+  },
+  "postCreateCommand": "pip install -r requirements.txt"
+}
