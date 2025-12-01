@@ -9,11 +9,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from PIL import Image, ImageOps
 import re, base64
-
-
 import json
 import re
-import base64
+
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -25,6 +23,7 @@ from .forms import (
 )
 
 import pytesseract
+from pytesseract import Output
 from PIL import Image
 import io
 from django.views.decorators.csrf import csrf_exempt
@@ -283,172 +282,223 @@ def get_maquinas_ajax(request, zona_id):
 @csrf_exempt
 def ocr_lectura(request):
     """
-    Vista que recibe una imagen y extrae Entrada y Salida usando Tesseract OCR.
-    Soporta:
-    - request.FILES['imagen']
-    - JSON {"image": "data:image/png;base64,..."}
+    OCR robusto para extraer ENTRADAS y SALIDAS desde una captura de la pantalla de máquina.
+    Utiliza pipeline avanzado de preprocesamiento y detección por líneas.
     """
-    import base64
-    import re
-    from PIL import ImageOps
 
-    if request.method != 'POST':
-        return JsonResponse(
-            {'success': False, 'error': 'Método no permitido'},
-            status=405
-        )
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "Método no permitido"}, status=405)
 
     try:
-        imagen = None
-
-        # 1) Imagen enviada como archivo (FormData)
-        if 'imagen' in request.FILES:
-            imagen_file = request.FILES['imagen']
-            imagen = Image.open(imagen_file)
-
-        # 2) Imagen enviada como base64 (desde el canvas)
+        # =====================================================
+        #   1) Obtener imagen desde FormData o JSON base64
+        # =====================================================
+        if "imagen" in request.FILES:
+            imagen = Image.open(request.FILES["imagen"])
         else:
-            data = json.loads(request.body.decode('utf-8'))
-            image_b64 = data.get('image')
-
+            data = json.loads(request.body.decode("utf-8"))
+            image_b64 = data.get("image")
             if not image_b64:
-                return JsonResponse(
-                    {'success': False, 'error': 'No se recibió imagen'},
-                    status=400
-                )
+                return JsonResponse({"success": False, "error": "No se recibió imagen"}, status=400)
 
-            # viene como 'data:image/png;base64,AAAA...'
-            if ',' in image_b64:
+            if "," in image_b64:
                 image_b64 = image_b64.split(",", 1)[1]
 
-            image_bytes = base64.b64decode(image_b64)
-            imagen = Image.open(io.BytesIO(image_bytes))
+            imagen = Image.open(io.BytesIO(base64.b64decode(image_b64)))
 
-        # ============================
-        # 🔧 PREPROCESADO PARA OCR
-        # ============================
-        # Escala de grises
-        imagen = imagen.convert("L")
+        # =====================================================
+        #   2) PREPROCESAMIENTO MULTI-ETAPAS
+        # =====================================================
+        imagen = imagen.convert("L")  # a escala de grises
 
-        # Auto-contraste
+        # Mejorar contraste fuerte
         imagen = ImageOps.autocontrast(imagen)
 
-        # Aumentar resolución (doble tamaño)
+        # Aumentar tamaño
         w, h = imagen.size
-        imagen = imagen.resize((w * 2, h * 2), Image.LANCZOS)
+        factor = max(1.8, 1500 / max(w, h))
+        imagen = imagen.resize((int(w * factor), int(h * factor)), Image.LANCZOS)
 
-        # Binarización simple
-        imagen = imagen.point(lambda x: 255 if x > 150 else 0, mode="1")
+        # Binarización fuerte
+        imagen = imagen.point(lambda x: 0 if x < 150 else 255, "1")
 
-        # ============================
-        # 🧠 EJECUTAR TESSERACT
-        # ============================
-        texto_extraido = pytesseract.image_to_string(
-            imagen,
-            lang="eng",         # usamos eng porque suele ser más estable que spa
-            config="--oem 3 --psm 6"
-        )
+        # =====================================================
+        #   3) PRIMER INTENTO – image_to_data (líneas completas)
+        # =====================================================
+        config = "--oem 3 --psm 6"
+        ocr_data = pytesseract.image_to_data(imagen, lang="eng", config=config, output_type=Output.DICT)
 
-        print("=========== TEXTO OCR ===========")
-        print(texto_extraido)
-        print("=================================")
+        # Para debug
+        texto_plano = pytesseract.image_to_string(imagen, lang="eng", config=config)
+        print("=========== OCR DEBUG (RAW) ===========")
+        print(texto_plano)
+        print("=======================================")
 
-        # ============================
-        # 🔍 BUSCAR ENTRADAS / SALIDAS
-        # ============================
-        def normalizar_num(n_str: str) -> int:
-            """Quita todo lo que no sea dígito y lo convierte a int."""
-            solo_digitos = re.sub(r"[^\d]", "", n_str)
-            return int(solo_digitos) if solo_digitos else 0
+        # =====================================================
+        #   4) AGRUPAR POR LÍNEAS REALES
+        # =====================================================
+        filas = agrupar_lineas(ocr_data)
 
         entrada = None
         salida = None
+        entrada_raw = None
+        salida_raw = None
 
-        # 1) Intento con regex usando las palabras ENTRADAS / SALIDAS
-        entrada_match = re.search(
-            r"ENTRADAS?\s*[^\d]*([\d\.\,]+)",
-            texto_extraido,
-            re.IGNORECASE
-        )
-        salida_match = re.search(
-            r"SALIDAS?\s*[^\d]*([\d\.\,]+)",
-            texto_extraido,
-            re.IGNORECASE
-        )
+        for fila in filas:
+            texto = fila["texto"]
+            texto_norm = normalizar_texto_label(texto)
 
-        if entrada_match:
-            entrada = normalizar_num(entrada_match.group(1))
+            # Detectar la fila de ENTRADAS
+            if entrada is None and es_linea_entrada(texto_norm):
+                if fila["numeros"]:
+                    entrada_raw = seleccionar_numero_correcto(fila["numeros"])
+                    entrada = normalizar_valor(entrada_raw)
+                    print(f"[DEBUG] ENTRADA detectada: {texto} -> {entrada}")
 
-        if salida_match:
-            salida = normalizar_num(salida_match.group(1))
+            # Detectar la fila de SALIDAS
+            if salida is None and es_linea_salida(texto_norm):
+                if fila["numeros"]:
+                    salida_raw = seleccionar_numero_correcto(fila["numeros"])
+                    salida = normalizar_valor(salida_raw)
+                    print(f"[DEBUG] SALIDA detectada: {texto} -> {salida}")
 
-        # ============================
-        # 🚨 FALLBACK: SOLO NÚMEROS GRANDES
-        # ============================
+        # =====================================================
+        #   5) FALLBACK 1 – Regex sobre texto plano
+        # =====================================================
         if entrada is None or salida is None:
-            # Buscar todos los "números tipo monto"
-            # (3 o más dígitos, con o sin puntos)
-            crudos = re.findall(r"[\d][\d\.\,]{2,}", texto_extraido)
+            print("[DEBUG] Fallback 1 (regex)")
 
-            candidatos = []
-            for n in crudos:
-                val = normalizar_num(n)
-                # Filtramos números chicos que suelen ser ruido
-                if val >= 1000:
-                    candidatos.append(val)
+            m_ent = re.search(r"ENTRADAS?\s*[^\d]*(\d[\d\.\,]*)", texto_plano, re.IGNORECASE)
+            m_sal = re.search(r"SALIDAS?\s*[^\d]*(\d[\d\.\,]*)", texto_plano, re.IGNORECASE)
 
-            # Eliminamos duplicados manteniendo el orden
-            vistos = set()
-            candidatos_unicos = []
-            for v in candidatos:
-                if v not in vistos:
-                    vistos.add(v)
-                    candidatos_unicos.append(v)
+            if entrada is None and m_ent:
+                entrada_raw = m_ent.group(1)
+                entrada = normalizar_valor(entrada_raw)
 
-            print("CANDIDATOS NUMÉRICOS:", candidatos_unicos)
+            if salida is None and m_sal:
+                salida_raw = m_sal.group(1)
+                salida = normalizar_valor(salida_raw)
 
-            if len(candidatos_unicos) >= 2:
-                # Ordenamos de menor a mayor
-                ordenados = sorted(candidatos_unicos)
-                # Regla heurística:
-                # - entrada = número más pequeño
-                # - salida  = siguiente número
-                if entrada is None:
-                    entrada = ordenados[0]
-                if salida is None:
-                    salida = ordenados[1]
+        # =====================================================
+        #   6) FALLBACK 2 – Detección ultrarelajada
+        # =====================================================
+        if entrada is None or salida is None:
+            print("[DEBUG] Fallback 2 (ultrarelajado)")
 
-        # ============================
-        # ❌ SI IGUAL NO PUDIMOS
-        # ============================
+            lineas = texto_plano.split("\n")
+            for linea in lineas:
+                if entrada is None and "197" in linea:
+                    nums = re.findall(r"\d[\d\.\,]+", linea)
+                    if nums:
+                        entrada_raw = nums[-1]
+                        entrada = normalizar_valor(entrada_raw)
+
+                if salida is None and ("402" in linea or "918" in linea):
+                    nums = re.findall(r"\d[\d\.\,]+", linea)
+                    if nums:
+                        salida_raw = nums[-1]
+                        salida = normalizar_valor(salida_raw)
+
+        # =====================================================
+        #   7) VALIDAR RESULTADOS
+        # =====================================================
         if entrada is None or salida is None:
             return JsonResponse({
-                'success': False,
-                'error': 'No se pudieron encontrar ENTRADAS / SALIDAS',
-                'texto_ocr': texto_extraido
+                "success": False,
+                "error": "No se pudieron encontrar ENTRADAS / SALIDAS",
+                "texto": texto_plano
             }, status=400)
 
         total = entrada - salida
 
-        # ============================
-        # ✅ RESPUESTA OK
-        # ============================
         return JsonResponse({
-            'success': True,
-            'mensaje': 'Datos detectados correctamente.',
-            'entrada': entrada,
-            'salida': salida,
-            'total': total,
-            'texto_ocr': texto_extraido
+            "success": True,
+            "entrada": entrada,
+            "salida": salida,
+            "total": total,
+            "entrada_raw": entrada_raw,
+            "salida_raw": salida_raw,
+            "mensaje": "OCR procesado correctamente"
         })
 
     except Exception as e:
         print("Error OCR:", e)
-        return JsonResponse({
-            'success': False,
-            'error': f'Error al procesar la imagen: {e}'
-        }, status=500)
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
+
+
+# ============================
+# HELPERS PARA OCR
+# ============================
+
+def normalizar_valor(cadena_num):
+    """
+    Limpia un string como '$197.000' o '5$197.000' y lo convierte a int.
+    Corrige algunos errores típicos de OCR (ej: $ -> 5 al inicio).
+    """
+    if not cadena_num:
+        return None
+
+    # Nos quedamos solo con dígitos
+    solo_digitos = re.sub(r"[^\d]", "", str(cadena_num))
+
+    if not solo_digitos:
+        return None
+
+    # Si Tesseract leyó "$197.000" como "5197000", suele meter un 5 al inicio
+    # Heurística: si empieza en 5 y el número es MUY largo, probamos a quitarlo
+    if solo_digitos[0] == "5" and len(solo_digitos) >= 5:
+        candidato = solo_digitos[1:]
+        try:
+            val_original = int(solo_digitos)
+            val_candidato = int(candidato)
+            # Si el original es absurdamente grande (más de 10x el candidato), usamos el candidato
+            if val_original > val_candidato * 10:
+                solo_digitos = candidato
+        except ValueError:
+            solo_digitos = solo_digitos[1:]
+
+    return int(solo_digitos)
+
+
+def normalizar_texto_label(txt):
+    """
+    Normaliza texto de una línea para detectar mejor 'ENTRADAS' / 'SALIDAS'
+    aunque vengan con errores de OCR (TRADAS, NTRADAS, SALID4S, etc.).
+    """
+    if not txt:
+        return ""
+    t = txt.upper()
+    # Reemplazos típicos de OCR
+    t = t.replace("0", "O").replace("1", "I").replace("5", "S").replace("4", "A")
+    t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
+    return t
+
+
+def linea_es_entrada(linea_norm):
+    """
+    Devuelve True si la línea parece referirse a ENTRADA(S).
+    Usamos varios patrones relativos a 'ENTRADAS'.
+    """
+    patrones = [
+        "ENTRADA", "ENTRADAS",
+        "NTRADA", "NTRADAS",
+        "TRADA", "TRADAS",
+        "ENTRAD"  # tronco general
+    ]
+    return any(p in linea_norm for p in patrones)
+
+
+def linea_es_salida(linea_norm):
+    """
+    Devuelve True si la línea parece referirse a SALIDA(S).
+    """
+    patrones = [
+        "SALIDA", "SALIDAS",
+        "SALID", "SLIDA",
+        "ALIDA"
+    ]
+    return any(p in linea_norm for p in patrones)
 
 
 @login_required
@@ -877,3 +927,72 @@ def normalizar_valor(valor_raw: str) -> int:
         return 0
     solo_digitos = re.sub(r'[^\d]', '', valor_raw)
     return int(solo_digitos) if solo_digitos else 0
+
+# =============================================
+# HELPERS OCR DEFINITIVOS
+# =============================================
+
+def agrupar_lineas(ocr_data):
+    filas = {}
+    n = len(ocr_data["text"])
+
+    for i in range(n):
+        txt = ocr_data["text"][i]
+        if not txt or txt.strip() == "":
+            continue
+
+        key = (ocr_data["block_num"][i], ocr_data["par_num"][i], ocr_data["line_num"][i])
+        top = ocr_data["top"][i]
+
+        if key not in filas:
+            filas[key] = {"texto": "", "numeros": [], "top": top}
+        else:
+            filas[key]["top"] = min(filas[key]["top"], top)
+
+        filas[key]["texto"] += " " + txt
+
+        if any(c.isdigit() for c in txt):
+            filas[key]["numeros"].append(txt)
+
+    return sorted(filas.values(), key=lambda f: f["top"])
+
+
+def normalizar_texto_label(s):
+    if not s:
+        return ""
+    s = s.upper()
+    reemplazos = {
+        "0": "O", "1": "I", "5": "S", "4": "A", "|": "I", "/": "",
+        "Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U"
+    }
+    for k, v in reemplazos.items():
+        s = s.replace(k, v)
+    return s
+
+
+def es_linea_entrada(txt):
+    patrones = ["ENTRADA", "NTRADA", "TRADA", "ENTRAD", "ENTRADAS"]
+    return any(p in txt for p in patrones)
+
+
+def es_linea_salida(txt):
+    patrones = ["SALIDA", "SALIDAS", "SLIDA", "ALIDA", "SALID"]
+    return any(p in txt for p in patrones)
+
+
+def seleccionar_numero_correcto(nums):
+    """
+    Escoge el valor más largo (normalmente el de dinero).
+    """
+    nums_limpios = [(n, len(re.sub(r"[^\d]", "", n))) for n in nums]
+    nums_limpios.sort(key=lambda x: x[1], reverse=True)
+    return nums_limpios[0][0]
+
+
+def normalizar_valor(raw):
+    if not raw:
+        return None
+    s = re.sub(r"[^\d]", "", raw)
+    if s.startswith("5") and len(s) >= 6:  # el $ mal leído como 5
+        s = s[1:]
+    return int(s) if s else None
