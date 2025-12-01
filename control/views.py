@@ -7,7 +7,13 @@ from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
+from PIL import Image, ImageOps
+import re, base64
+
+
 import json
+import re
+import base64
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -18,6 +24,10 @@ from .forms import (
     MaquinaForm, UsuarioForm, UsuarioEditForm
 )
 
+import pytesseract
+from PIL import Image
+import io
+from django.views.decorators.csrf import csrf_exempt
 
 # Helper function para verificar si es admin
 def is_admin(user):
@@ -70,7 +80,7 @@ def logout_view(request):
     logout(request)
     return redirect('control:login')
 
-
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 # ============================================
 # DASHBOARD (solo admin)
 # ============================================
@@ -269,6 +279,176 @@ def get_maquinas_ajax(request, zona_id):
         estado='Operativa'
     ).values('id', 'numero_maquina', 'nombre_juego')
     return JsonResponse(list(maquinas), safe=False)
+
+@csrf_exempt
+def ocr_lectura(request):
+    """
+    Vista que recibe una imagen y extrae Entrada y Salida usando Tesseract OCR.
+    Soporta:
+    - request.FILES['imagen']
+    - JSON {"image": "data:image/png;base64,..."}
+    """
+    import base64
+    import re
+    from PIL import ImageOps
+
+    if request.method != 'POST':
+        return JsonResponse(
+            {'success': False, 'error': 'Método no permitido'},
+            status=405
+        )
+
+    try:
+        imagen = None
+
+        # 1) Imagen enviada como archivo (FormData)
+        if 'imagen' in request.FILES:
+            imagen_file = request.FILES['imagen']
+            imagen = Image.open(imagen_file)
+
+        # 2) Imagen enviada como base64 (desde el canvas)
+        else:
+            data = json.loads(request.body.decode('utf-8'))
+            image_b64 = data.get('image')
+
+            if not image_b64:
+                return JsonResponse(
+                    {'success': False, 'error': 'No se recibió imagen'},
+                    status=400
+                )
+
+            # viene como 'data:image/png;base64,AAAA...'
+            if ',' in image_b64:
+                image_b64 = image_b64.split(",", 1)[1]
+
+            image_bytes = base64.b64decode(image_b64)
+            imagen = Image.open(io.BytesIO(image_bytes))
+
+        # ============================
+        # 🔧 PREPROCESADO PARA OCR
+        # ============================
+        # Escala de grises
+        imagen = imagen.convert("L")
+
+        # Auto-contraste
+        imagen = ImageOps.autocontrast(imagen)
+
+        # Aumentar resolución (doble tamaño)
+        w, h = imagen.size
+        imagen = imagen.resize((w * 2, h * 2), Image.LANCZOS)
+
+        # Binarización simple
+        imagen = imagen.point(lambda x: 255 if x > 150 else 0, mode="1")
+
+        # ============================
+        # 🧠 EJECUTAR TESSERACT
+        # ============================
+        texto_extraido = pytesseract.image_to_string(
+            imagen,
+            lang="eng",         # usamos eng porque suele ser más estable que spa
+            config="--oem 3 --psm 6"
+        )
+
+        print("=========== TEXTO OCR ===========")
+        print(texto_extraido)
+        print("=================================")
+
+        # ============================
+        # 🔍 BUSCAR ENTRADAS / SALIDAS
+        # ============================
+        def normalizar_num(n_str: str) -> int:
+            """Quita todo lo que no sea dígito y lo convierte a int."""
+            solo_digitos = re.sub(r"[^\d]", "", n_str)
+            return int(solo_digitos) if solo_digitos else 0
+
+        entrada = None
+        salida = None
+
+        # 1) Intento con regex usando las palabras ENTRADAS / SALIDAS
+        entrada_match = re.search(
+            r"ENTRADAS?\s*[^\d]*([\d\.\,]+)",
+            texto_extraido,
+            re.IGNORECASE
+        )
+        salida_match = re.search(
+            r"SALIDAS?\s*[^\d]*([\d\.\,]+)",
+            texto_extraido,
+            re.IGNORECASE
+        )
+
+        if entrada_match:
+            entrada = normalizar_num(entrada_match.group(1))
+
+        if salida_match:
+            salida = normalizar_num(salida_match.group(1))
+
+        # ============================
+        # 🚨 FALLBACK: SOLO NÚMEROS GRANDES
+        # ============================
+        if entrada is None or salida is None:
+            # Buscar todos los "números tipo monto"
+            # (3 o más dígitos, con o sin puntos)
+            crudos = re.findall(r"[\d][\d\.\,]{2,}", texto_extraido)
+
+            candidatos = []
+            for n in crudos:
+                val = normalizar_num(n)
+                # Filtramos números chicos que suelen ser ruido
+                if val >= 1000:
+                    candidatos.append(val)
+
+            # Eliminamos duplicados manteniendo el orden
+            vistos = set()
+            candidatos_unicos = []
+            for v in candidatos:
+                if v not in vistos:
+                    vistos.add(v)
+                    candidatos_unicos.append(v)
+
+            print("CANDIDATOS NUMÉRICOS:", candidatos_unicos)
+
+            if len(candidatos_unicos) >= 2:
+                # Ordenamos de menor a mayor
+                ordenados = sorted(candidatos_unicos)
+                # Regla heurística:
+                # - entrada = número más pequeño
+                # - salida  = siguiente número
+                if entrada is None:
+                    entrada = ordenados[0]
+                if salida is None:
+                    salida = ordenados[1]
+
+        # ============================
+        # ❌ SI IGUAL NO PUDIMOS
+        # ============================
+        if entrada is None or salida is None:
+            return JsonResponse({
+                'success': False,
+                'error': 'No se pudieron encontrar ENTRADAS / SALIDAS',
+                'texto_ocr': texto_extraido
+            }, status=400)
+
+        total = entrada - salida
+
+        # ============================
+        # ✅ RESPUESTA OK
+        # ============================
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Datos detectados correctamente.',
+            'entrada': entrada,
+            'salida': salida,
+            'total': total,
+            'texto_ocr': texto_extraido
+        })
+
+    except Exception as e:
+        print("Error OCR:", e)
+        return JsonResponse({
+            'success': False,
+            'error': f'Error al procesar la imagen: {e}'
+        }, status=500)
+
 
 
 @login_required
@@ -688,3 +868,12 @@ def usuario_delete(request, pk):
         messages.success(request, 'Usuario eliminado exitosamente.')
         return redirect('control:usuarios_list')
     return render(request, 'usuarios/delete.html', {'object': usuario})
+
+def normalizar_valor(valor_raw: str) -> int:
+    """
+    Recibe algo como '197.000', '$402,100', '713.540' y devuelve 197000, 402100, 713540.
+    """
+    if not valor_raw:
+        return 0
+    solo_digitos = re.sub(r'[^\d]', '', valor_raw)
+    return int(solo_digitos) if solo_digitos else 0

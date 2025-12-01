@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Registro - Slot Machine D.R.S.{% endblock %}
 {% block page_title %}Registro de Lecturas{% endblock %}
@@ -11,12 +12,12 @@
             <div class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle"></i>
                 <strong>No hay turno abierto.</strong>
-                Debe iniciar un turno en la pestaña <a href="{% url 'control:turno' %}" class="alert-link">"Turno"</a> antes de registrar lecturas.
+                Debe iniciar un turno en la pestaña <a href="{% url 'core:turno' %}" class="alert-link">"Turno"</a> antes de registrar lecturas.
             </div>
         {% else %}
             <!-- Información del Contexto -->
             <div class="card mb-3">
-                <div class="card-header bg-success text-white">
+                <div class="card-header bg-info text-white">
                     <h6 class="mb-0"><i class="bi bi-info-circle"></i> Contexto del Turno</h6>
                 </div>
                 <div class="card-body">
@@ -99,15 +100,25 @@
                             {{ form.nota }}
                         </div>
                         
-                        <!-- Botón IA -->
+                        <!-- Nuevo botón de Captura con Cámara -->
                         <div class="d-grid gap-2 mb-3">
-                            <button type="button" class="btn btn-warning btn-lg-tablet" id="btnIA">
-                                <i class="bi bi-camera"></i> Escanear pantalla con IA
+                            <button type="button" class="btn btn-primary btn-lg-tablet" id="btnCapturarCamara">
+                                <i class="bi bi-camera-fill"></i> Capturar con Cámara (OCR)
                             </button>
                             <small class="text-muted text-center">
-                                <i class="bi bi-info-circle"></i> Función en desarrollo. Por ahora simula la captura.
+                                <i class="bi bi-info-circle"></i> Abre la cámara para escanear la pantalla de la máquina
                             </small>
                         </div>
+                        
+                        <!-- Botón IA Dummy (mantener por compatibilidad) -->
+                      <!--  <div class="d-grid gap-2 mb-3">
+                            <button type="button" class="btn btn-warning btn-lg-tablet" id="btnIA">
+                                <i class="bi bi-robot"></i> Simulación IA (Datos Dummy)
+                            </button>
+                            <small class="text-muted text-center">
+                                <i class="bi bi-info-circle"></i> Genera datos de prueba
+                            </small>
+                        </div>-->
                         
                         <hr>
                         
@@ -124,6 +135,61 @@
         
     </div>
 </div>
+
+<!-- Modal de Captura de Cámara -->
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cameraModalLabel">
+                    <i class="bi bi-camera-video"></i> Capturar Pantalla de Máquina
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <!-- Vista previa de la cámara -->
+                    <video id="video" autoplay playsinline style="width: 100%; max-width: 640px; display: none;"></video>
+                    
+                    <!-- Canvas para capturar la foto -->
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    
+                    <!-- Imagen capturada -->
+                    <img id="capturedImage" style="width: 100%; max-width: 640px; display: none;" />
+                    
+                    <!-- Spinner de procesamiento -->
+                    <div id="processingSpinner" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Procesando...</span>
+                        </div>
+                        <p class="mt-3">Procesando imagen con OCR...</p>
+                    </div>
+                    
+                    <!-- Mensaje de estado -->
+                    <div id="cameraStatus" class="alert alert-info mt-3" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCerrarModal">
+                    Cerrar
+                </button>
+                <button type="button" class="btn btn-success" id="btnTomarFoto">
+                    <i class="bi bi-camera"></i> Tomar Foto
+                </button>
+                <button type="button" class="btn btn-primary" id="btnProcesarFoto" style="display: none;">
+                    <i class="bi bi-check-circle"></i> Procesar con OCR
+                </button>
+                <button type="button" class="btn btn-warning" id="btnRetomar" style="display: none;">
+                    <i class="bi bi-arrow-clockwise"></i> Tomar Otra
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="{% static 'js/ocr_capturas.js' %}"></script>
+{% endblock %}
 
 <script>
     document.getElementById('id_zona').addEventListener('change', function() {
@@ -184,12 +250,12 @@
     document.getElementById('id_entrada').addEventListener('input', calcularTotal);
     document.getElementById('id_salida').addEventListener('input', calcularTotal);
     
-    // Botón IA (simulación)
+    // Botón IA Dummy (mantener por compatibilidad)
     document.getElementById('btnIA').addEventListener('click', function() {
         this.disabled = true;
-        this.innerHTML = '<i class="bi bi-hourglass-split"></i> Capturando...';
+        this.innerHTML = '<i class="bi bi-hourglass-split"></i> Generando datos...';
         
-        fetch('/api/ia/capturar/')
+        fetch('/api/ia/dummy/')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -201,12 +267,118 @@
                 }
             })
             .catch(error => {
-                alert('Error al capturar datos: ' + error);
+                alert('Error al generar datos: ' + error);
             })
             .finally(() => {
                 this.disabled = false;
-                this.innerHTML = '<i class="bi bi-camera"></i> Escanear pantalla con IA';
+                this.innerHTML = '<i class="bi bi-robot"></i> Simulación IA (Datos Dummy)';
             });
+    });//
+    
+    // Botón Capturar con Cámara
+    document.getElementById('btnCapturarCamara').addEventListener('click', function() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const capturedImage = document.getElementById('capturedImage');
+        const processingSpinner = document.getElementById('processingSpinner');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const btnTomarFoto = document.getElementById('btnTomarFoto');
+        const btnProcesarFoto = document.getElementById('btnProcesarFoto');
+        const btnRetomar = document.getElementById('btnRetomar');
+        
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                video.style.display = 'block';
+                btnTomarFoto.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error al acceder a la cámara:', error);
+                alert('Error al acceder a la cámara');
+            });
+    });
+    
+    // Botón Tomar Foto
+    document.getElementById('btnTomarFoto').addEventListener('click', function() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const capturedImage = document.getElementById('capturedImage');
+        const btnTomarFoto = document.getElementById('btnTomarFoto');
+        const btnProcesarFoto = document.getElementById('btnProcesarFoto');
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        capturedImage.src = canvas.toDataURL('image/png');
+        capturedImage.style.display = 'block';
+        video.style.display = 'none';
+        btnTomarFoto.style.display = 'none';
+        btnProcesarFoto.style.display = 'block';
+    });
+    
+    // Botón Procesar Foto
+    document.getElementById('btnProcesarFoto').addEventListener('click', function() {
+        const capturedImage = document.getElementById('capturedImage');
+        const processingSpinner = document.getElementById('processingSpinner');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const btnProcesarFoto = document.getElementById('btnProcesarFoto');
+        const btnRetomar = document.getElementById('btnRetomar');
+        
+        processingSpinner.style.display = 'block';
+        cameraStatus.style.display = 'none';
+        btnProcesarFoto.style.display = 'none';
+        btnRetomar.style.display = 'none';
+        
+        fetch('/api/ocr/procesar/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ image: capturedImage.src })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('id_entrada').value = data.entrada;
+                    document.getElementById('id_salida').value = data.salida;
+                    document.getElementById('id_total').value = data.total;
+                    
+                    cameraStatus.textContent = data.mensaje;
+                    cameraStatus.style.display = 'block';
+                } else {
+                    cameraStatus.textContent = data.error;
+                    cameraStatus.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error al procesar imagen:', error);
+                alert('Error al procesar la imagen');
+            })
+            .finally(() => {
+                processingSpinner.style.display = 'none';
+                btnRetomar.style.display = 'block';
+            });
+    });
+    
+    // Botón Retomar
+    document.getElementById('btnRetomar').addEventListener('click', function() {
+        const video = document.getElementById('video');
+        const capturedImage = document.getElementById('capturedImage');
+        const processingSpinner = document.getElementById('processingSpinner');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const btnTomarFoto = document.getElementById('btnTomarFoto');
+        const btnProcesarFoto = document.getElementById('btnProcesarFoto');
+        const btnRetomar = document.getElementById('btnRetomar');
+        
+        video.style.display = 'block';
+        capturedImage.style.display = 'none';
+        processingSpinner.style.display = 'none';
+        cameraStatus.style.display = 'none';
+        btnTomarFoto.style.display = 'block';
+        btnProcesarFoto.style.display = 'none';
+        btnRetomar.style.display = 'none';
     });
 </script>
 {% endblock %}
