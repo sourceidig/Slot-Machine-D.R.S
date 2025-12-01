@@ -18,7 +18,17 @@ SECRET_KEY = 'django-insecure-slot-machine-drs-change-this-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    'localhost',
+    '.ngrok-free.app',
+    '*']
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.ngrok-free.app',     # 👈 NUEVO
+    'https://*.githubpreview.dev',
+    'https://*.localhost',
+    'http://localhost',
+    'http://127.0.0.1',
+]
 
 
 # Application definition
