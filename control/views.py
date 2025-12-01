@@ -225,7 +225,10 @@ def registro_view(request):
         usuario=request.user,
         estado='Abierto'
     ).first()
-    
+
+    # Leer última zona guardada en sesión (si existe)
+    zona_guardada_id = request.session.get('ultima_zona')
+
     if request.method == 'POST':
         if not turno_abierto:
             messages.error(
@@ -242,14 +245,29 @@ def registro_view(request):
             lectura.sucursal = turno_abierto.sucursal
             lectura.zona = form.cleaned_data['zona']
             lectura.save()
+
+            # 👉 GUARDAR LA ZONA EN SESIÓN
+            request.session['ultima_zona'] = lectura.zona.id
+
             messages.success(request, 'Lectura registrada exitosamente.')
             return redirect('control:registro')
     else:
-        form = LecturaMaquinaForm(turno=turno_abierto) if turno_abierto else None
+        # GET: crear formulario. Si hay zona guardada, usarla como initial
+        if turno_abierto:
+            if zona_guardada_id:
+                form = LecturaMaquinaForm(
+                    turno=turno_abierto,
+                    initial={'zona': zona_guardada_id}
+                )
+            else:
+                form = LecturaMaquinaForm(turno=turno_abierto)
+        else:
+            form = None
     
     context = {
         'turno_abierto': turno_abierto,
         'form': form,
+        'zona_guardada': zona_guardada_id,   # 👉 pasamos el id al template
     }
     
     return render(request, 'registro.html', context)
