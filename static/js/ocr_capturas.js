@@ -123,7 +123,7 @@
     document.getElementById("btnTomarFoto").style.display = "inline-block"
     document.getElementById("btnProcesarFoto").style.display = "none"
     document.getElementById("btnRetomar").style.display = "none"
-    mostrarEstado("Cámara lista. ubique el dispositivo entre 15 y 30 cm de la pantalla de la máquina.", "info")
+    mostrarEstado("Cámara lista. Ubique el dispositivo entre 15 y 30 cm de la pantalla de la máquina.", "info")
   }
 
   // Función para procesar la imagen con OCR
