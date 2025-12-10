@@ -7,7 +7,7 @@
   let video = null
   let canvas = null
   let capturedImage = null
-  const bootstrap = window.bootstrap // Declare the bootstrap variable
+  const bootstrap = window.bootstrap 
 
   // Inicializar al cargar el DOM
   document.addEventListener("DOMContentLoaded", () => {
@@ -134,7 +134,7 @@
     document.getElementById("btnProcesarFoto").disabled = true
     document.getElementById("btnRetomar").disabled = true
 
-    mostrarEstado("Procesando imagen con OCR...", "info")
+    mostrarEstado("Procesando imagen...", "info")
 
     // Convertir canvas a blob
     canvas.toBlob(

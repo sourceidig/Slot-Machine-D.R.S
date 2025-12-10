@@ -23,7 +23,7 @@ ALLOWED_HOSTS = [
     '.ngrok-free.app',
     '*']
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.ngrok-free.app',     # 👈 NUEVO
+    'https://*.ngrok-free.app',   
     'https://*.githubpreview.dev',
     'https://*.localhost',
     'http://localhost',
@@ -79,10 +79,18 @@ WSGI_APPLICATION = 'slot_machine_drs.wsgi.application'
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "control_maquinas.sqlite3",
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "bd_slotmachine",
+        "USER": "root",            
+        "PASSWORD": "1234",           
+        "HOST": "127.0.0.1",
+        "PORT": "3306",
+        "OPTIONS": {
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
+
 
 
 # Password validation

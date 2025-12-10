@@ -8,6 +8,10 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
 from PIL import Image, ImageOps
+from datetime import time
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
+
 import re, base64
 import json
 import re
@@ -90,40 +94,67 @@ def dashboard_view(request):
     """
     Dashboard con métricas para administrador
     """
-    hoy = timezone.now().date()
-    hace_7_dias = hoy - timedelta(days=7)
-    
+    # Día "hoy" en zona horaria local
+    hoy = timezone.localdate()
+
+    # Rango de hoy: 00:00:00 a 23:59:59 en la TZ del proyecto
+    inicio_hoy = timezone.make_aware(
+        datetime.combine(hoy, time.min),
+        timezone.get_current_timezone()
+    )
+    fin_hoy = timezone.make_aware(
+        datetime.combine(hoy, time.max),
+        timezone.get_current_timezone()
+    )
+
+    # Query base: lecturas de HOY usando rango de datetimes
+    lecturas_hoy_qs = LecturaMaquina.objects.filter(
+        fecha_registro__gte=inicio_hoy,
+        fecha_registro__lte=fin_hoy,
+    )
+
     # Total de lecturas del día
-    lecturas_hoy = LecturaMaquina.objects.filter(
-        fecha_registro__date=hoy
-    ).count()
-    
-    # Total por sucursal
-    lecturas_por_sucursal = LecturaMaquina.objects.filter(
-        fecha_registro__date=hoy
-    ).values('sucursal__nombre').annotate(
+    lecturas_hoy = lecturas_hoy_qs.count()
+
+    # Total por sucursal (HOY)
+    lecturas_por_sucursal = lecturas_hoy_qs.values(
+        'sucursal__nombre'
+    ).annotate(
         total=Count('id')
     ).order_by('-total')[:5]
-    
-    # Top 5 máquinas con mayor total
-    top_maquinas = LecturaMaquina.objects.filter(
-        fecha_registro__date=hoy
-    ).values('nombre_juego', 'numero_maquina').annotate(
+
+    # Top 5 máquinas con mayor total (HOY)
+    top_maquinas = lecturas_hoy_qs.values(
+        'nombre_juego', 'numero_maquina'
+    ).annotate(
         total_sum=Sum('total')
     ).order_by('-total_sum')[:5]
-    
+
+    # Datos para el gráfico de los últimos 7 días
     chart_labels = []
     chart_data = []
+
     for i in range(7):
-        fecha = hoy - timedelta(days=6-i)
-        # Sumar el campo 'total' de todas las lecturas del día
+        dia = hoy - timedelta(days=6 - i)
+        inicio_dia = timezone.make_aware(
+            datetime.combine(dia, time.min),
+            timezone.get_current_timezone()
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(dia, time.max),
+            timezone.get_current_timezone()
+        )
+
         resultado_neto = LecturaMaquina.objects.filter(
-            fecha_registro__date=fecha
-        ).aggregate(suma_total=Sum('total'))['suma_total'] or 0
-        
-        chart_labels.append(fecha.strftime('%d/%m'))
+            fecha_registro__gte=inicio_dia,
+            fecha_registro__lte=fin_dia,
+        ).aggregate(
+            suma_total=Sum('total')
+        )['suma_total'] or 0
+
+        chart_labels.append(dia.strftime('%d/%m'))
         chart_data.append(int(resultado_neto))
-    
+
     context = {
         'lecturas_hoy': lecturas_hoy,
         'lecturas_por_sucursal': lecturas_por_sucursal,
@@ -131,9 +162,8 @@ def dashboard_view(request):
         'chart_labels': chart_labels,
         'chart_data': chart_data,
     }
-    
-    return render(request, 'dashboard.html', context)
 
+    return render(request, 'dashboard.html', context)
 
 # ============================================
 # TURNO
@@ -220,39 +250,56 @@ def registro_view(request):
     """
     Vista de registro de lecturas de máquinas
     """
-    # Verificar si hay turno abierto
     turno_abierto = Turno.objects.filter(
         usuario=request.user,
         estado='Abierto'
     ).first()
 
-    # Leer última zona guardada en sesión (si existe)
     zona_guardada_id = request.session.get('ultima_zona')
 
     if request.method == 'POST':
+
         if not turno_abierto:
             messages.error(
                 request,
                 'Debe iniciar un turno en la pestaña "Turno" antes de registrar lecturas.'
             )
             return redirect('control:turno')
-        
+
         form = LecturaMaquinaForm(request.POST, turno=turno_abierto)
+
         if form.is_valid():
             lectura = form.save(commit=False)
             lectura.turno = turno_abierto
             lectura.usuario = request.user
+
+            # 👇 Campos derivados
             lectura.sucursal = turno_abierto.sucursal
             lectura.zona = form.cleaned_data['zona']
-            lectura.save()
 
-            # 👉 GUARDAR LA ZONA EN SESIÓN
-            request.session['ultima_zona'] = lectura.zona.id
+            # ⬅️ AÑADIR ESTO:
+            if lectura.maquina:
+                lectura.numero_maquina = lectura.maquina.numero_maquina
+                lectura.nombre_juego = lectura.maquina.nombre_juego
 
-            messages.success(request, 'Lectura registrada exitosamente.')
-            return redirect('control:registro')
+            try:
+                lectura.full_clean()
+                lectura.save()
+            except IntegrityError:
+                messages.error(
+                    request,
+                    'Ya existe una lectura para esa máquina en este turno.'
+                )
+            except ValidationError as e:
+                messages.error(request, '; '.join(e.messages))
+            else:
+                request.session['ultima_zona'] = lectura.zona.id
+                messages.success(request, 'Lectura registrada exitosamente.')
+                return redirect('control:registro')
+        else:
+            messages.error(request, "Formulario inválido. Revise los datos enviados.")
+
     else:
-        # GET: crear formulario. Si hay zona guardada, usarla como initial
         if turno_abierto:
             if zona_guardada_id:
                 form = LecturaMaquinaForm(
@@ -263,13 +310,13 @@ def registro_view(request):
                 form = LecturaMaquinaForm(turno=turno_abierto)
         else:
             form = None
-    
+
     context = {
         'turno_abierto': turno_abierto,
         'form': form,
-        'zona_guardada': zona_guardada_id,   # 👉 pasamos el id al template
+        'zona_guardada': zona_guardada_id,
     }
-    
+
     return render(request, 'registro.html', context)
 
 
@@ -298,10 +345,8 @@ def get_maquinas_ajax(request, zona_id):
     return JsonResponse(list(maquinas), safe=False)
 
 # ============================
-# OCR DEFINITIVO Y LIMPIO
+#             OCR 
 # ============================
-
-
 
 @csrf_exempt
 def ocr_lectura(request):
@@ -493,7 +538,7 @@ def extraer_monto_desde_tokens(tokens):
     raw = " ".join(tokens)
     solo_digitos = re.sub(r"[^\d]", "", raw)
 
-    # Si al juntar todo tenemos un número "grande", lo recortamos a 6 dígitos
+    # Si al juntar todo tenemos un número grande, se recorta a 6 dígitos
     # (197000, 402100, 713540, 918640 = 6 dígitos)
     if len(solo_digitos) >= 5:
         if len(solo_digitos) > 6:

@@ -68,6 +68,16 @@ class Zona(models.Model):
     def __str__(self):
         return f"{self.sucursal.nombre} - {self.nombre}"
 
+    class Meta:
+        verbose_name = 'Zona'
+        verbose_name_plural = 'Zonas'
+        ordering = ['sucursal', 'orden', 'nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sucursal', 'nombre'],
+                name='unique_zona_nombre_por_sucursal'
+            )
+        ]
 
 class Maquina(models.Model):
     """
@@ -118,6 +128,19 @@ class Maquina(models.Model):
     def __str__(self):
         return f"{self.sucursal.nombre} / {self.zona.nombre} / M{self.numero_maquina:02d} - {self.nombre_juego}"
 
+    class Meta:
+        verbose_name = 'Máquina'
+        verbose_name_plural = 'Máquinas'
+        ordering = ['sucursal', 'zona', 'numero_maquina']
+        unique_together = ['zona', 'numero_maquina']
+
+    def clean(self):
+        super().clean()
+        if self.zona_id and self.sucursal_id:
+            if self.zona.sucursal_id != self.sucursal_id:
+                raise ValidationError(
+                    {'sucursal': 'La sucursal debe coincidir con la sucursal de la zona seleccionada.'}
+                )
 
 class Turno(models.Model):
     """
@@ -244,10 +267,26 @@ class LecturaMaquina(models.Model):
         verbose_name = 'Lectura de Máquina'
         verbose_name_plural = 'Lecturas de Máquinas'
         ordering = ['-fecha_registro']
-    
+
+
     def __str__(self):
         return f"Lectura {self.numero_maquina} - {self.nombre_juego} ({self.fecha_registro})"
-    
+
+    def clean(self):
+        """
+        No permitir más de una lectura de la misma máquina en el mismo turno.
+        """
+        super().clean()
+        if self.turno_id and self.maquina_id:
+            existe = LecturaMaquina.objects.filter(
+                turno=self.turno,
+                maquina=self.maquina
+            ).exclude(pk=self.pk).exists()
+            if existe:
+                raise ValidationError(
+                    'Ya existe una lectura registrada para esta máquina en este turno.'
+                )
+
     def save(self, *args, **kwargs):
         """
         Guardar datos redundantes para facilitar reportes

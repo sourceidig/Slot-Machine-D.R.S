@@ -6,7 +6,7 @@ Sistema de control de máquinas tragamonedas para múltiples sucursales con func
 
 - Python 3.10+
 - MySQL 8.0+
-- XAMPP o MySQL Server (Windows)
+- MySQL Server (Windows)
 - **Tesseract OCR** (para funcionalidad de escaneo de pantallas)
 
 ## Instalación

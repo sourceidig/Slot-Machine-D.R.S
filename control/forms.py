@@ -79,7 +79,23 @@ class LecturaMaquinaForm(forms.ModelForm):
             self.fields['zona'].queryset = Zona.objects.none()
             self.fields['maquina'].queryset = Maquina.objects.none()
 
+    def clean(self):
+        cleaned_data = super().clean()
+        entrada = cleaned_data.get('entrada')
+        salida = cleaned_data.get('salida')
+        total = cleaned_data.get('total')
+        zona = cleaned_data.get('zona')
+        maquina = cleaned_data.get('maquina')
 
+        # No negativos
+        if entrada is not None and entrada < 0:
+            self.add_error('entrada', 'La entrada no puede ser negativa.')
+        if salida is not None and salida < 0:
+            self.add_error('salida', 'La salida no puede ser negativa.')
+        # Máquina debe pertenecer a la zona seleccionada
+        if maquina and zona and maquina.zona_id != zona.id:
+            self.add_error('maquina', 'La máquina seleccionada no pertenece a la zona indicada.')
+        return cleaned_data
 class SucursalForm(forms.ModelForm):
     """
     Formulario para Sucursales
