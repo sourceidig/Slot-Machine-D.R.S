@@ -92,78 +92,114 @@ pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tessera
 @user_passes_test(is_admin)
 def dashboard_view(request):
     """
-    Dashboard con métricas para administrador
+    Dashboard empresarial con KPIs y filtros
     """
-    # Día "hoy" en zona horaria local
-    hoy = timezone.localdate()
+    hoy = timezone.now().date()
 
-    # Rango de hoy: 00:00:00 a 23:59:59 en la TZ del proyecto
-    inicio_hoy = timezone.make_aware(
-        datetime.combine(hoy, time.min),
-        timezone.get_current_timezone()
+    # =========================
+    # 1. Filtros (GET)
+    # =========================
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    sucursal_id = request.GET.get('sucursal')
+
+    # Fechas por defecto: últimos 7 días
+    if not fecha_hasta:
+        fecha_hasta = hoy
+    else:
+        fecha_hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+
+    if not fecha_desde:
+        fecha_desde = fecha_hasta - timedelta(days=6)
+    else:
+        fecha_desde = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+
+    # =========================
+    # 2. Query base
+    # =========================
+    inicio = timezone.make_aware(datetime.combine(fecha_desde, time.min))
+    fin = timezone.make_aware(datetime.combine(fecha_hasta, time.max))
+
+    lecturas = LecturaMaquina.objects.filter(fecha_registro__range=(inicio, fin))
+
+    if sucursal_id:
+        lecturas = lecturas.filter(sucursal_id=sucursal_id)
+
+    # =========================
+    # 3. KPIs empresariales
+    # =========================
+    kpis = lecturas.aggregate(
+        total_entrada=Sum('entrada'),
+        total_salida=Sum('salida'),
+        total_neto=Sum('total'),
+        maquinas_activas=Count('maquina', distinct=True),
+        total_lecturas=Count('id')
     )
-    fin_hoy = timezone.make_aware(
-        datetime.combine(hoy, time.max),
-        timezone.get_current_timezone()
-    )
 
-    # Query base: lecturas de HOY usando rango de datetimes
-    lecturas_hoy_qs = LecturaMaquina.objects.filter(
-        fecha_registro__gte=inicio_hoy,
-        fecha_registro__lte=fin_hoy,
-    )
+    # Evitar None
+    for k in kpis:
+        kpis[k] = kpis[k] or 0
 
-    # Total de lecturas del día
-    lecturas_hoy = lecturas_hoy_qs.count()
-
-    # Total por sucursal (HOY)
-    lecturas_por_sucursal = lecturas_hoy_qs.values(
-        'sucursal__nombre'
-    ).annotate(
-        total=Count('id')
-    ).order_by('-total')[:5]
-
-    # Top 5 máquinas con mayor total (HOY)
-    top_maquinas = lecturas_hoy_qs.values(
-        'nombre_juego', 'numero_maquina'
-    ).annotate(
-        total_sum=Sum('total')
-    ).order_by('-total_sum')[:5]
-
-    # Datos para el gráfico de los últimos 7 días
+    # =========================
+    # 4. Gráfico: Neto por día
+    # =========================
     chart_labels = []
     chart_data = []
 
-    for i in range(7):
-        dia = hoy - timedelta(days=6 - i)
-        inicio_dia = timezone.make_aware(
-            datetime.combine(dia, time.min),
-            timezone.get_current_timezone()
-        )
-        fin_dia = timezone.make_aware(
-            datetime.combine(dia, time.max),
-            timezone.get_current_timezone()
+    fecha_cursor = fecha_desde
+    while fecha_cursor <= fecha_hasta:
+        inicio_dia = timezone.make_aware(datetime.combine(fecha_cursor, time.min))
+        fin_dia = timezone.make_aware(datetime.combine(fecha_cursor, time.max))
+
+        total_dia = LecturaMaquina.objects.filter(
+            fecha_registro__range=(inicio_dia, fin_dia)
         )
 
-        resultado_neto = LecturaMaquina.objects.filter(
-            fecha_registro__gte=inicio_dia,
-            fecha_registro__lte=fin_dia,
-        ).aggregate(
-            suma_total=Sum('total')
-        )['suma_total'] or 0
+        if sucursal_id:
+            total_dia = total_dia.filter(sucursal_id=sucursal_id)
 
-        chart_labels.append(dia.strftime('%d/%m'))
-        chart_data.append(int(resultado_neto))
+        total_dia = total_dia.aggregate(suma=Sum('total'))['suma'] or 0
+
+        chart_labels.append(fecha_cursor.strftime('%d/%m'))
+        chart_data.append(int(total_dia))
+
+        fecha_cursor += timedelta(days=1)
+
+    # =========================
+    # 5. Top / Bottom máquinas
+    # =========================
+    top_maquinas = lecturas.values(
+        'numero_maquina', 'nombre_juego'
+    ).annotate(
+        neto=Sum('total')
+    ).order_by('-neto')[:5]
+
+    bottom_maquinas = lecturas.values(
+        'numero_maquina', 'nombre_juego'
+    ).annotate(
+        neto=Sum('total')
+    ).order_by('neto')[:5]
 
     context = {
-        'lecturas_hoy': lecturas_hoy,
-        'lecturas_por_sucursal': lecturas_por_sucursal,
-        'top_maquinas': top_maquinas,
+        # KPIs
+        'kpis': kpis,
+
+        # Gráfico
         'chart_labels': chart_labels,
         'chart_data': chart_data,
+
+        # Tablas
+        'top_maquinas': top_maquinas,
+        'bottom_maquinas': bottom_maquinas,
+
+        # Filtros
+        'sucursales': Sucursal.objects.all().order_by('nombre'),
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
     }
 
     return render(request, 'dashboard.html', context)
+
 
 # ============================================
 # TURNO
@@ -273,7 +309,7 @@ def registro_view(request):
             lectura.turno = turno_abierto
             lectura.usuario = request.user
 
-            # 👇 Campos derivados
+            #  Campos derivados
             lectura.sucursal = turno_abierto.sucursal
             lectura.zona = form.cleaned_data['zona']
 
@@ -326,24 +362,20 @@ def registro_view(request):
 
 @login_required
 def get_zonas_ajax(request, sucursal_id):
-    """
-    Obtener zonas de una sucursal (AJAX)
-    """
-    zonas = Zona.objects.filter(sucursal_id=sucursal_id).values('id', 'nombre')
+    zonas = Zona.objects.filter(
+        sucursal_id=sucursal_id,
+        is_active=True
+    ).values('id', 'nombre')
     return JsonResponse(list(zonas), safe=False)
 
 
-@login_required
 def get_maquinas_ajax(request, zona_id):
-    """
-    Obtener máquinas de una zona (AJAX)
-    """
     maquinas = Maquina.objects.filter(
         zona_id=zona_id,
-        estado='Operativa'
+        estado='Operativa',
+        zona__is_active=True
     ).values('id', 'numero_maquina', 'nombre_juego')
     return JsonResponse(list(maquinas), safe=False)
-
 # ============================
 #             OCR 
 # ============================
@@ -785,8 +817,17 @@ def export_excel(request):
 @login_required
 @user_passes_test(is_admin)
 def sucursales_list(request):
-    sucursales = Sucursal.objects.all()
-    return render(request, 'sucursales/list.html', {'sucursales': sucursales})
+    query = request.GET.get('q')
+
+    sucursales = Sucursal.objects.filter(is_active=True)
+
+    if query:
+        sucursales = sucursales.filter(nombre__icontains=query)
+
+    return render(request, 'sucursales/list.html', {
+        'sucursales': sucursales,
+        'query': query
+    })
 
 
 @login_required
@@ -796,11 +837,21 @@ def sucursal_create(request):
         form = SucursalForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Sucursal creada exitosamente.')
-            return redirect('control:sucursales_list')
+
+            if 'guardar_otro' in request.POST:
+                messages.success(request, 'Sucursal guardada. Puede agregar otra.')
+                return redirect('control:sucursal_create')
+            else:
+                messages.success(request, 'Sucursal creada exitosamente.')
+                return redirect('control:sucursales_list')
     else:
         form = SucursalForm()
-    return render(request, 'sucursales/form.html', {'form': form, 'title': 'Crear Sucursal'})
+
+    return render(request, 'sucursales/form.html', {
+        'form': form,
+        'title': 'Crear Sucursal'
+    })
+
 
 
 @login_required
@@ -836,8 +887,18 @@ def sucursal_delete(request, pk):
 @login_required
 @user_passes_test(is_admin)
 def zonas_list(request):
-    zonas = Zona.objects.all()
-    return render(request, 'zonas/list.html', {'zonas': zonas})
+    sucursal_id = request.GET.get('sucursal')
+
+    zonas = Zona.objects.filter(is_active=True, sucursal__is_active=True)
+
+    if sucursal_id:
+        zonas = zonas.filter(sucursal_id=sucursal_id)
+
+    return render(request, 'zonas/list.html', {
+        'zonas': zonas,
+        'sucursales': Sucursal.objects.filter(is_active=True),
+        'sucursal_id': sucursal_id
+    })
 
 
 @login_required
@@ -847,11 +908,21 @@ def zona_create(request):
         form = ZonaForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Zona creada exitosamente.')
-            return redirect('control:zonas_list')
+
+            if 'guardar_otro' in request.POST:
+                messages.success(request, 'Zona guardada. Puede agregar otra.')
+                return redirect('control:zona_create')
+            else:
+                messages.success(request, 'Zona creada exitosamente.')
+                return redirect('control:zonas_list')
     else:
         form = ZonaForm()
-    return render(request, 'zonas/form.html', {'form': form, 'title': 'Crear Zona'})
+
+    return render(request, 'zonas/form.html', {
+        'form': form,
+        'title': 'Crear Zona'
+    })
+
 
 
 @login_required
@@ -873,11 +944,24 @@ def zona_edit(request, pk):
 @user_passes_test(is_admin)
 def zona_delete(request, pk):
     zona = get_object_or_404(Zona, pk=pk)
+
     if request.method == 'POST':
-        zona.delete()
-        messages.success(request, 'Zona eliminada exitosamente.')
+        zona.is_active = False
+        zona.save()
+
+        # Desactivar máquinas asociadas
+        Maquina.objects.filter(zona=zona).update(is_active=False)
+
+        messages.success(
+            request,
+            'Zona desactivada correctamente. El histórico fue conservado.'
+        )
         return redirect('control:zonas_list')
-    return render(request, 'zonas/delete.html', {'object': zona})
+
+    return render(request, 'zonas/delete.html', {
+        'object': zona
+    })
+
 
 
 # ============================================
@@ -887,8 +971,28 @@ def zona_delete(request, pk):
 @login_required
 @user_passes_test(is_admin)
 def maquinas_list(request):
-    maquinas = Maquina.objects.all()
-    return render(request, 'maquinas/list.html', {'maquinas': maquinas})
+    sucursal_id = request.GET.get('sucursal')
+    zona_id = request.GET.get('zona')
+
+    maquinas = Maquina.objects.filter(
+        sucursal__is_active=True,
+        zona__is_active=True
+    )
+
+    if sucursal_id:
+        maquinas = maquinas.filter(sucursal_id=sucursal_id)
+
+    if zona_id:
+        maquinas = maquinas.filter(zona_id=zona_id)
+
+    return render(request, 'maquinas/list.html', {
+        'maquinas': maquinas,
+        'sucursales': Sucursal.objects.filter(is_active=True),
+        'zonas': Zona.objects.filter(is_active=True),
+        'sucursal_id': sucursal_id,
+        'zona_id': zona_id
+    })
+
 
 
 @login_required
@@ -898,11 +1002,20 @@ def maquina_create(request):
         form = MaquinaForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Máquina creada exitosamente.')
-            return redirect('control:maquinas_list')
+
+            if 'guardar_otro' in request.POST:
+                messages.success(request, 'Máquina guardada. Puede agregar otra.')
+                return redirect('control:maquina_create')
+            else:
+                messages.success(request, 'Máquina creada exitosamente.')
+                return redirect('control:maquinas_list')
     else:
         form = MaquinaForm()
-    return render(request, 'maquinas/form.html', {'form': form, 'title': 'Crear Máquina'})
+
+    return render(request, 'maquinas/form.html', {
+        'form': form,
+        'title': 'Crear Máquina'
+    })
 
 
 @login_required
@@ -930,7 +1043,26 @@ def maquina_delete(request, pk):
         return redirect('control:maquinas_list')
     return render(request, 'maquinas/delete.html', {'object': maquina})
 
+@login_required
+@user_passes_test(lambda u: u.is_authenticated and getattr(u, "role", "") == "admin")
+def maquina_update_estado(request, pk):
+    if request.method != "POST":
+        return redirect("control:maquinas_list")
 
+    maquina = get_object_or_404(Maquina, pk=pk)
+
+    nuevo_estado = request.POST.get("estado")
+    estados_validos = [e[0] for e in Maquina.ESTADO_CHOICES]
+
+    if nuevo_estado not in estados_validos:
+        messages.error(request, "Estado inválido.")
+        return redirect("control:maquinas_list")
+
+    maquina.estado = nuevo_estado
+    maquina.save(update_fields=["estado"])
+
+    messages.success(request, f"Estado actualizado a: {nuevo_estado}")
+    return redirect("control:maquinas_list")
 # ============================================
 # CRUD USUARIOS (solo admin)
 # ============================================

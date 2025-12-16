@@ -1,57 +1,117 @@
 {% extends 'base.html' %}
 
 {% block title %}Dashboard - Slot Machine D.R.S.{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard Empresarial{% endblock %}
 
 {% block content %}
-<!-- Métrica Principal -->
+
+<!-- =========================
+     FILTROS
+========================= -->
+<form method="get" class="card card-body mb-4">
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label">Desde</label>
+            <input type="date" name="fecha_desde" class="form-control"
+                   value="{{ fecha_desde|date:'Y-m-d' }}">
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Hasta</label>
+            <input type="date" name="fecha_hasta" class="form-control"
+                   value="{{ fecha_hasta|date:'Y-m-d' }}">
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Sucursal</label>
+            <select name="sucursal" class="form-control">
+                <option value="">Todas</option>
+                {% for s in sucursales %}
+                    <option value="{{ s.id }}"
+                        {% if request.GET.sucursal == s.id|stringformat:"s" %}selected{% endif %}>
+                        {{ s.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary w-100">
+                Aplicar filtros
+            </button>
+        </div>
+    </div>
+</form>
+
+<!-- =========================
+     KPIs EMPRESARIALES
+========================= -->
 <div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center border-success">
+            <div class="card-body">
+                <h4 class="text-success">
+                    {{ kpis.total_neto|floatformat:0 }}
+                </h4>
+                <p class="text-muted mb-0">Resultado Neto</p>
+            </div>
+        </div>
+    </div>
+
     <div class="col-md-3">
         <div class="card text-center">
             <div class="card-body">
-                <h3 class="text-primary">{{ lecturas_hoy }}</h3>
-                <p class="text-muted mb-0">Lecturas Hoy</p>
+                <h4>{{ kpis.total_entrada|floatformat:0 }}</h4>
+                <p class="text-muted mb-0">Entradas</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4>{{ kpis.total_salida|floatformat:0 }}</h4>
+                <p class="text-muted mb-0">Salidas</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4>{{ kpis.maquinas_activas }}</h4>
+                <p class="text-muted mb-0">Máquinas con actividad</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Lecturas por Sucursal -->
+<!-- =========================
+     GRÁFICO
+========================= -->
 <div class="row mb-4">
-    <div class="col-md-6">
+    <div class="col-md-12">
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0">Lecturas por Sucursal (Hoy)</h6>
+                <h6 class="mb-0">
+                    Evolución del Resultado Neto (período seleccionado)
+                </h6>
             </div>
             <div class="card-body">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Sucursal</th>
-                            <th class="text-end">Lecturas</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in lecturas_por_sucursal %}
-                            <tr>
-                                <td>{{ item.sucursal__nombre }}</td>
-                                <td class="text-end">{{ item.total }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="2" class="text-center text-muted">Sin datos</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <canvas id="chartLecturas" height="90"></canvas>
             </div>
         </div>
     </div>
-    
+</div>
+
+<!-- =========================
+     TOP / BOTTOM MÁQUINAS
+========================= -->
+<div class="row">
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0">Top 5 Máquinas (Hoy)</h6>
+                <h6 class="mb-0">Top 5 Máquinas (mejor rendimiento)</h6>
             </div>
             <div class="card-body">
                 <table class="table table-sm">
@@ -59,20 +119,60 @@
                         <tr>
                             <th>Máquina</th>
                             <th>Juego</th>
-                            <th class="text-end">Total</th>
+                            <th class="text-end">Neto</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in top_maquinas %}
-                            <tr>
-                                <td>M{{ item.numero_maquina|stringformat:"02d" }}</td>
-                                <td>{{ item.nombre_juego }}</td>
-                                <td class="text-end">{{ item.total_sum|floatformat:0 }}</td>
-                            </tr>
+                        <tr>
+                            <td>M{{ item.numero_maquina|stringformat:"02d" }}</td>
+                            <td>{{ item.nombre_juego }}</td>
+                            <td class="text-end text-success">
+                                {{ item.neto|floatformat:0 }}
+                            </td>
+                        </tr>
                         {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center text-muted">Sin datos</td>
-                            </tr>
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                Sin datos
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Bottom 5 Máquinas (peor rendimiento)</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Máquina</th>
+                            <th>Juego</th>
+                            <th class="text-end">Neto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in bottom_maquinas %}
+                        <tr>
+                            <td>M{{ item.numero_maquina|stringformat:"02d" }}</td>
+                            <td>{{ item.nombre_juego }}</td>
+                            <td class="text-end text-danger">
+                                {{ item.neto|floatformat:0 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                Sin datos
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -81,57 +181,37 @@
     </div>
 </div>
 
-<!-- Gráfico de Lecturas (última semana) -->
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">Resultado Neto por Día - Última Semana</h6>
-            </div>
-            <div class="card-body">
-                <canvas id="chartLecturas" height="80"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
     const ctx = document.getElementById('chartLecturas');
+
     const chartLabels = {{ chart_labels|safe }};
     const chartData = {{ chart_data|safe }};
+
     new Chart(ctx, {
         type: 'line',
         data: {
             labels: chartLabels,
             datasets: [{
-                label: 'Resultado neto diario',
+                label: 'Resultado Neto',
                 data: chartData,
-                borderColor: 'rgb(13, 110, 253)',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                borderColor: 'rgb(25, 135, 84)',
+                backgroundColor: 'rgba(25, 135, 84, 0.15)',
                 tension: 0.25,
                 fill: true
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
             plugins: {
-                legend: {
-                    display: true
-                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            const value = context.parsed.y;
-                            label += (value >= 0 ? '+' : '') + value.toLocaleString('es-AR');
-                            return label;
+                            let value = context.parsed.y || 0;
+                            return 'Neto: ' + value.toLocaleString('es-CL');
                         }
                     }
                 }

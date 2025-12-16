@@ -4,6 +4,16 @@
 {% block page_title %}Gestión de Sucursales{% endblock %}
 
 {% block content %}
+<form method="get" class="mb-3">
+    <input
+        type="text"
+        name="q"
+        value="{{ query }}"
+        class="form-control"
+        placeholder="Buscar sucursal por nombre..."
+    >
+</form>
+
 <div class="card">
     <div class="card-header">
         <div class="d-flex justify-content-between align-items-center">
@@ -12,6 +22,8 @@
                 <i class="bi bi-plus-circle"></i> Nueva Sucursal
             </a>
         </div>
+    
+        
     </div>
     <div class="card-body">
         <div class="table-responsive">

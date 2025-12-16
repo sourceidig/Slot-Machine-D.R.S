@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 
 
 class Usuario(AbstractUser):
@@ -29,60 +30,54 @@ class Usuario(AbstractUser):
 
 
 class Sucursal(models.Model):
-    """
-    Modelo para sucursales/locales
-    """
     nombre = models.CharField(max_length=150, verbose_name='Nombre')
     direccion = models.CharField(max_length=255, blank=True, verbose_name='Dirección')
-    telefono = models.CharField(max_length=50, blank=True, verbose_name='Teléfono')
+    telefono = models.CharField(
+    max_length=12,
+    blank=True,
+    validators=[
+        RegexValidator(
+            regex=r'^\d{8,12}$',
+            message='El teléfono debe contener solo números y tener entre 8 y 12 dígitos.'
+        )
+    ]
+)
+
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Creación')
-    
+
     class Meta:
         verbose_name = 'Sucursal'
         verbose_name_plural = 'Sucursales'
         ordering = ['nombre']
-    
+
     def __str__(self):
         return self.nombre
 
 
+
 class Zona(models.Model):
-    """
-    Modelo para zonas dentro de sucursales
-    """
-    sucursal = models.ForeignKey(
-        Sucursal,
-        on_delete=models.CASCADE,
-        related_name='zonas',
-        verbose_name='Sucursal'
-    )
-    nombre = models.CharField(max_length=80, verbose_name='Nombre')
-    orden = models.SmallIntegerField(default=0, verbose_name='Orden')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Creación')
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE)
+    nombre = models.CharField(max_length=80)
+    orden = models.SmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         verbose_name = 'Zona'
         verbose_name_plural = 'Zonas'
         ordering = ['sucursal', 'orden', 'nombre']
-    
+
     def __str__(self):
         return f"{self.sucursal.nombre} - {self.nombre}"
 
-    class Meta:
-        verbose_name = 'Zona'
-        verbose_name_plural = 'Zonas'
-        ordering = ['sucursal', 'orden', 'nombre']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['sucursal', 'nombre'],
-                name='unique_zona_nombre_por_sucursal'
-            )
-        ]
 
 class Maquina(models.Model):
     """
     Modelo para máquinas tragamonedas
     """
+    is_active = models.BooleanField(default=True)
+
     ESTADO_CHOICES = [
         ('Operativa', 'Operativa'),
         ('Mantenimiento', 'Mantenimiento'),
@@ -119,12 +114,6 @@ class Maquina(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Creación')
     
-    class Meta:
-        verbose_name = 'Máquina'
-        verbose_name_plural = 'Máquinas'
-        ordering = ['sucursal', 'zona', 'numero_maquina']
-        unique_together = ['zona', 'numero_maquina']
-    
     def __str__(self):
         return f"{self.sucursal.nombre} / {self.zona.nombre} / M{self.numero_maquina:02d} - {self.nombre_juego}"
 
@@ -140,6 +129,7 @@ class Maquina(models.Model):
             if self.zona.sucursal_id != self.sucursal_id:
                 raise ValidationError(
                     {'sucursal': 'La sucursal debe coincidir con la sucursal de la zona seleccionada.'}
+
                 )
 
 class Turno(models.Model):

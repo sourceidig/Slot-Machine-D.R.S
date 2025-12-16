@@ -67,18 +67,21 @@ class LecturaMaquinaForm(forms.ModelForm):
         
         if turno:
             self.fields['zona'].queryset = Zona.objects.filter(
-                sucursal=turno.sucursal
+                sucursal=turno.sucursal,
+                is_active=True,
+                sucursal__is_active=True
             ).order_by('orden', 'nombre')
-            
-            # Filtrar máquinas - inicialmente vacío, se llena con JS según zona seleccionada
-            self.fields['maquina'].queryset = Maquina.objects.filter(
-                zona__sucursal=turno.sucursal,
-                estado='Operativa'
-            )
-        else:
-            self.fields['zona'].queryset = Zona.objects.none()
-            self.fields['maquina'].queryset = Maquina.objects.none()
 
+            
+            self.fields['maquina'].queryset = Maquina.objects.filter(
+                sucursal=turno.sucursal,
+                zona__is_active=True,
+                sucursal__is_active=True,
+                estado='Operativa'
+            ).order_by('numero_maquina')
+        else:
+            self.fields['zona'].queryset = Zona.objects.filter(is_active=True)
+            self.fields['maquina'].queryset = Maquina.objects.filter(estado='Operativa')
     def clean(self):
         cleaned_data = super().clean()
         entrada = cleaned_data.get('entrada')
@@ -126,13 +129,13 @@ class ZonaForm(forms.ModelForm):
 
 class MaquinaForm(forms.ModelForm):
     """
-    Formulario para Máquinas
+    Formulario para Máquinas (sin campo Estado al crear)
     """
     class Meta:
         model = Maquina
         fields = [
             'sucursal', 'zona', 'numero_maquina', 'codigo_interno',
-            'nombre_juego', 'modelo', 'numero_serie', 'estado', 'ubicacion_detalle'
+            'nombre_juego', 'modelo', 'numero_serie', 'ubicacion_detalle'
         ]
         widgets = {
             'sucursal': forms.Select(attrs={'class': 'form-control'}),
@@ -142,11 +145,47 @@ class MaquinaForm(forms.ModelForm):
             'nombre_juego': forms.TextInput(attrs={'class': 'form-control'}),
             'modelo': forms.TextInput(attrs={'class': 'form-control'}),
             'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
-            'estado': forms.Select(attrs={'class': 'form-control'}),
             'ubicacion_detalle': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
+        # Solo sucursales y zonas activas
+        self.fields['sucursal'].queryset = Sucursal.objects.filter(is_active=True)
+        self.fields['zona'].queryset = Zona.objects.filter(
+            is_active=True,
+            sucursal__is_active=True
+        ).order_by('orden', 'nombre')
+
+        # Filtrado dinámico de zonas según sucursal seleccionada
+        if 'sucursal' in self.data:
+            try:
+                sucursal_id = int(self.data.get('sucursal'))
+                self.fields['zona'].queryset = Zona.objects.filter(
+                    sucursal_id=sucursal_id,
+                    is_active=True,
+                    sucursal__is_active=True
+                ).order_by('orden', 'nombre')
+            except (ValueError, TypeError):
+                pass
+
+        # Si estás editando, mostrar las zonas de la sucursal de la máquina
+        elif self.instance.pk and self.instance.sucursal_id:
+            self.fields['zona'].queryset = Zona.objects.filter(
+                sucursal_id=self.instance.sucursal_id,
+                is_active=True,
+                sucursal__is_active=True
+            ).order_by('orden', 'nombre')
+
+    def clean(self):
+        """
+        Asegura estado por defecto en creación (aunque no venga en el form).
+        """
+        cleaned = super().clean()
+        if not self.instance.pk:  # creación
+            self.instance.estado = 'Operativa'
+        return cleaned
 class UsuarioForm(forms.ModelForm):
     """
     Formulario para crear usuarios

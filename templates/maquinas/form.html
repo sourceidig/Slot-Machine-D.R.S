@@ -55,11 +55,6 @@
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="id_estado" class="form-label">Estado *</label>
-                            {{ form.estado }}
-                        </div>
                         
                         <div class="col-md-6 mb-3">
                             <label for="id_ubicacion_detalle" class="form-label">Detalle de Ubicación</label>
@@ -68,13 +63,19 @@
                     </div>
                     
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-save"></i> Guardar
+                        <button type="submit" name="guardar" class="btn btn-primary">
+                          <i class="bi bi-save"></i> Guardar
+                          </button>
+
+                        <button type="submit" name="guardar_otro" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Guardar y agregar otro
                         </button>
+
                         <a href="{% url 'control:maquinas_list' %}" class="btn btn-secondary">
-                            <i class="bi bi-x-circle"></i> Cancelar
+                            Cancelar
                         </a>
                     </div>
+
                 </form>
             </div>
         </div>

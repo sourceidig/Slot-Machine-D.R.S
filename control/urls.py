@@ -4,6 +4,11 @@ from . import views
 app_name = 'control'
 
 urlpatterns = [
+
+    # AJAX
+    path('ajax/maquinas/<int:zona_id>/', views.get_maquinas_ajax, name='get_maquinas_ajax'),
+    path('ajax/zonas/<int:sucursal_id>/', views.get_zonas_ajax, name='get_zonas_ajax'),
+    # API OCR
     path('api/ocr/procesar/', views.ocr_lectura, name='ocr_procesar'),
 
     # Autenticación
@@ -46,7 +51,7 @@ urlpatterns = [
     path('maquinas/create/', views.maquina_create, name='maquina_create'),
     path('maquinas/edit/<int:pk>/', views.maquina_edit, name='maquina_edit'),
     path('maquinas/delete/<int:pk>/', views.maquina_delete, name='maquina_delete'),
-    
+    path('maquinas/<int:pk>/estado/', views.maquina_update_estado, name='maquina_estado'),
     # CRUD Usuarios
     path('usuarios/', views.usuarios_list, name='usuarios_list'),
     path('usuarios/create/', views.usuario_create, name='usuario_create'),
