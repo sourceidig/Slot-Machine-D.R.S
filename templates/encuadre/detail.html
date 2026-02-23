@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Detalle Encuadre{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white d-flex justify-content-between">
+        <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Encuadre de Caja - {{ encuadre.fecha|date:"d/m/Y" }}</h5>
+        <button onclick="window.print()" class="btn btn-light btn-sm">
+            <i class="bi bi-printer"></i> Imprimir
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <p><strong>Fecha:</strong> {{ encuadre.fecha|date:"d/m/Y" }}</p>
+                <p><strong>Local:</strong> {{ encuadre.local.nombre }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Responsable:</strong> {{ encuadre.nombre_responsable }}</p>
+                <p><strong>Creado por:</strong> {{ encuadre.usuario_admin.nombre }}</p>
+            </div>
+        </div>
+
+        <h6 class="bg-info text-white p-2">TOTAL ZONA</h6>
+        <p class="fs-4 fw-bold">{{ encuadre.total_zona|floatformat:0 }}</p>
+
+        <!-- CAJA -->
+        <h6 class="bg-primary text-white p-2">CAJA</h6>
+        <table class="table table-bordered table-sm mb-4">
+            <tr>
+                <td class="fw-bold" style="width: 200px;">Caja Numeral</td>
+                <td class="text-end">{{ encuadre.caja_numeral|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Valor</td>
+                <td class="text-end">{{ encuadre.caja_numeral_valor|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Préstamos</td>
+                <td class="text-end">{{ encuadre.prestamos|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Redbank Retiros</td>
+                <td class="text-end">{{ encuadre.redbank_retiros|floatformat:0 }}</td>
+            </tr>
+            <tr class="table-warning">
+                <td class="fw-bold">TOTAL CAJA</td>
+                <td class="text-end fw-bold">{{ encuadre.total_caja|floatformat:0 }}</td>
+            </tr>
+        </table>
+
+        <!-- DETALLE ENTREGADO -->
+        <h6 class="bg-success text-white p-2">DETALLE ENTREGADO</h6>
+        <table class="table table-bordered table-sm mb-4">
+            <tr>
+                <td class="fw-bold" style="width: 150px;">20,000</td>
+                <td class="text-end">{{ encuadre.billete_20000 }} billetes</td>
+                <td class="text-end">{{ encuadre.billete_20000|mul:20000|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">10,000</td>
+                <td class="text-end">{{ encuadre.billete_10000 }} billetes</td>
+                <td class="text-end">{{ encuadre.billete_10000|mul:10000|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">5,000</td>
+                <td class="text-end">{{ encuadre.billete_5000 }} billetes</td>
+                <td class="text-end">{{ encuadre.billete_5000|mul:5000|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">2,000</td>
+                <td class="text-end">{{ encuadre.billete_2000 }} billetes</td>
+                <td class="text-end">{{ encuadre.billete_2000|mul:2000|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">1,000</td>
+                <td class="text-end">{{ encuadre.billete_1000 }} billetes</td>
+                <td class="text-end">{{ encuadre.billete_1000|mul:1000|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">MONEDAS</td>
+                <td colspan="2" class="text-end">{{ encuadre.monedas_total|floatformat:0 }}</td>
+            </tr>
+            <tr class="table-warning">
+                <td class="fw-bold">TOTAL ENTREGADO</td>
+                <td colspan="2" class="text-end fw-bold">{{ encuadre.total_entregado|floatformat:0 }}</td>
+            </tr>
+        </table>
+
+        <!-- DESCUADRE -->
+        <h6 class="bg-warning p-2">DESCUADRE</h6>
+        <p class="fs-3 fw-bold text-center {% if encuadre.descuadre != 0 %}text-danger{% else %}text-success{% endif %}">
+            {{ encuadre.descuadre|floatformat:0 }}
+        </p>
+
+        {% if encuadre.observaciones %}
+        <h6>OBSERVACIONES:</h6>
+        <p class="border p-2">{{ encuadre.observaciones }}</p>
+        {% endif %}
+
+        <div class="mt-4">
+            <a href="{% url 'control:encuadre_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Listado
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

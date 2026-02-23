@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block page_title %}Editar Cuadratura Caja{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+    <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Editar Cuadratura</h5>
+    <a class="btn btn-light btn-sm" href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}">
+      <i class="bi bi-arrow-left"></i> Volver
+    </a>
+  </div>
+
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-success">
+          <i class="bi bi-check-circle"></i> Guardar
+        </button>
+        <a class="btn btn-secondary" href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

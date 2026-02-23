@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2>Recaudación</h2>
+    <p class="text-muted">
+        Esta acción inicia un nuevo ciclo contable (Día 0).
+        Los contadores iniciales de las máquinas se actualizarán
+        con los últimos datos registrados.
+    </p>
+
+    <div class="alert alert-warning">
+        <strong>Atención:</strong><br>
+        Esta acción afecta todos los cálculos posteriores
+        (caja, turnos, máquinas).
+        Úsela solo al inicio de una nueva cuadratura mensual.
+    </div>
+
+    <form method="post" action="{% url 'control:iniciar_dia_0' %}">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label class="form-label fw-bold">Local</label>
+        <select name="sucursal_id" class="form-select" required>
+        <option value="">Selecciona</option>
+        {% for s in sucursales %}
+            <option value="{{ s.id }}">{{ s.nombre }}</option>
+        {% endfor %}
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-danger">
+        Iniciar Día 0
+    </button>
+    </form>
+
+
+</div>
+{% endblock %}

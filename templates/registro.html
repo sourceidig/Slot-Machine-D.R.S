@@ -17,7 +17,7 @@
         {% else %}
             <!-- Información del Contexto -->
             <div class="card mb-3">
-                <div class="card-header bg-info text-white">
+                <div class="card-header bg-dark text-white">
                     <h6 class="mb-0"><i class="bi bi-info-circle"></i> Contexto del Turno</h6>
                 </div>
                 <div class="card-body">
@@ -127,6 +127,13 @@
                             <button type="submit" class="btn btn-success btn-lg-tablet">
                                 <i class="bi bi-save"></i> Guardar Lectura
                             </button>
+                            {% if turno_abierto %}
+                                <a class="btn btn-primary w-100 mt-2"
+                                    href="{% url 'control:generar_control' turno_abierto.id %}">
+                                    Generar control
+                                </a>
+                            {% endif %}
+
                         </div>
                     </form>
                 </div>
@@ -182,6 +189,7 @@
                 <button type="button" class="btn btn-warning" id="btnRetomar" style="display: none;">
                     <i class="bi bi-arrow-clockwise"></i> Tomar Otra
                 </button>
+
             </div>
         </div>
     </div>
@@ -209,10 +217,15 @@
     document.getElementById('id_zona').addEventListener('change', function() {
         const zonaId = this.value;
         const maquinaSelect = document.getElementById('id_maquina');
-        
+
         if (zonaId) {
-            fetch(`/api/maquinas/${zonaId}/`)
-                .then(response => response.json())
+            fetch(`/ajax/maquinas/${zonaId}/`, {
+                headers: { "X-Requested-With": "XMLHttpRequest" }
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
                     maquinaSelect.innerHTML = '<option value="">---------</option>';
                     data.forEach(maquina => {
@@ -230,6 +243,7 @@
             maquinaSelect.innerHTML = '<option value="">---------</option>';
         }
     });
+
     
     // Mostrar info de máquina al seleccionar
     document.getElementById('id_maquina').addEventListener('change', function() {

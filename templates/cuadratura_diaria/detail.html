@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Detalle Cuadratura Diaria{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between">
+        <h5 class="mb-0"><i class="bi bi-file-text"></i> Cuadratura Caja - {{ cuadratura.fecha|date:"d/m/Y" }}</h5>
+        <button onclick="window.print()" class="btn btn-light btn-sm">
+            <i class="bi bi-printer"></i> Imprimir
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <p><strong>Fecha:</strong> {{ cuadratura.fecha|date:"d/m/Y" }}</p>
+                <p><strong>Local:</strong> {{ cuadratura.local.nombre }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Usuario:</strong> {{ cuadratura.usuario.nombre }}</p>
+                <p><strong>Creado:</strong> {{ cuadratura.creado_el|date:"d/m/Y H:i" }}</p>
+            </div>
+        </div>
+
+        <!-- NUMERALES -->
+        <h6 class="bg-info text-white p-2">NUMERALES</h6>
+        <table class="table table-bordered table-sm mb-4">
+            <tr>
+                <td class="fw-bold">ZONA 1</td>
+                <td class="text-end">{{ cuadratura.zona_1|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">ZONA 2</td>
+                <td class="text-end">{{ cuadratura.zona_2|floatformat:0 }}</td>
+            </tr>
+            <tr class="table-warning">
+                <td class="fw-bold">NUMERAL TOTAL</td>
+                <td class="text-end fw-bold">{{ cuadratura.numeral_total|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">NUMERAL ACUMULADO</td>
+                <td class="text-end">{{ cuadratura.numeral_acumulado|floatformat:0 }}</td>
+            </tr>
+        </table>
+
+        <!-- GASTOS -->
+        <h6 class="bg-warning p-2">GASTOS</h6>
+        <table class="table table-bordered table-sm mb-4">
+            <thead>
+                <tr class="table-secondary">
+                    <th>CONCEPTO</th>
+                    <th class="text-end">ANTERIOR</th>
+                    <th class="text-end">DÍA</th>
+                    <th class="text-end">ACUMULADO</th>
+                    <th>NOTAS</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="fw-bold">SORTEOS</td>
+                    <td class="text-end">{{ cuadratura.sorteos_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sorteos_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sorteos_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.sorteos_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">GASTOS</td>
+                    <td class="text-end">{{ cuadratura.gastos_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.gastos_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.gastos_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.gastos_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">SUELDO B</td>
+                    <td class="text-end">{{ cuadratura.sueldo_b_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sueldo_b_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sueldo_b_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.sueldo_b_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">REDBANK</td>
+                    <td class="text-end">{{ cuadratura.redbank_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.redbank_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.redbank_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.redbank_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">REGALOS</td>
+                    <td class="text-end">{{ cuadratura.regalos_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.regalos_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.regalos_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.regalos_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">TAXI</td>
+                    <td class="text-end">{{ cuadratura.taxi_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.taxi_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.taxi_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.taxi_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">JUGADOS</td>
+                    <td class="text-end">{{ cuadratura.jugados_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.jugados_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.jugados_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.jugados_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">TRANSFER</td>
+                    <td class="text-end">{{ cuadratura.transfer_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.transfer_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.transfer_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.transfer_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">OTROS</td>
+                    <td class="text-end">{{ cuadratura.otros_1_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.otros_1_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.otros_1_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.otros_1_notas }}</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">DESCUADRE</td>
+                    <td class="text-end">{{ cuadratura.descuadre_ant|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.descuadre_dia|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.descuadre_acum|floatformat:0 }}</td>
+                    <td>{{ cuadratura.descuadre_notas }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- RESUMEN -->
+        <h6 class="bg-success text-white p-2">RESUMEN</h6>
+        <table class="table table-bordered table-sm mb-4">
+            <tr>
+                <td class="fw-bold" style="width: 200px;">CAJA</td>
+                <td class="text-end">{{ cuadratura.caja|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">GANANCIA</td>
+                <td class="text-end">{{ cuadratura.ganancia|floatformat:0 }}</td>
+            </tr>
+            <tr class="table-warning">
+                <td class="fw-bold">TOTAL EFECTIVO</td>
+                <td class="text-end fw-bold">{{ cuadratura.total_efectivo|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">RETIRO DIARIO</td>
+                <td class="text-end">{{ cuadratura.retiro_diario|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">RETIRO ACUM.</td>
+                <td class="text-end">{{ cuadratura.retiro_acum|floatformat:0 }}</td>
+            </tr>
+        </table>
+
+        {% if cuadratura.observaciones %}
+        <h6>OBSERVACIONES:</h6>
+        <p class="border p-2">{{ cuadratura.observaciones }}</p>
+        {% endif %}
+
+        <div class="mt-4">
+            <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Listado
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

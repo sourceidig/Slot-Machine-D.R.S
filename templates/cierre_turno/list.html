@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Listado de Cierres de Turno{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul"></i> Listado de Cierres de Turno
+        </h5>
+    </div>
+
+    <div class="card-body">
+        <!-- FILTROS -->
+        <form method="get" class="row g-3 mb-4 p-3 bg-light rounded">
+            <div class="col-md-3">
+                <label class="form-label">Fecha Desde</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ request.GET.fecha_desde }}">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Fecha Hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Sucursal</label>
+                <select name="sucursal" class="form-select">
+                    <option value="">Todas</option>
+                    {% for suc in sucursales %}
+                        <option value="{{ suc.id }}" {% if request.GET.sucursal == suc.id|stringformat:"s" %}selected{% endif %}>
+                            {{ suc.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+
+                <a href="{% url 'control:cierre_turno_list' %}" class="btn btn-secondary w-100">
+                    <i class="bi bi-x-circle"></i> Limpiar
+                </a>
+            </div>
+
+            <div class="col-md-12 d-flex align-items-end gap-2">
+                <a href="{% url 'control:cierre_turno_export_excel' %}?{{ request.GET.urlencode }}"
+                   class="btn btn-success">
+                    <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+                </a>
+            </div>
+        </form>
+
+        <!-- TABLA -->
+        {% if cierres %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Sucursal</th>
+                        <th>Usuario</th>
+                        <th class="text-end">Numeral</th>
+                        <th class="text-end">Gastos</th>
+                        <th class="text-end">Esperado</th>
+                        <th class="text-end">Contado</th>
+                        <th class="text-end">Descuadre</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cierres %}
+                    <tr>
+                        <td>{{ c.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ c.sucursal.nombre }}</td>
+                        <td>{{ c.usuario.nombre|default:c.usuario.username }}</td>
+
+                        <td class="text-end">${{ c.total_numeral|floatformat:0 }}</td>
+                        <td class="text-end">${{ c.total_gastos|floatformat:0 }}</td>
+                        <td class="text-end">${{ c.total_esperado|floatformat:0 }}</td>
+                        <td class="text-end">${{ c.total_efectivo_contado|floatformat:0 }}</td>
+
+                        <td class="text-end {% if c.descuadre > 0 %}text-success{% elif c.descuadre < 0 %}text-danger{% endif %}">
+                            ${{ c.descuadre|floatformat:0 }}
+                        </td>
+
+                        <td>
+                            <a href="{% url 'control:cierre_turno_detail' c.id %}"
+                               class="btn btn-sm btn-info" title="Ver Detalle">
+                                <i class="bi bi-eye"></i>
+                            </a>
+
+                            <a href="{% url 'control:cierre_turno_edit' c.id %}"
+                               class="btn btn-sm btn-warning" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No se encontraron cierres con los filtros aplicados.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

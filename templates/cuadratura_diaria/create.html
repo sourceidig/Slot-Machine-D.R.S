@@ -1,0 +1,719 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Nueva Cuadratura Caja Diaria{% endblock %}
+
+{% block content %}
+<style>
+  .card { border: 0; box-shadow: 0 6px 24px rgba(0,0,0,.06); border-radius: 14px; }
+  .card-body { padding: .9rem; }
+  .card-header { padding: .6rem .9rem; border-bottom: 1px solid rgba(0,0,0,.06); }
+
+  .section-title { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+
+  .form-control, .form-select {
+    border-radius: 10px;
+    padding: .28rem .5rem !important;
+    font-size: .88rem !important;
+    line-height: 1.1 !important;
+    height: 34px !important;
+  }
+  textarea.form-control { height: 34px !important; min-height: 34px !important; max-height: 34px !important; resize: none; }
+
+  .table td, .table th { padding: .28rem .45rem !important; vertical-align: middle; }
+  .table thead th { font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; padding: .35rem .45rem !important; }
+
+  .concept { white-space: nowrap; font-weight: 800; }
+  .small.text-muted { font-size: .75rem; margin-top: .15rem !important; }
+
+  .btn.btn-sm { padding: .18rem .45rem !important; font-size: .78rem !important; border-radius: 10px; }
+
+  .details-wrap {
+    padding: .5rem !important;
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,.06);
+    background: #fafafa;
+  }
+  .details-wrap .table td, .details-wrap .table th { padding: .22rem .35rem !important; }
+
+  .action-bar {
+    position: sticky;
+    bottom: 0;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(0,0,0,.06);
+    padding: .45rem .6rem !important;
+    z-index: 10;
+  }
+
+  .readonly {
+    background: #f6f7f9 !important;
+    font-weight: 700;
+  }
+  .table {
+  table-layout: fixed;
+}
+
+.table td:last-child,
+.table th:last-child {
+  width: auto;
+}
+.table-responsive {
+  overflow-x: hidden !important;     /* evita scroll horizontal y recortes raros */
+}
+
+.table {
+  width: 100% !important;            /* fuerza a ocupar todo el ancho */
+  table-layout: fixed !important;     /* evita que se "achique" por contenido */
+}
+
+.notes-cell textarea,
+.notes-cell .form-control {
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  resize: none !important;
+}
+input[readonly]{
+  background-color: #f8f9fa !important;
+  color: #000 !important;
+  font-weight: 700;
+}
+
+
+</style>
+
+<div class="card">
+  <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+    <h5 class="mb-0"><i class="bi bi-calculator"></i> Cuadratura Caja Diaria</h5>
+  </div>
+
+  <div class="card-body">
+    <form method="post" id="cuadraturaDiariaForm">
+      {% csrf_token %}
+
+      <!-- Header -->
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <label class="form-label fw-bold mb-1">Fecha</label>
+          {{ form.fecha }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-bold mb-1">Local</label>
+          {{ form.sucursal }}
+          {% if form.sucursal.errors %}
+            <div class="text-danger small">{{ form.sucursal.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-5">
+          <div class="section-title mb-2">Numerales</div>
+          <div class="row g-2">
+            <div class="col-4">
+              <input type="text" class="form-control" id="id_numeral_dia" value="0" readonly>
+              <div class="small text-muted mt-1">Numeral día</div>
+            </div>
+            <div class="col-4">
+              <input type="text" class="form-control" id="id_numeral_acumulado" value="0" readonly>
+              <div class="small text-muted mt-1">Numeral acumulado</div>
+            </div>
+            <div class="col-4">
+              <input type="text" class="form-control readonly" id="id_caja_anterior" value="{{ caja_anterior }}" readonly>
+              <div class="small text-muted mt-1">Caja anterior</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla principal (SIN acumulado) -->
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="section-title">Caja diaria</div>
+      </div>
+
+<div class="table-responsive">
+  <table class="table table-sm table-bordered mb-0 align-middle w-100">
+    <thead class="table-secondary">
+      <tr>
+        <th style="width: 220px;">Concepto</th>
+        <th style="width: 190px;">Día</th>
+        <th>Notas</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <!-- SORTEOS -->
+      <tr>
+        <td class="concept">SORTEOS</td>
+        <td>{{ form.sorteos_dia }}</td>
+        <td class="notes-cell">{{ form.sorteos_notas }}</td>
+      </tr>
+
+      <!-- GASTOS + detalle -->
+      <tr>
+        <td class="concept">
+          <div class="d-flex align-items-center gap-2">
+            <span>GASTOS</span>
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="collapse" data-bs-target="#collapse_gastos">
+              Detalle
+            </button>
+          </div>
+        </td>
+        <td>
+          {{ form.gastos_dia }}
+          <div class="small text-muted mt-1">
+            <span id="gastos_total_label"></span>
+          </div>
+        </td>
+        <td class="notes-cell">{{ form.gastos_notas }}</td>
+      </tr>
+
+      <tr class="collapse" id="collapse_gastos">
+        <td colspan="3">
+          <div class="details-wrap">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-bold">Detalle de gastos</div>
+              <button type="button" class="btn btn-sm btn-success" id="btn_add_gasto">+ Agregar</button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered align-middle mb-0 bg-white">
+                <thead class="table-secondary">
+                  <tr>
+                    <th>Nombre</th>
+                    <th style="width: 160px;">Monto</th>
+                    <th style="width: 60px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="gastos_items_body"></tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>
+
+      <!-- SUELDOS + detalle -->
+      <tr>
+        <td class="concept">
+          <div class="d-flex align-items-center gap-2">
+            <span>SUELDOS</span>
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="collapse" data-bs-target="#collapse_sueldos">
+              Detalle
+            </button>
+          </div>
+        </td>
+        <td>
+          {{ form.sueldo_b_dia }}
+          <div class="small text-muted mt-1">
+            <span id="sueldos_total_label"></span>
+          </div>
+        </td>
+        <td class="notes-cell">{{ form.sueldo_b_notas }}</td>
+      </tr>
+
+      <tr class="collapse" id="collapse_sueldos">
+        <td colspan="3">
+          <div class="details-wrap">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-bold">Detalle sueldos</div>
+              <button type="button" class="btn btn-sm btn-success" id="btn_add_sueldo">+ Agregar</button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered align-middle mb-0 bg-white">
+                <thead class="table-secondary">
+                  <tr>
+                    <th>Nombre</th>
+                    <th style="width: 160px;">Monto</th>
+                    <th style="width: 60px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="sueldos_items_body"></tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>
+
+      <!-- REGALOS + detalle -->
+      <tr>
+        <td class="concept">
+          <div class="d-flex align-items-center gap-2">
+            <span>REGALOS</span>
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="collapse" data-bs-target="#collapse_regalos">
+              Detalle
+            </button>
+          </div>
+        </td>
+        <td>
+          {{ form.regalos_dia }}
+          <div class="small text-muted mt-1">
+            <span id="regalos_total_label"></span>
+          </div>
+        </td>
+        <td class="notes-cell">{{ form.regalos_notas }}</td>
+      </tr>
+
+      <tr class="collapse" id="collapse_regalos">
+        <td colspan="3">
+          <div class="details-wrap">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-bold">Detalle regalos</div>
+              <button type="button" class="btn btn-sm btn-success" id="btn_add_regalo">+ Agregar</button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered align-middle mb-0 bg-white">
+                <thead class="table-secondary">
+                  <tr>
+                    <th>Nombre</th>
+                    <th style="width: 160px;">Monto</th>
+                    <th style="width: 60px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="regalos_items_body"></tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>
+
+      <!-- JUGADOS + detalle -->
+      <tr>
+        <td class="concept">
+          <div class="d-flex align-items-center gap-2">
+            <span>JUGADOS</span>
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="collapse" data-bs-target="#collapse_jugados">
+              Detalle
+            </button>
+          </div>
+        </td>
+        <td>
+          {{ form.jugados_dia }}
+          <div class="small text-muted mt-1">
+            <span id="jugados_total_label"></span>
+          </div>
+        </td>
+        <td class="notes-cell">{{ form.jugados_notas }}</td>
+      </tr>
+
+      <tr class="collapse" id="collapse_jugados">
+        <td colspan="3">
+          <div class="details-wrap">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-bold">Detalle jugados</div>
+              <button type="button" class="btn btn-sm btn-success" id="btn_add_jugado">+ Agregar</button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered align-middle mb-0 bg-white">
+                <thead class="table-secondary">
+                  <tr>
+                    <th>Nombre</th>
+                    <th style="width: 160px;">Monto</th>
+                    <th style="width: 60px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="jugados_items_body"></tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>
+
+      <!-- SUBTOTAL -->
+      <tr class="table-light">
+        <td class="concept fw-bold">SUBTOTAL</td>
+        <td>
+          <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_subtotal" value="0" readonly>
+        </td>
+        <td></td>
+      </tr>
+
+      <!-- REDBANK -->
+      <tr>
+        <td class="concept">REDBANK</td>
+        <td>{{ form.redbank_dia }}</td>
+        <td class="notes-cell">{{ form.redbank_notas }}</td>
+      </tr>
+
+      <!-- TRANSFER -->
+      <tr>
+        <td class="concept">TRANSFERENCIAS</td>
+        <td>{{ form.transfer_dia }}</td>
+        <td class="notes-cell">{{ form.transfer_notas }}</td>
+      </tr>
+
+      <!-- PRESTAMOS (3 columnas, NO 4) -->
+      <tr>
+        <td class="concept">PRÉSTAMOS</td>
+        <td>{{ form.prestamos }}</td>
+        <td class="notes-cell">{{ form.prestamos_notas }}</td>
+      </tr>
+
+      <!-- TOTAL -->
+      <tr class="table-info">
+        <td class="concept fw-bold">TOTAL</td>
+        <td>
+          <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_total" value="0" readonly>
+        </td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+              <td>
+                <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_total" value="0" readonly>
+              </td>
+              <td></td>
+            </tr>
+
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Desglose -->
+      <div class="card mt-3">
+        <div class="card-header">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="section-title mb-0">Desglose de efectivo </div>
+            <div class="small text-muted"></div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4"><label class="form-label fw-bold">$20.000</label>{{ form.ef_20000 }}</div>
+            <div class="col-md-4"><label class="form-label fw-bold">$10.000</label>{{ form.ef_10000 }}</div>
+            <div class="col-md-4"><label class="form-label fw-bold">$5.000</label>{{ form.ef_5000 }}</div>
+
+            <div class="col-md-4"><label class="form-label fw-bold">$2.000</label>{{ form.ef_2000 }}</div>
+            <div class="col-md-4"><label class="form-label fw-bold">$1.000</label>{{ form.ef_1000 }}</div>
+            <div class="col-md-4"><label class="form-label fw-bold">Monedas</label>{{ form.ef_monedas }}</div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Total desglose</label>
+              <input type="text" class="form-control readonly" id="id_desglose_total" value="0" readonly>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen final (solo mostrar) -->
+      <div class="card mt-4">
+        <div class="card-header bg-success text-white">
+          <h6 class="mb-0">Resumen</h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Descuadre</label>
+              <input type="text" class="form-control readonly" id="descuadre_display" value="0" readonly>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Ganancia</label>
+              <input type="text" class="form-control readonly" id="ganancia_display" value="0" readonly>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Retiro</label>
+              {{ form.retiro_diario }}
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Total efectivo</label>
+              <input type="text" class="form-control readonly" id="total_efectivo_display" value="0" readonly>
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label fw-bold">Observaciones</label>
+              {{ form.observaciones }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="detallesHiddenContainer"></div>
+
+      <div class="action-bar mt-3 d-flex gap-2 justify-content-end">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-save"></i> Guardar
+        </button>
+        <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-outline-secondary">
+          Cancelar
+        </a>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // =========================
+  // Paso 2/5 — Script robusto
+  // =========================
+
+  const formEl = document.getElementById("cuadraturaDiariaForm");
+
+  // Header
+  const fechaInput = document.getElementById("id_fecha");
+  const sucursalSelect = document.getElementById("id_sucursal");
+
+  const numeralDiaEl = document.getElementById("id_numeral_dia");
+  const numeralAcumEl = document.getElementById("id_numeral_acumulado");
+
+  // UI readonly
+  const cajaAnteriorEl = document.getElementById("id_caja_anterior");
+  const subtotalEl = document.getElementById("id_subtotal");
+  const totalEl = document.getElementById("id_total");
+  const desgloseTotalEl = document.getElementById("id_desglose_total");
+  const descuadreEl = document.getElementById("descuadre_display");
+  const gananciaEl = document.getElementById("ganancia_display");
+  const totalEfectivoEl = document.getElementById("total_efectivo_display");
+
+  // Helpers
+  function parseIntSafe(v) {
+    const n = parseInt((v ?? "")
+      .toString()
+      .replace(/\./g, "")
+      .replace(/[^0-9\-]/g, "") || "0", 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function setVal(el, n) {
+    if (!el) return;
+    el.value = (n ?? 0);
+  }
+
+  function getValById(id) {
+    return parseIntSafe(document.getElementById(id)?.value);
+  }
+
+  // ========= 1) Numerales + caja anterior (AJAX) =========
+  async function cargarNumerales() {
+    const fecha = fechaInput?.value;
+    const sucursalId = sucursalSelect?.value;
+
+    // Si falta algo, resetea UI “header”
+    if (!fecha || !sucursalId) {
+      setVal(numeralDiaEl, 0);
+      setVal(numeralAcumEl, 0);
+      setVal(cajaAnteriorEl, 0);
+      return;
+    }
+
+    const url = `{% url "control:ajax_cuadratura_diaria_numerales" %}?sucursal_id=${encodeURIComponent(sucursalId)}&fecha=${encodeURIComponent(fecha)}`;
+
+    try {
+      const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const data = await res.json();
+
+      if (data && data.ok) {
+        setVal(numeralDiaEl, data.numeral_dia ?? 0);
+        setVal(numeralAcumEl, data.numeral_acumulado ?? 0);
+        setVal(cajaAnteriorEl, data.caja_anterior ?? 0);
+      } else {
+        setVal(numeralDiaEl, 0);
+        setVal(numeralAcumEl, 0);
+        setVal(cajaAnteriorEl, 0);
+      }
+    } catch (e) {
+      console.error("AJAX numerales error:", e);
+      setVal(numeralDiaEl, 0);
+      setVal(numeralAcumEl, 0);
+      setVal(cajaAnteriorEl, 0);
+    }
+  }
+
+  // ========= 2) Detalles dinámicos =========
+  function setupDetalle({ tbodyId, addBtnId, totalLabelId, diaInputId, prefix, collapseId }) {
+    const body = document.getElementById(tbodyId);
+    const addBtn = document.getElementById(addBtnId);
+    const totalLabel = document.getElementById(totalLabelId);
+    const diaInput = document.getElementById(diaInputId);
+    const collapseEl = document.getElementById(collapseId);
+
+    if (!body || !addBtn || !totalLabel || !diaInput) return null;
+
+    function recalcTotal() {
+      let total = 0;
+      body.querySelectorAll(`input[data-role='${prefix}-monto']`).forEach(inp => {
+        total += parseIntSafe(inp.value);
+      });
+      totalLabel.textContent = total;
+      diaInput.value = total;
+      recalcUI();
+    }
+
+    function addRow(nombre = "", monto = "") {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="text" class="form-control form-control-sm" data-role="${prefix}-nombre" value="${nombre || ""}"></td>
+        <td><input type="text" class="form-control form-control-sm text-end" data-role="${prefix}-monto" value="${monto || ""}" inputmode="numeric"></td>
+        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" data-action="remove">✕</button></td>
+      `;
+
+      tr.querySelector("[data-action='remove']").addEventListener("click", () => {
+        tr.remove();
+        recalcTotal();
+      });
+
+      tr.querySelector(`input[data-role='${prefix}-monto']`).addEventListener("input", recalcTotal);
+
+      body.appendChild(tr);
+      recalcTotal();
+    }
+
+    addBtn.addEventListener("click", () => addRow());
+
+    if (collapseEl) {
+      collapseEl.addEventListener("shown.bs.collapse", () => {
+        if (body.querySelectorAll("tr").length === 0) addRow();
+      });
+    }
+
+    return { addRow, recalcTotal };
+  }
+
+  const helpers = {
+    GASTOS: setupDetalle({ tbodyId:"gastos_items_body", addBtnId:"btn_add_gasto", totalLabelId:"gastos_total_label", diaInputId:"id_gastos_dia", prefix:"gasto", collapseId:"collapse_gastos" }),
+    SUELDOS: setupDetalle({ tbodyId:"sueldos_items_body", addBtnId:"btn_add_sueldo", totalLabelId:"sueldos_total_label", diaInputId:"id_sueldo_b_dia", prefix:"sueldo", collapseId:"collapse_sueldos" }),
+    REGALOS: setupDetalle({ tbodyId:"regalos_items_body", addBtnId:"btn_add_regalo", totalLabelId:"regalos_total_label", diaInputId:"id_regalos_dia", prefix:"regalo", collapseId:"collapse_regalos" }),
+    JUGADOS: setupDetalle({ tbodyId:"jugados_items_body", addBtnId:"btn_add_jugado", totalLabelId:"jugados_total_label", diaInputId:"id_jugados_dia", prefix:"jugado", collapseId:"collapse_jugados" }),
+  };
+
+  // ========= 3) Desglose total (UI) =========
+  function recalcDesglose() {
+    const total =
+      getValById("id_ef_20000") +
+      getValById("id_ef_10000") +
+      getValById("id_ef_5000") +
+      getValById("id_ef_2000") +
+      getValById("id_ef_1000") +
+      getValById("id_ef_monedas");
+
+    setVal(desgloseTotalEl, total);
+    recalcUI();
+  }
+
+  // ========= 4) Recalc UI (solo visual) =========
+  function recalcUI() {
+ 
+
+    const sorteos = getValById("id_sorteos_dia");
+    const gastos = getValById("id_gastos_dia");
+    const sueldos = getValById("id_sueldo_b_dia");
+    const regalos = getValById("id_regalos_dia");
+    const jugados = getValById("id_jugados_dia");
+
+    const redbank = getValById("id_redbank_dia");
+    const transfer = getValById("id_transfer_dia");
+    const prestamos = getValById("id_prestamos");
+
+    // subtotal: caja_anterior + numeral_dia - (sorteos+gastos+sueldos+regalos+jugados)
+    const subtotal = (cajaAnterior + numeralDia) - (sorteos + gastos + sueldos + regalos + jugados);
+    setVal(subtotalEl, subtotal);
+
+    // total: subtotal - redbank - transfer + prestamos (prestamos puede ser negativo)
+    const total = subtotal - redbank - transfer + prestamos;
+    setVal(totalEl, total);
+
+    const desglose = parseIntSafe(desgloseTotalEl?.value);
+    const descuadre = desglose - total;
+    setVal(descuadreEl, descuadre);
+
+    // por ahora visual
+  // ===== GANANCIA (UI) =====
+// Ganancia = numeral_dia - egresos (sin préstamos)
+    const ganancia = numeralDiaVal - (sorteos + gastos + sueldos + regalos + jugados + redbank + transfer);
+    setVal(gananciaEl, ganancia);
+
+    // ===== TOTAL EFECTIVO (UI) =====
+    const retiro = parseIntSafe(document.getElementById("id_retiro_diario")?.value);
+    setVal(totalEfectivoEl, desglose - retiro);
+
+  }
+
+  // ========= 5) Hidden detalles (para backend) =========
+  function buildHiddenDetalles() {
+    const container = document.getElementById("detallesHiddenContainer");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const groups = [
+      { tipo:"GASTOS",  tbody:"gastos_items_body",  nombreRole:"gasto-nombre",  montoRole:"gasto-monto" },
+      { tipo:"SUELDOS", tbody:"sueldos_items_body", nombreRole:"sueldo-nombre", montoRole:"sueldo-monto" },
+      { tipo:"REGALOS", tbody:"regalos_items_body", nombreRole:"regalo-nombre", montoRole:"regalo-monto" },
+      { tipo:"JUGADOS", tbody:"jugados_items_body", nombreRole:"jugado-nombre", montoRole:"jugado-monto" },
+    ];
+
+    let idx = 0;
+    function addHidden(name, value) {
+      const inp = document.createElement("input");
+      inp.type = "hidden";
+      inp.name = name;
+      inp.value = value ?? "";
+      container.appendChild(inp);
+    }
+
+    groups.forEach(g => {
+      const tbody = document.getElementById(g.tbody);
+      if (!tbody) return;
+
+      tbody.querySelectorAll("tr").forEach(tr => {
+        const nombre = tr.querySelector(`input[data-role='${g.nombreRole}']`)?.value?.trim() || "";
+        const monto = parseIntSafe(tr.querySelector(`input[data-role='${g.montoRole}']`)?.value);
+
+        if (!nombre && monto === 0) return;
+
+        addHidden(`detalles[${idx}][tipo]`, g.tipo);
+        addHidden(`detalles[${idx}][nombre]`, nombre);
+        addHidden(`detalles[${idx}][monto]`, monto);
+        idx++;
+      });
+    });
+  }
+
+  if (formEl) {
+    formEl.addEventListener("submit", () => buildHiddenDetalles(), true);
+  }
+
+  // ========= listeners inputs =========
+  const idsToWatch = [
+    "id_ef_20000","id_ef_10000","id_ef_5000","id_ef_2000","id_ef_1000","id_ef_monedas",
+    "id_retiro_diario",
+    "id_sorteos_dia","id_gastos_dia","id_sueldo_b_dia","id_regalos_dia","id_jugados_dia",
+    "id_redbank_dia","id_transfer_dia","id_prestamos",
+  ];
+
+  idsToWatch.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      if (id.startsWith("id_ef_")) recalcDesglose();
+      else recalcUI();
+    });
+  });
+
+  // ========= hooks header =========
+  async function onHeaderChange() {
+    await cargarNumerales();
+    recalcDesglose();
+    recalcUI();
+  }
+
+  if (fechaInput) fechaInput.addEventListener("change", onHeaderChange);
+  if (sucursalSelect) sucursalSelect.addEventListener("change", onHeaderChange);
+
+  // init
+  onHeaderChange();
+});
+</script>
+
+
+{% endblock %}

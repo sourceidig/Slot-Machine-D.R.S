@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Detalle de Cuadratura{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">
+                <i class="bi bi-file-text"></i> Detalle de Cuadratura
+            </h5>
+            <small>
+                {{ cuadratura.turno.sucursal.nombre }} | 
+                {{ cuadratura.turno.fecha|date:"d/m/Y" }} | 
+                {{ cuadratura.turno.tipo_turno }}
+            </small>
+        </div>
+        <div>
+            <a href="{% url 'control:cuadratura_export_detalle_excel' cuadratura.id %}" 
+               class="btn btn-success">
+                <i class="bi bi-file-earmark-excel"></i> Exportar
+            </a>
+            <a href="{% url 'control:cuadratura_list' %}" class="btn btn-light">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <!-- INFORMACIÓN GENERAL -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <p><strong>Usuario:</strong> {{ cuadratura.usuario.nombre }}</p>
+                <p><strong>Fecha Creación:</strong> {{ cuadratura.created_at|date:"d/m/Y H:i" }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Caja Base:</strong> ${{ cuadratura.caja_base|floatformat:0 }}</p>
+                <p><strong>Retiro Diario:</strong> ${{ cuadratura.retiro_diario|floatformat:0 }}</p>
+            </div>
+        </div>
+
+        <!-- NUMERALES POR ZONA -->
+        <h6 class="border-bottom pb-2 mb-3">📊 Numerales por Zona</h6>
+        <table class="table table-sm table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Zona</th>
+                    <th class="text-end">Numeral</th>
+                    <th class="text-end">Ajuste</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for z in zonas %}
+                <tr>
+                    <td>{{ z.zona.nombre }}</td>
+                    <td class="text-end">${{ z.numeral|floatformat:0 }}</td>
+                    <td class="text-end">${{ z.ajuste|floatformat:0 }}</td>
+                    <td class="text-end fw-bold">${{ z.total_zona|floatformat:0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="table-info">
+                <tr>
+                    <td colspan="3" class="text-end fw-bold">TOTAL NUMERAL:</td>
+                    <td class="text-end fw-bold">${{ resumen.numeral_total|floatformat:0 }}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- MOVIMIENTOS -->
+        <h6 class="border-bottom pb-2 mb-3 mt-4">💰 Movimientos / Gastos</h6>
+        <table class="table table-sm table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Tipo</th>
+                    <th class="text-end">Monto</th>
+                    <th>Descripción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movimientos %}
+                <tr>
+                    <td>{{ m.get_tipo_display }}</td>
+                    <td class="text-end">${{ m.monto|floatformat:0 }}</td>
+                    <td>{{ m.descripcion|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="table-warning">
+                <tr>
+                    <td class="text-end fw-bold">TOTAL GASTOS:</td>
+                    <td class="text-end fw-bold" colspan="2">${{ resumen.total_gastos|floatformat:0 }}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- MEDIOS DE PAGO -->
+        <h6 class="border-bottom pb-2 mb-3 mt-4">💳 Medios de Pago</h6>
+        <table class="table table-sm table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Tipo</th>
+                    <th class="text-end">Monto</th>
+                    <th>Referencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pagos %}
+                <tr>
+                    <td>{{ p.get_tipo_display }}</td>
+                    <td class="text-end">${{ p.monto|floatformat:0 }}</td>
+                    <td>{{ p.referencia|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- DETALLE EFECTIVO -->
+        <h6 class="border-bottom pb-2 mb-3 mt-4">💵 Detalle Efectivo</h6>
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="text-muted">Billetes</h6>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Denominación</th>
+                            <th class="text-end">Cantidad</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in denominaciones %}
+                            {% if d.tipo == 'BILLETE' %}
+                            <tr>
+                                <td>${{ d.denominacion|floatformat:0 }}</td>
+                                <td class="text-end">{{ d.cantidad }}</td>
+                                <td class="text-end">${{ d.total|floatformat:0 }}</td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="col-md-6">
+                <h6 class="text-muted">Monedas</h6>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Denominación</th>
+                            <th class="text-end">Cantidad</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in denominaciones %}
+                            {% if d.tipo == 'MONEDA' %}
+                            <tr>
+                                <td>${{ d.denominacion|floatformat:0 }}</td>
+                                <td class="text-end">{{ d.cantidad }}</td>
+                                <td class="text-end">${{ d.total|floatformat:0 }}</td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- RESUMEN FINAL -->
+        <div class="card bg-light mt-4">
+            <div class="card-body">
+                <h6 class="card-title">📋 Resumen Final</h6>
+                <table class="table table-sm mb-0">
+                    <tr>
+                        <td class="fw-bold">Caja Base:</td>
+                        <td class="text-end">${{ cuadratura.caja_base|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">Total Numeral:</td>
+                        <td class="text-end">${{ resumen.numeral_total|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">(-) Total Gastos:</td>
+                        <td class="text-end text-danger">${{ resumen.total_gastos|floatformat:0 }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">(-) Retiro Diario:</td>
+                        <td class="text-end text-danger">${{ cuadratura.retiro_diario|floatformat:0 }}</td>
+                    </tr>
+                    <tr class="table-primary">
+                        <td class="fw-bold">TOTAL ESPERADO:</td>
+                        <td class="text-end fw-bold">${{ resumen.total_esperado|floatformat:0 }}</td>
+                    </tr>
+                    <tr class="table-info">
+                        <td class="fw-bold">TOTAL EFECTIVO CONTADO:</td>
+                        <td class="text-end fw-bold">${{ resumen.efectivo_contado|floatformat:0 }}</td>
+                    </tr>
+                    <tr class="table-warning">
+                        <td class="fw-bold fs-5">DESCUADRE:</td>
+                        <td class="text-end fw-bold fs-5 {% if resumen.descuadre_real > 0 %}text-success{% elif resumen.descuadre_real < 0 %}text-danger{% endif %}">
+                            ${{ resumen.descuadre_real|floatformat:0 }}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- OBSERVACIONES -->
+        {% if cuadratura.observaciones %}
+        <div class="mt-4">
+            <h6 class="border-bottom pb-2 mb-3">📝 Observaciones</h6>
+            <p class="text-muted">{{ cuadratura.observaciones }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+@media print {
+    .card-header a, .btn {
+        display: none;
+    }
+}
+</style>
+{% endblock %}

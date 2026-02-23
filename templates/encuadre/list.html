@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Encuadres de Caja{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-shield-lock"></i> {{ title }} (SOLO ADMIN)</h5>
+        <a href="{% url 'control:encuadre_create' %}" class="btn btn-light btn-sm">
+            <i class="bi bi-plus-circle"></i> Nuevo Encuadre
+        </a>
+    </div>
+    <div class="card-body">
+        <!-- Filtros -->
+        <form method="get" class="row g-3 mb-4">
+            <div class="col-md-4">
+                <label class="form-label">Fecha Desde</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ request.GET.fecha_desde }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Fecha Hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-danger me-2">
+                    <i class="bi bi-funnel"></i> Filtrar
+                </button>
+                <a href="{% url 'control:encuadre_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Limpiar
+                </a>
+            </div>
+        </form>
+
+        <!-- Tabla -->
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Local</th>
+                        <th>Responsable</th>
+                        <th class="text-end">Total Caja</th>
+                        <th class="text-end">Total Entregado</th>
+                        <th class="text-end">Descuadre</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for enc in encuadres %}
+                    <tr>
+                        <td>{{ enc.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ enc.local.nombre }}</td>
+                        <td>{{ enc.nombre_responsable }}</td>
+                        <td class="text-end">{{ enc.total_caja|floatformat:0 }}</td>
+                        <td class="text-end">{{ enc.total_entregado|floatformat:0 }}</td>
+                        <td class="text-end {% if enc.descuadre != 0 %}text-danger fw-bold{% endif %}">
+                            {{ enc.descuadre|floatformat:0 }}
+                        </td>
+                        <td class="text-center">
+                            <a href="{% url 'control:encuadre_detail' enc.id %}" class="btn btn-sm btn-info">
+                                <i class="bi bi-eye"></i> Ver
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No hay encuadres registrados</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -5,47 +5,86 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-lg-6 mx-auto">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">{{ title }}</h5>
+  <div class="col-lg-6 mx-auto">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">{{ title }}</h5>
+      </div>
+
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+
+          {# Errores generales del form #}
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+              {{ form.non_field_errors }}
             </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label for="id_nombre" class="form-label">Nombre *</label>
-                        {{ form.nombre }}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_direccion" class="form-label">Dirección</label>
-                        {{ form.direccion }}
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label for="id_telefono" class="form-label">Teléfono</label>
-                        {{ form.telefono }}
-                    </div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" name="guardar" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Guardar
-                        </button>
+          {% endif %}
 
-                        <button type="submit" name="guardar_otro" class="btn btn-success">
-                            <i class="bi bi-plus-circle"></i> Guardar y agregar otra
-                        </button>
+          <div class="mb-3">
+            <label for="id_nombre" class="form-label">Nombre *</label>
+            {{ form.nombre }}
+            {% if form.nombre.errors %}
+              <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
+            {% endif %}
+          </div>
 
-                        <a href="{% url 'control:sucursales_list' %}" class="btn btn-secondary">
-                            Cancelar
-                        </a>
-                    </div>
+          <div class="mb-3">
+            <label for="id_direccion" class="form-label">Dirección</label>
+            {{ form.direccion }}
+            {% if form.direccion.errors %}
+              <div class="text-danger small mt-1">{{ form.direccion.errors }}</div>
+            {% endif %}
+          </div>
 
-                </form>
+          <div class="mb-3">
+            <label for="id_telefono" class="form-label">Teléfono</label>
+            {{ form.telefono }}
+            {% if form.telefono.errors %}
+              <div class="text-danger small mt-1">{{ form.telefono.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-3">
+            <label for="id_caja_inicial" class="form-label">Caja inicial *</label>
+            {{ form.caja_inicial }}
+            <div class="form-text">Monto base del local para el Día 1 después de iniciar Día 0.</div>
+            {% if form.caja_inicial.errors %}
+              <div class="text-danger small mt-1">{{ form.caja_inicial.errors }}</div>
+            {% endif %}
+          </div>
+
+          {# Opcional: mostrar is_active si lo estás usando #}
+          {% if form.is_active %}
+            <div class="form-check mb-4">
+              {{ form.is_active }}
+              <label class="form-check-label" for="id_is_active">Sucursal activa</label>
+              {% if form.is_active.errors %}
+                <div class="text-danger small mt-1">{{ form.is_active.errors }}</div>
+              {% endif %}
             </div>
-        </div>
+          {% else %}
+            <div class="mb-4"></div>
+          {% endif %}
+
+          <div class="d-flex gap-2">
+            <button type="submit" name="guardar" class="btn btn-primary">
+              <i class="bi bi-save"></i> Guardar
+            </button>
+
+            <button type="submit" name="guardar_otro" class="btn btn-success">
+              <i class="bi bi-plus-circle"></i> Guardar y agregar otra
+            </button>
+
+            <a href="{% url 'control:sucursales_list' %}" class="btn btn-secondary">
+              Cancelar
+            </a>
+          </div>
+
+        </form>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}

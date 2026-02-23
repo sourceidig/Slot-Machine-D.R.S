@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block page_title %}Eliminar Cuadratura{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header bg-danger text-white">
+    <h5 class="mb-0"><i class="bi bi-trash"></i> Confirmar eliminación</h5>
+  </div>
+
+  <div class="card-body">
+    <p>
+      ¿Seguro que deseas eliminar la cuadratura de
+      <strong>{{ cuadratura.sucursal.nombre }}</strong> del
+      <strong>{{ cuadratura.fecha|date:"d/m/Y" }}</strong>?
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      <button class="btn btn-danger"><i class="bi bi-trash"></i> Sí, eliminar</button>
+      <a class="btn btn-secondary" href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}">
+        Cancelar
+      </a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Detalle Cierre Turno</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'control:cierre_turno_list' %}">Volver</a>
+    <a class="btn btn-primary" href="{% url 'control:cierre_turno_edit' cierre.id %}">Editar</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <p><b>Fecha:</b> {{ cierre.fecha|date:"d/m/Y" }}</p>
+        <p><b>Sucursal:</b> {{ cierre.sucursal.nombre }}</p>
+        <p><b>Usuario:</b> {{ cierre.usuario.nombre|default:cierre.usuario.username }}</p>
+        <hr>
+        <p class="mb-1"><b>Total Numeral:</b> {{ cierre.total_numeral|intcomma }}</p>
+        <p class="mb-1"><b>Total Gastos:</b> {{ cierre.total_gastos|intcomma }}</p>
+        <p class="mb-1"><b>Total Esperado:</b> {{ cierre.total_esperado|intcomma }}</p>
+        <p class="mb-1"><b>Total Contado:</b> {{ cierre.total_efectivo_contado|intcomma }}</p>
+        <p class="mb-0"><b>Descuadre:</b> {{ cierre.descuadre|intcomma }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

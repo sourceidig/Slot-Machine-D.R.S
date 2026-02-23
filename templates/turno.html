@@ -1,99 +1,120 @@
 {% extends 'base.html' %}
 
-{% block title %}Turno - Slot Machine D.R.S.{% endblock %}
 {% block page_title %}Gestión de Turno{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-8 mx-auto">
-        
-        {% if turno_abierto %}
-            <!-- Turno Abierto -->
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Turno Abierto</h5>
+
+{% if turno_abierto %}
+    <!-- TURNO ABIERTO -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-clock"></i> Turno Abierto
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Sucursal:</strong> {{ turno_abierto.sucursal.nombre }}</p>
+                    <p><strong>Fecha:</strong> {{ turno_abierto.fecha|date:"d/m/Y" }}</p>
                 </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <p class="mb-2"><strong>Sucursal:</strong></p>
-                            <p class="text-muted">{{ turno_abierto.sucursal.nombre }}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p class="mb-2"><strong>Fecha:</strong></p>
-                            <p class="text-muted">{{ turno_abierto.fecha|date:"d/m/Y" }}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <p class="mb-2"><strong>Tipo de Turno:</strong></p>
-                            <p class="text-muted">{{ turno_abierto.tipo_turno }}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p class="mb-2"><strong>Estado:</strong></p>
-                            <span class="badge bg-success">{{ turno_abierto.estado }}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <p class="mb-2"><strong>Lecturas registradas:</strong></p>
-                            <p class="text-muted">{{ cantidad_lecturas }}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                        <a href="{% url 'control:registro' %}" class="btn btn-primary btn-lg-tablet">
-                            <i class="bi bi-clipboard-data"></i> Ir a registro de lecturas
-                        </a>
-                        <form method="post" action="{% url 'control:cerrar_turno' turno_abierto.id %}" onsubmit="return confirm('¿Está seguro de cerrar este turno?');">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-danger btn-lg-tablet">
-                                <i class="bi bi-x-circle"></i> Cerrar turno
-                            </button>
-                        </form>
-                    </div>
+                <div class="col-md-6">
+                    <p><strong>Tipo de Turno:</strong> {{ turno_abierto.tipo_turno }}</p>
+                    <p><strong>Lecturas Registradas:</strong> {{ cantidad_lecturas }}</p>
                 </div>
             </div>
-        {% else %}
-            <!-- Iniciar Turno -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Iniciar Nuevo Turno</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted mb-4">Complete los datos para iniciar un nuevo turno de trabajo.</p>
-                    
-                    <form method="post">
-                        {% csrf_token %}
-                        
-                        <div class="mb-3">
-                            <label for="id_sucursal" class="form-label">Sucursal</label>
-                            {{ form.sucursal }}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="id_fecha" class="form-label">Fecha</label>
-                            {{ form.fecha }}
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="id_tipo_turno" class="form-label">Tipo de Turno</label>
-                            {{ form.tipo_turno }}
-                        </div>
-                        
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-success btn-lg-tablet">
-                                <i class="bi bi-play-circle"></i> Iniciar Turno
-                            </button>
-                        </div>
-                    </form>
-                </div>
+
+            <div class="mt-3">
+                {% if turno_abierto.observaciones %}
+                <p><strong>Observaciones:</strong> {{ turno_abierto.observaciones }}</p>
+                {% endif %}
             </div>
-        {% endif %}
-        
+
+            <div class="mt-4 d-flex gap-2">
+                <!-- Added button to create cuadratura when closing turno -->
+                <a class="btn btn-primary btn-lg"
+                    href="{% url 'control:cierre_turno' turno_abierto.id %}">
+                    <i class="bi bi-calculator"></i> Crear Cuadratura y Cerrar Turno
+                </a>
+                <a class="btn btn-outline-danger"
+                    href="{% url 'control:cerrar_turno_sin_cuadratura' turno_abierto.id %}">
+                    Cerrar turno (sin cuadratura)
+                </a>
+
+                <a href="{% url 'control:registro' %}" class="btn btn-info btn-lg">
+                    <i class="bi bi-clipboard-data"></i> Ir a Registro
+                </a>
+            </div>
+        </div>
     </div>
+
+    <!-- HISTORIAL DE LECTURAS -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="mb-0">
+                <i class="bi bi-list-check"></i> Últimas Lecturas del Turno
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if cantidad_lecturas > 0 %}
+            <p class="text-muted">Ver todas las lecturas en la pestaña <a href="{% url 'control:tablas' %}">Tablas</a></p>
+            {% else %}
+            <p class="text-muted">Aún no hay lecturas registradas en este turno.</p>
+            {% endif %}
+        </div>
+    </div>
+
+{% else %}
+<!-- INICIAR NUEVO TURNO (minimal) -->
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-5">
+
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-4">
+
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle text-primary"
+                  style="width:40px;height:40px;">
+              <i class="bi bi-plus-circle"></i>
+            </span>
+            <div>
+              <h5 class="mb-0">Iniciar Turno</h5>
+              <small class="text-muted">Selecciona sucursal, fecha y tipo.</small>
+            </div>
+          </div>
+
+          <form method="post" class="vstack gap-3">
+            {% csrf_token %}
+
+            <div>
+              <label class="form-label mb-1">Sucursal <span class="text-danger">*</span></label>
+              {{ form.sucursal }}
+            </div>
+
+            <div>
+              <label class="form-label mb-1">Fecha <span class="text-danger">*</span></label>
+              {{ form.fecha }}
+            </div>
+
+            <div>
+              <label class="form-label mb-1">Tipo de Turno <span class="text-danger">*</span></label>
+              {{ form.tipo_turno }}
+            </div>
+
+            <button type="submit" class="btn btn-success w-100 py-2">
+              <i class="bi bi-play-circle me-1"></i> Iniciar Turno
+            </button>
+          </form>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
 </div>
+{% endif %}
+
 
 {% endblock %}
+

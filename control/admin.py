@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Usuario, Sucursal, Zona, Maquina, Turno, LecturaMaquina
+from .models import Usuario, Sucursal, Zona, Maquina, Turno, LecturaMaquina, CuadraturaDetalle, CuadraturaCajaDiaria
 
 
 @admin.register(Usuario)
@@ -52,3 +52,16 @@ class LecturaMaquinaAdmin(admin.ModelAdmin):
     list_filter = ['sucursal', 'zona', 'fecha_registro']
     search_fields = ['nombre_juego', 'numero_maquina', 'usuario__nombre']
     date_hierarchy = 'fecha_registro'
+
+
+@admin.register(CuadraturaDetalle)
+class CuadraturaDetalleAdmin(admin.ModelAdmin):
+    list_display = ("id", "cuadratura", "tipo", "nombre", "monto", "creado_en")
+    list_filter = ("tipo", "creado_en")
+    search_fields = ("nombre", "detalle", "cuadratura__sucursal__nombre")
+
+@admin.register(CuadraturaCajaDiaria)
+class CuadraturaCajaDiariaAdmin(admin.ModelAdmin):
+    list_display = ("id", "fecha", "sucursal", "usuario", "creado_el")
+    list_filter = ("sucursal", "fecha")
+    search_fields = ("sucursal__nombre", "usuario__username")

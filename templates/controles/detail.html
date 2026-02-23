@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h3>Control de Lecturas</h3>
+      <div class="text-muted">{{ control.sucursal.nombre }} | {{ control.fecha_trabajo }}</div>
+    </div>
+    <a class="btn btn-secondary" href="{% url 'control:controles_list' %}">Volver</a>
+  </div>
+
+  <table class="table table-bordered mt-3">
+    <thead>
+      <tr>
+        <th>Zona</th>
+        <th>N°</th>
+        <th>Servidor</th>
+        <th>Juego</th>
+        <th>Entrada Histórica</th>
+        <th>Salida Histórica</th>
+        <th>Entrada Parcial</th>
+        <th>Salida Parcial</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for l in lineas %}
+      <tr>
+        <td>{{ l.zona.nombre }}</td>
+        <td>{{ l.numero_maquina }}</td>
+        <td>{{ l.servidor }}</td>
+        <td>{{ l.juego }}</td>
+        <td>{{ l.entrada_historica }}</td>
+        <td>{{ l.salida_historica }}</td>
+        <td>{{ l.entrada_parcial }}</td>
+        <td>{{ l.salida_parcial }}</td>
+        <td><strong>{{ l.total }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+
+    <tfoot>
+      <tr>
+        <td colspan="8" class="text-end"><strong>Total General (Numeral del día):</strong></td>
+        <td><strong>{{ control.total_general }}</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% endblock %}

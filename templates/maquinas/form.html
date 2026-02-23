@@ -33,7 +33,7 @@
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="id_codigo_interno" class="form-label">Código Interno</label>
+                            <label for="id_codigo_interno" class="form-label">Numero Interface</label>
                             {{ form.codigo_interno }}
                         </div>
                     </div>
@@ -45,16 +45,27 @@
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="id_modelo" class="form-label">Modelo</label>
-                            {{ form.modelo }}
+                            <label for="id_servidor" class="form-label">Servidor</label>
+                            {{ form.servidor }}
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="id_numero_serie" class="form-label">Número de Serie</label>
+                            <label for="id_numero_serie" class="form-label">RTP</label>
                             {{ form.numero_serie }}
                         </div>
                     </div>
-                    
+                    <div class="row">
+                    <div class="col-md-6">
+                        <label>Contador inicial entrada</label>
+                        {{ form.contador_inicial_entrada }}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label>Contador inicial salida</label>
+                        {{ form.contador_inicial_salida }}
+                    </div>
+                </div>
+
                         
                         <div class="col-md-6 mb-3">
                             <label for="id_ubicacion_detalle" class="form-label">Detalle de Ubicación</label>
@@ -83,26 +94,30 @@
 </div>
 
 <script>
-    // Filtrar zonas por sucursal
-    document.getElementById('id_sucursal').addEventListener('change', function() {
+document.addEventListener("DOMContentLoaded", function () {
+    const sucursalSelect = document.getElementById("id_sucursal");
+    const zonaSelect = document.getElementById("id_zona");
+
+    sucursalSelect.addEventListener("change", function () {
         const sucursalId = this.value;
-        const zonaSelect = document.getElementById('id_zona');
-        
-        if (sucursalId) {
-            fetch(`/api/zonas/${sucursalId}/`)
-                .then(response => response.json())
-                .then(data => {
-                    zonaSelect.innerHTML = '<option value="">---------</option>';
-                    data.forEach(zona => {
-                        const option = document.createElement('option');
-                        option.value = zona.id;
-                        option.textContent = zona.nombre;
-                        zonaSelect.appendChild(option);
-                    });
+
+        // limpiar zonas
+        zonaSelect.innerHTML = '<option value="">---------</option>';
+
+        if (!sucursalId) return;
+
+        fetch(`/ajax/zonas/?sucursal_id=${sucursalId}`)
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(zona => {
+                    const option = document.createElement("option");
+                    option.value = zona.id;
+                    option.textContent = zona.nombre;
+                    zonaSelect.appendChild(option);
                 });
-        } else {
-            zonaSelect.innerHTML = '<option value="">---------</option>';
-        }
+            });
     });
+});
 </script>
+
 {% endblock %}

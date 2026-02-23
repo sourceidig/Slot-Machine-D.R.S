@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Listado de Cuadraturas{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul"></i> Listado de Cuadraturas de Caja
+        </h5>
+    </div>
+
+    <div class="card-body">
+        <!-- FILTROS -->
+        <form method="get" class="row g-3 mb-4 p-3 bg-light rounded">
+            <div class="col-md-3">
+                <label class="form-label">Fecha Desde</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ f_fecha_desde }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha Hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ f_fecha_hasta }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Sucursal</label>
+                <select name="sucursal" class="form-select">
+                    <option value="">Todas</option>
+                    {% for suc in sucursales %}
+                        <option value="{{ suc.id }}" {% if f_sucursal == suc.id|stringformat:"s" %}selected{% endif %}>
+                            {{ suc.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if user.role == 'admin' %}
+            <div class="col-md-3">
+                <label class="form-label">Usuario</label>
+                <select name="usuario" class="form-select">
+                    <option value="">Todos</option>
+                    {% for usr in usuarios %}
+                        <option value="{{ usr.id }}" {% if f_usuario == usr.id|stringformat:"s" %}selected{% endif %}>
+                            {{ usr.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="col-md-3">
+                <label class="form-label">Tipo Turno</label>
+                <select name="tipo_turno" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="Mañana" {% if f_tipo_turno == 'Mañana' %}selected{% endif %}>Mañana</option>
+                    <option value="Tarde" {% if f_tipo_turno == 'Tarde' %}selected{% endif %}>Tarde</option>
+                    <option value="Noche" {% if f_tipo_turno == 'Noche' %}selected{% endif %}>Noche</option>
+                </select>
+            </div>
+
+            <div class="col-md-3 d-flex align-items-end">
+                <div class="form-check">
+                    <input type="checkbox" name="solo_descuadre" value="1" class="form-check-input" id="soloDescuadre"
+                           {% if f_solo_descuadre %}checked{% endif %}>
+                    <label class="form-check-label" for="soloDescuadre">
+                        Solo descuadradas
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-md-6 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+                <a href="{% url 'control:cuadratura_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Limpiar
+                </a>
+                <a href="{% url 'control:cuadratura_export_excel' %}?{{ request.GET.urlencode }}"
+
+                   class="btn btn-success">
+                    <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+                </a>
+            </div>
+        </form>
+
+        <!-- TABLA -->
+        {% if filas %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Turno</th>
+                        <th>Sucursal</th>
+                        <th>Usuario</th>
+                        <th class="text-end">Numeral</th>
+                        <th class="text-end">Gastos</th>
+                        <th class="text-end">Retiro</th>
+                        <th class="text-end">Descuadre</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in filas %}
+                    <tr>
+                        <td>{{ fila.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ fila.tipo_turno }}</td>
+                        <td>{{ fila.sucursal }}</td>
+                        <td>{{ fila.usuario }}</td>
+                        <td class="text-end">${{ fila.numeral_total|floatformat:0 }}</td>
+                        <td class="text-end">${{ fila.total_gastos|floatformat:0 }}</td>
+                        <td class="text-end">${{ fila.retiro_diario|floatformat:0 }}</td>
+                        <td class="text-end {% if fila.descuadre_real > 0 %}text-success{% elif fila.descuadre_real < 0 %}text-danger{% endif %}">
+                            ${{ fila.descuadre_real|floatformat:0 }}
+                        </td>
+                        <td>
+                            <a href="{% url 'control:cuadratura_detail' fila.id %}" 
+                            class="btn btn-sm btn-info" title="Ver Detalle">
+                                <i class="bi bi-eye"></i>
+                            </a>
+
+                            <a href="{% url 'control:cuadratura_export_detalle_excel' fila.id %}" 
+                               class="btn btn-sm btn-success" title="Exportar">
+                                <i class="bi bi-file-earmark-excel"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No se encontraron cuadraturas con los filtros aplicados.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

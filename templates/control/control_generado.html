@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-3">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-0">Control de Lecturas</h4>
+      <div class="text-muted">
+        {{ turno.sucursal }} | {{ turno.fecha }} | {{ turno.tipo_turno }}
+      </div>
+    </div>
+    <a class="btn btn-secondary" href="{% url 'control:turno' %}">Volver</a>
+  </div>
+  <form method="post" action="{% url 'control:guardar_control' turno.id %}" class="mb-3">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-success">
+      Guardar control
+    </button>
+  </form>
+
+<a class="btn btn-outline-primary mb-3" href="{% url 'control:controles_list' %}">
+  Ver controles guardados
+</a>
+
+  <div class="card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-bordered table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Zona</th>
+              <th class="text-end">N°</th>
+              <th>Servidor</th>
+              <th>Juego</th>
+              <th class="text-end">Entrada Histórica</th>
+              <th class="text-end">Salida Histórica</th>
+              <th class="text-end">Entrada Parcial</th>
+              <th class="text-end">Salida Parcial</th>
+              <th class="text-end">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for l in lecturas %}
+              <tr>
+                <td>{{ l.zona.nombre }}</td>
+                <td class="text-end">{{ l.numero_maquina }}</td>
+                <td>{{ l.maquina.codigo_interno|default:"-" }}</td>
+                <td>{{ l.nombre_juego }}</td>
+                <td class="text-end">{{ l.entrada }}</td>
+                <td class="text-end">{{ l.salida }}</td>
+                <td class="text-end">{{ l.entrada_dia }}</td>
+                <td class="text-end">{{ l.salida_dia }}</td>
+                <td class="text-end fw-bold">{{ l.total }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="9" class="text-muted p-3">No hay lecturas en este turno.</td></tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light">
+            <tr class="fw-bold">
+              <td colspan="6" class="text-end">Totales:</td>
+              <td class="text-end">{{ total_entrada_dia }}</td>
+              <td class="text-end">{{ total_salida_dia }}</td>
+              <td class="text-end">{{ total_total }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

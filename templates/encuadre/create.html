@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Nuevo Encuadre de Caja{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="bi bi-shield-lock"></i> {{ title }} (SOLO ADMIN)</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" id="encuadreForm">
+            {% csrf_token %}
+            
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Fecha</label>
+                    {{ form.fecha }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Nombre Responsable</label>
+                    {{ form.nombre_responsable }}
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">TOTAL ZONA</label>
+                    {{ form.total_zona }}
+                </div>
+            </div>
+
+            <!-- CAJA -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">CAJA</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <tr>
+                            <td class="fw-bold" style="width: 200px;">Caja Numeral</td>
+                            <td>{{ form.caja_numeral }}</td>
+                            <td class="text-end fw-bold">VALOR:</td>
+                            <td>{{ form.caja_numeral_valor }}</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Préstamos</td>
+                            <td colspan="3">{{ form.prestamos }}</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Redbank Retiros</td>
+                            <td colspan="3">{{ form.redbank_retiros }}</td>
+                        </tr>
+                        <tr class="table-warning">
+                            <td class="fw-bold">TOTAL CAJA</td>
+                            <td colspan="3"><input type="text" class="form-control fw-bold" id="total_caja_display" readonly></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- DETALLE ENTREGADO -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">DETALLE ENTREGADO</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <tr>
+                            <td class="fw-bold">20,000</td>
+                            <td>{{ form.billete_20000 }}</td>
+                            <td class="text-end" id="valor_20000">0</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">10,000</td>
+                            <td>{{ form.billete_10000 }}</td>
+                            <td class="text-end" id="valor_10000">0</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">5,000</td>
+                            <td>{{ form.billete_5000 }}</td>
+                            <td class="text-end" id="valor_5000">0</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">2,000</td>
+                            <td>{{ form.billete_2000 }}</td>
+                            <td class="text-end" id="valor_2000">0</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">1,000</td>
+                            <td>{{ form.billete_1000 }}</td>
+                            <td class="text-end" id="valor_1000">0</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">MONEDAS</td>
+                            <td colspan="2">{{ form.monedas_total }}</td>
+                        </tr>
+                        <tr class="table-warning">
+                            <td class="fw-bold">TOTAL ENTREGADO</td>
+                            <td colspan="2"><input type="text" class="form-control fw-bold" id="total_entregado_display" readonly></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- DESCUADRE -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h6 class="mb-0">DESCUADRE</h6>
+                </div>
+                <div class="card-body">
+                    <input type="text" class="form-control fw-bold fs-4 text-center" id="descuadre_display" readonly>
+                </div>
+            </div>
+
+            <!-- OBSERVACIONES -->
+            <div class="mb-4">
+                <label class="form-label fw-bold">OBSERVACIONES:</label>
+                {{ form.observaciones }}
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-danger btn-lg">
+                    <i class="bi bi-save"></i> Guardar Encuadre
+                </button>
+                <a href="{% url 'control:encuadre_list' %}" class="btn btn-secondary btn-lg">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function formatNumber(num) {
+        return new Intl.NumberFormat('es-CL').format(num);
+    }
+    
+    function calcularTotales() {
+        // Total Caja
+        const cajaNumVal = parseInt(document.getElementById('id_caja_numeral_valor').value) || 0;
+        const prestamos = parseInt(document.getElementById('id_prestamos').value) || 0;
+        const redbankRet = parseInt(document.getElementById('id_redbank_retiros').value) || 0;
+        const totalCaja = cajaNumVal + prestamos - redbankRet;
+        document.getElementById('total_caja_display').value = formatNumber(totalCaja);
+        
+        // Calcular valores billetes
+        const b20 = (parseInt(document.getElementById('id_billete_20000').value) || 0) * 20000;
+        const b10 = (parseInt(document.getElementById('id_billete_10000').value) || 0) * 10000;
+        const b5 = (parseInt(document.getElementById('id_billete_5000').value) || 0) * 5000;
+        const b2 = (parseInt(document.getElementById('id_billete_2000').value) || 0) * 2000;
+        const b1 = (parseInt(document.getElementById('id_billete_1000').value) || 0) * 1000;
+        const monedas = parseInt(document.getElementById('id_monedas_total').value) || 0;
+        
+        document.getElementById('valor_20000').textContent = formatNumber(b20);
+        document.getElementById('valor_10000').textContent = formatNumber(b10);
+        document.getElementById('valor_5000').textContent = formatNumber(b5);
+        document.getElementById('valor_2000').textContent = formatNumber(b2);
+        document.getElementById('valor_1000').textContent = formatNumber(b1);
+        
+        // Total Entregado
+        const totalEntregado = b20 + b10 + b5 + b2 + b1 + monedas;
+        document.getElementById('total_entregado_display').value = formatNumber(totalEntregado);
+        
+        // Descuadre
+        const descuadre = totalCaja - totalEntregado;
+        document.getElementById('descuadre_display').value = formatNumber(descuadre);
+        document.getElementById('descuadre_display').classList.toggle('text-danger', descuadre !== 0);
+    }
+    
+    // Escuchar cambios
+    const inputs = document.querySelectorAll('input[type="number"]');
+    inputs.forEach(input => {
+        input.addEventListener('input', calcularTotales);
+    });
+    
+    // Calcular al cargar
+    calcularTotales();
+});
+</script>
+{% endblock %}
