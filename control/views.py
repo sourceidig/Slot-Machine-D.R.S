@@ -102,57 +102,7 @@ def recaudacion_view(request):
     return render(request, "recaudacion/recaudacion.html", {"sucursales": sucursales, "hoy": hoy})
 
 
-#@login_required
-#def recaudacion_view(request):
-   # sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
-   # hoy = timezone.localdate()
 
-   # if request.method == "POST":
-       # sucursal_id = request.POST.get("sucursal_id")
-       # fecha_inicio = request.POST.get("fecha_inicio")  # YYYY-MM-DD
-
-       # if not sucursal_id or not fecha_inicio:
- #           messages.error(request, "Selecciona un local y una fecha.")
-        #    return redirect("control:recaudacion")
-
-       # sucursal = get_object_or_404(Sucursal, id=sucursal_id)
-      #  inicio = timezone.datetime.fromisoformat(fecha_inicio).date()
-
-        # 🔥 Botón Día 0: sincroniza contadores iniciales y marca ciclo
-        #with transaction.atomic():
-      #      maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True)
-
-       #     for m in maquinas:
-                # Última lectura registrada de esa máquina (global, la más reciente)
-      #          last = (
-                  #  LecturaMaquina.objects
-                 #   .filter(maquina=m)
-                #    .order_by("-fecha_registro", "-id")
-               #     .first()
-              #  )
-
-                # Si existe lectura previa, actualizamos contadores iniciales
-               # if last:
-              #      m.contador_inicial_entrada = last.entrada
-             #       m.contador_inicial_salida = last.salida
-            #        m.save(update_fields=["contador_inicial_entrada", "contador_inicial_salida"])
-
-                # Si NO existe, se mantiene lo manual (máquina nueva)
-
-            # Crear o actualizar ciclo por sucursal
-           # CicloRecaudacion.objects.update_or_create(
-          #      sucursal=sucursal,
-         #       defaults={"inicio_ciclo": inicio, "creado_por": request.user}
-        #    )
-
-       # messages.success(request, f"Día 0 iniciado para {sucursal.nombre} desde {inicio}. Contadores iniciales sincronizados.")
-      #  return redirect("control:recaudacion") #
-
-    # GET
-   # return render(request, "recaudacion/recaudacion.html", {
-     #   "sucursales": sucursales,
-    #    "hoy": hoy,
-   # })
 
 
 # ==========================
