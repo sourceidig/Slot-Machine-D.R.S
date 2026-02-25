@@ -168,7 +168,7 @@ def ajax_cuadratura_mensual_data(request):
         LecturaMaquina.objects
         .filter(
             zona__sucursal_id=sucursal_id,
-            fecha_registro__range=(fecha_desde, fecha_hasta),  # ✅ AQUÍ
+            fecha_registro__range=(fecha_desde, fecha_hasta),  
         )
         .values("zona_id", "zona__nombre")
         .annotate(

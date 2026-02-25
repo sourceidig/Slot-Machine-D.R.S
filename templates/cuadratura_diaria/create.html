@@ -602,42 +602,36 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========= 4) Recalc UI (solo visual) =========
-  function recalcUI() {
- 
+function recalcUI() {
+  const numeralDiaVal = getValById("id_numeral_dia");
+  const cajaAnteriorVal = getValById("id_caja_anterior");
 
-    const sorteos = getValById("id_sorteos_dia");
-    const gastos = getValById("id_gastos_dia");
-    const sueldos = getValById("id_sueldo_b_dia");
-    const regalos = getValById("id_regalos_dia");
-    const jugados = getValById("id_jugados_dia");
+  const sorteos = getValById("id_sorteos_dia");
+  const gastos = getValById("id_gastos_dia");
+  const sueldos = getValById("id_sueldo_b_dia");
+  const regalos = getValById("id_regalos_dia");
+  const jugados = getValById("id_jugados_dia");
 
-    const redbank = getValById("id_redbank_dia");
-    const transfer = getValById("id_transfer_dia");
-    const prestamos = getValById("id_prestamos");
+  const redbank = getValById("id_redbank_dia");
+  const transfer = getValById("id_transfer_dia");
+  const prestamos = getValById("id_prestamos");
 
-    // subtotal: caja_anterior + numeral_dia - (sorteos+gastos+sueldos+regalos+jugados)
-    const subtotal = (cajaAnterior + numeralDia) - (sorteos + gastos + sueldos + regalos + jugados);
-    setVal(subtotalEl, subtotal);
+  const subtotal = (cajaAnteriorVal + numeralDiaVal) - (sorteos + gastos + sueldos + regalos + jugados);
+  setVal(subtotalEl, subtotal);  
 
-    // total: subtotal - redbank - transfer + prestamos (prestamos puede ser negativo)
-    const total = subtotal - redbank - transfer + prestamos;
-    setVal(totalEl, total);
+  const total = subtotal - redbank - transfer + prestamos;
+  setVal(totalEl, total);
 
-    const desglose = parseIntSafe(desgloseTotalEl?.value);
-    const descuadre = desglose - total;
-    setVal(descuadreEl, descuadre);
+  const desglose = parseIntSafe(desgloseTotalEl?.value);
+  const descuadre = desglose - total;
+  setVal(descuadreEl, descuadre);
 
-    // por ahora visual
-  // ===== GANANCIA (UI) =====
-// Ganancia = numeral_dia - egresos (sin préstamos)
-    const ganancia = numeralDiaVal - (sorteos + gastos + sueldos + regalos + jugados + redbank + transfer);
-    setVal(gananciaEl, ganancia);
+  const ganancia = numeralDiaVal - (sorteos + gastos + sueldos + regalos + jugados + redbank + transfer);
+  setVal(gananciaEl, ganancia);
 
-    // ===== TOTAL EFECTIVO (UI) =====
-    const retiro = parseIntSafe(document.getElementById("id_retiro_diario")?.value);
-    setVal(totalEfectivoEl, desglose - retiro);
-
-  }
+  const retiro = parseIntSafe(document.getElementById("id_retiro_diario")?.value);
+  setVal(totalEfectivoEl, desglose - retiro);
+}
 
   // ========= 5) Hidden detalles (para backend) =========
   function buildHiddenDetalles() {
