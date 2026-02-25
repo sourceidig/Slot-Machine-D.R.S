@@ -21,6 +21,14 @@ class Usuario(AbstractUser):
     ]
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="usuario", verbose_name="Rol")
     nombre = models.CharField(max_length=150, verbose_name="Nombre Completo")
+    
+    #Si es Usuario/Atendedor se le debera asignar una sucursal
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="usuarios_asignados",
+        verbose_name="Sucursal Asignada"
+    )
 
     class Meta:
         verbose_name = "Usuario"
@@ -28,6 +36,18 @@ class Usuario(AbstractUser):
 
     def __str__(self):
         return f"{self.nombre} ({self.get_role_display()})"
+
+    def clean(self):
+        super().clean()  
+        # Si el rol es "usuario", la sucursal es OBLIGATORIA
+        if self.role == "usuario" and not self.sucursal:
+            raise ValidationError({
+                "sucursal": "Los usuarios/atendedoras deben tener una sucursal asignada obligatoriamente."
+            })
+        
+        # Si es admin, no debería estar atado a una sucursal específica
+        if self.role == "admin" and self.sucursal:
+            self.sucursal = None
 
 
 # ==========================

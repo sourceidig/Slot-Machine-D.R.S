@@ -34,6 +34,11 @@
                         {{ form.role }}
                     </div>
                     
+                    <div class="mb-3" id="contenedor_sucursal">
+                        <label for="id_sucursal" class="form-label">Sucursal Asignada *</label>
+                        {{ form.sucursal }}
+                    </div>
+
                     <div class="mb-3">
                         <label for="id_password" class="form-label">Contraseña *</label>
                         {{ form.password }}
@@ -70,4 +75,32 @@
         </div>
     </div>
 </div>
+
+<!-- Script que permite Seleccionar Sucursal-->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const roleSelect = document.getElementById("id_role");
+        const sucursalInput = document.getElementById("id_sucursal");
+        
+        //ID directo del contenedor 
+        const sucursalContainer = document.getElementById("contenedor_sucursal");
+
+        if (!sucursalInput || !sucursalContainer) return;
+
+        function toggleSucursal() {
+            if (roleSelect.value === "usuario") {
+                // Mostra si es usuario o atendedora
+                sucursalContainer.style.display = "block";
+            } else {
+                // Ocultar si es admin y limpia el valor
+                sucursalContainer.style.display = "none";
+                sucursalInput.value = ""; 
+            }
+        }
+        roleSelect.addEventListener("change", toggleSucursal);
+        // Ejecutam al cargar
+        toggleSucursal();
+    });
+</script>
+
 {% endblock %}
