@@ -128,12 +128,19 @@ class TurnoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        # Extrer el usuario 
+        self.user = kwargs.pop('user',None)
         super().__init__(*args, **kwargs)
         self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
   
+        # Si el usuario existe, es "usuario/atendedora" y tiene una sucursal asignada:
+        if self.user and self.user.role == "usuario" and self.user.sucursal:
+            # Se selecciona sucursal por defecto
+            self.fields["sucursal"].initial = self.user.sucursal
+            # Campo bloqueado 
+            self.fields["sucursal"].disabled = True
 
  
-
 
 # ======================================================
 # LECTURA MAQUINA
@@ -297,14 +304,20 @@ class UsuarioForm(forms.ModelForm):
 
     class Meta:
         model = Usuario
-        fields = ["username", "nombre", "email", "role", "is_active"]
+        fields = ["username", "nombre", "email", "role", "sucursal" ,"is_active"]
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control"}),
             "nombre": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "role": forms.Select(attrs={"class": "form-control"}),
+            "sucursal": forms.Select(attrs={"class": "form-select"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Solo mostra sucursales activas 
+        self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
 
     def clean(self):
         cleaned = super().clean()
@@ -327,14 +340,20 @@ class UsuarioEditForm(forms.ModelForm):
 
     class Meta:
         model = Usuario
-        fields = ["username", "nombre", "email", "role", "is_active"]
+        fields = ["username", "nombre", "email", "role", "sucursal" ,"is_active"]
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control"}),
             "nombre": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "role": forms.Select(attrs={"class": "form-control"}),
+            "sucursal": forms.Select(attrs={"class": "form-select"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Solo mostra sucursales activas 
+        self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
 
     def clean(self):
         cleaned = super().clean()

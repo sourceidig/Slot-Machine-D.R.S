@@ -812,11 +812,16 @@ def turno_view(request):
 
     if request.method == "POST":
         if not turno_abierto:
-            form = TurnoForm(request.POST)
+            # El usuario es enviado al POST
+            form = TurnoForm(request.POST, user=request.user)
             if form.is_valid():
                 turno = form.save(commit=False)
                 turno.usuario = request.user
                 turno.estado = "Abierto"
+                # Se fuerza la sucursal si es atendedora
+                if request.user.role == "usuario" and request.user.sucursal:
+                    turno.sucursal = request.user.sucursal
+
                 try:
                     turno.full_clean()
                     turno.save()
@@ -826,8 +831,9 @@ def turno_view(request):
                     messages.error(request, str(e))
         else:
             messages.warning(request, "Ya tiene un turno abierto.")
-
-    form = TurnoForm() if not turno_abierto else None
+    else:
+        # Le pasamos el usuario al formulario cuando se carga la página
+        form = TurnoForm(user=request.user) if not turno_abierto else None
 
     cantidad_lecturas = 0
     if turno_abierto:
