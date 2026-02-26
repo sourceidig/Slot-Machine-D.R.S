@@ -208,13 +208,15 @@
                 </a>
             </li>
 
-            {% if user.role == 'admin' %}
+            
             <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'cuadratura_diaria_list' %}active{% endif %}"
                    href="{% url 'control:cuadratura_diaria_list' %}">
                     <i class="bi bi-calendar2-week"></i> Caja
                 </a>
             </li>
+            
+            {% if user.role == 'admin' %}
             <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'recaudacion' %}active{% endif %}"
                    href="{% url 'control:recaudacion' %}">

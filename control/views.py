@@ -432,9 +432,23 @@ def cuadratura_diaria_create(request):
         "mes_default": timezone.localdate().strftime("%Y-%m"),
         "caja_anterior": caja_anterior,
     })
+
 @login_required
 def cuadratura_diaria_list(request):
     cuadraturas = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario")
+
+    if request.user.role == "usuario":
+        if getattr(request.user, 'sucursal', None):
+            # Si tiene sucursal -> Ve solo la de ella
+            cuadraturas = cuadraturas.filter(sucursal=request.user.sucursal)
+            sucursales_filtro = Sucursal.objects.filter(id=request.user.sucursal.id)
+        else:
+            # SI NO TIENE SUCURSAL -> Filtro completamente vacío
+            cuadraturas = CuadraturaCajaDiaria.objects.none()
+            sucursales_filtro = Sucursal.objects.none()
+    else:
+        # Solo cae aquí si es Admin -> Ve todas las sucursales
+        sucursales_filtro = Sucursal.objects.filter(is_active=True).order_by("nombre")
 
     # -------------------------
     # Filtros (GET)
@@ -443,7 +457,8 @@ def cuadratura_diaria_list(request):
     fecha_hasta = request.GET.get("fecha_hasta")
     sucursal_id = request.GET.get("sucursal")
 
-    if sucursal_id:
+    # Si es admin y usó el filtro, se aplica el filtro. 
+    if sucursal_id and request.user.role == "admin":
         cuadraturas = cuadraturas.filter(sucursal_id=sucursal_id)
 
     if fecha_desde:
@@ -459,10 +474,9 @@ def cuadratura_diaria_list(request):
         "cuadratura_diaria/list.html",
         {
             "cuadraturas": cuadraturas,
-            "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
+            "sucursales": sucursales_filtro,
         },
     )
-
 
 
 @login_required
@@ -978,9 +992,12 @@ def ajax_cuadratura_diaria_numerales(request):
     numeral_dia, numeral_acumulado = calcular_numerales_caja(sucursal, fecha)
 
     caja_anterior_obj = get_caja_anterior_en_ciclo(sucursal, fecha)
-    caja_anterior = caja_anterior_obj.caja_total if caja_anterior_obj else 0
-
-
+    
+    if caja_anterior_obj:
+        caja_anterior = int(caja_anterior_obj.total_efectivo or 0)
+    else:
+        # Si no hay cuadratura anterior se utiliza la caja inicial configurada en el local
+        caja_anterior = int(sucursal.caja_inicial or 0)
 
     return JsonResponse({
         "ok": True,
