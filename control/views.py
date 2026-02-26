@@ -469,48 +469,7 @@ def cuadratura_diaria_list(request):
 def cuadratura_diaria_detail(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
     return render(request, "cuadratura_diaria/detail.html", {"cuadratura": cuadratura})
-@login_required
-def cuadratura_diaria_edit(request, pk):
-    cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
 
-    if request.method == "POST":
-        form = CuadraturaCajaDiariaForm(request.POST, instance=cuadratura)
-        if form.is_valid():
-            c = form.save(commit=False)
-
-            # Recalcular acumulados y totales igual que en create
-            c.sorteos_acum = (c.sorteos_ant or 0) + (c.sorteos_dia or 0)
-            c.gastos_acum = (c.gastos_ant or 0) + (c.gastos_dia or 0)
-            c.sueldo_b_acum = (c.sueldo_b_ant or 0) + (c.sueldo_b_dia or 0)
-            c.redbank_acum = (c.redbank_ant or 0) + (c.redbank_dia or 0)
-            c.regalos_acum = (c.regalos_ant or 0) + (c.regalos_dia or 0)
-            c.taxi_acum = (c.taxi_ant or 0) + (c.taxi_dia or 0)
-            c.jugados_acum = (c.jugados_ant or 0) + (c.jugados_dia or 0)
-            c.transfer_acum = (c.transfer_ant or 0) + (c.transfer_dia or 0)
-            c.otros_1_acum = (c.otros_1_ant or 0) + (c.otros_1_dia or 0)
-            c.otros_2_acum = (c.otros_2_ant or 0) + (c.otros_2_dia or 0)
-            c.otros_3_acum = (c.otros_3_ant or 0) + (c.otros_3_dia or 0)
-            c.descuadre_acum = (c.descuadre_ant or 0) + (c.descuadre_dia or 0)
-
-            c.numeral_total = (c.zona_1 or 0) + (c.zona_2 or 0)
-
-            try:
-                total_gastos = c.total_gastos_dia()
-            except Exception:
-                total_gastos = 0
-
-            c.ganancia = (c.numeral_total or 0) - total_gastos
-            c.total_efectivo = (c.caja or 0) + (c.ganancia or 0)
-
-            c.save()
-            messages.success(request, "Cuadratura actualizada.")
-            return redirect("control:cuadratura_diaria_detail", pk=c.pk)
-        else:
-            messages.error(request, "Formulario inválido.")
-    else:
-        form = CuadraturaCajaDiariaForm(instance=cuadratura)
-
-    return render(request, "cuadratura_diaria/edit.html", {"form": form, "cuadratura": cuadratura})
 @login_required
 def cuadratura_diaria_edit(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
@@ -547,7 +506,17 @@ def cuadratura_diaria_edit(request, pk):
     else:
         form = CuadraturaCajaDiariaForm(instance=cuadratura)
 
-    return render(request, "cuadratura_diaria/edit.html", {"form": form, "cuadratura": cuadratura})
+    caja_anterior = get_caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
+    sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
+
+    return render(request, "cuadratura_diaria/create.html", {
+        "form": form,
+        "cuadratura": cuadratura,
+        "caja_anterior": caja_anterior,
+        "mes_default": timezone.localdate().strftime("%Y-%m"),
+        "sucursales": sucursales,
+        "editar": True,  # útil si en tu template necesitas mostrar u ocultar botones o lógicas
+    })
 
 
 @login_required

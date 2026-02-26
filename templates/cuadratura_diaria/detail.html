@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block page_title %}Detalle Cuadratura Diaria{% endblock %}
 
@@ -43,7 +44,7 @@
             </tr>
         </table>
 
-        <!-- GASTOS -->
+            <!-- GASTOS -->
         <h6 class="bg-warning p-2">GASTOS</h6>
         <table class="table table-bordered table-sm mb-4">
             <thead>
@@ -58,72 +59,72 @@
             <tbody>
                 <tr>
                     <td class="fw-bold">SORTEOS</td>
-                    <td class="text-end">{{ cuadratura.sorteos_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.sorteos_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.sorteos_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sorteos_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sorteos_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sorteos_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.sorteos_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">GASTOS</td>
-                    <td class="text-end">{{ cuadratura.gastos_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.gastos_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.gastos_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.gastos_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.gastos_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.gastos_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.gastos_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">SUELDO B</td>
-                    <td class="text-end">{{ cuadratura.sueldo_b_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.sueldo_b_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.sueldo_b_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sueldo_b_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sueldo_b_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.sueldo_b_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.sueldo_b_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">REDBANK</td>
-                    <td class="text-end">{{ cuadratura.redbank_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.redbank_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.redbank_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.redbank_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.redbank_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.redbank_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.redbank_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">REGALOS</td>
-                    <td class="text-end">{{ cuadratura.regalos_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.regalos_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.regalos_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.regalos_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.regalos_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.regalos_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.regalos_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">TAXI</td>
-                    <td class="text-end">{{ cuadratura.taxi_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.taxi_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.taxi_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.taxi_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.taxi_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.taxi_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.taxi_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">JUGADOS</td>
-                    <td class="text-end">{{ cuadratura.jugados_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.jugados_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.jugados_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.jugados_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.jugados_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.jugados_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.jugados_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">TRANSFER</td>
-                    <td class="text-end">{{ cuadratura.transfer_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.transfer_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.transfer_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.transfer_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.transfer_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.transfer_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.transfer_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">OTROS</td>
-                    <td class="text-end">{{ cuadratura.otros_1_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.otros_1_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.otros_1_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.otros_1_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.otros_1_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.otros_1_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.otros_1_notas }}</td>
                 </tr>
                 <tr>
                     <td class="fw-bold">DESCUADRE</td>
-                    <td class="text-end">{{ cuadratura.descuadre_ant|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.descuadre_dia|floatformat:0 }}</td>
-                    <td class="text-end">{{ cuadratura.descuadre_acum|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.descuadre_ant|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.descuadre_dia|default_if_none:"0"|floatformat:0 }}</td>
+                    <td class="text-end">{{ cuadratura.descuadre_acum|default_if_none:"0"|floatformat:0 }}</td>
                     <td>{{ cuadratura.descuadre_notas }}</td>
                 </tr>
             </tbody>

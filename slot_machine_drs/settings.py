@@ -81,7 +81,7 @@ WSGI_APPLICATION = 'slot_machine_drs.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "bd_slotmachine",
+        "NAME": "bd_prueba",
         "USER": "root",            
         "PASSWORD": "1234",           
         "HOST": "127.0.0.1",

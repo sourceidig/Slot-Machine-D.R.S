@@ -90,8 +90,17 @@ def get_caja_anterior_en_ciclo(sucursal, fecha):
     else:
         # Si no hay cuadratura anterior en el ciclo, usamos caja_inicial como fallback
         class DummyCuadratura:
-            caja_total = sucursal.caja_inicial or 0
-        return DummyCuadratura()
+            caja_total = 0
+            desglose_efectivo_total = 0  # 💥 Esto es lo que faltaba
+            numeral_dia = 0
+            redbank_dia = 0
+            transfer_dia = 0
+            prestamos = 0
+            sorteos_dia = 0
+            gastos_dia = 0
+            sueldo_b_dia = 0
+            regalos_dia = 0
+            jugados_dia = 0
 
 
 def es_dia_1_del_ciclo(sucursal, fecha):
