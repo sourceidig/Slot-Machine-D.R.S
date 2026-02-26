@@ -322,7 +322,10 @@ def _recalcular_totales(cuadratura):
     total_calculado = (base_total or 0) - (restas_principales or 0) - (restas_adicionales or 0)
 
     # 5) Desglose real contado
-    desglose_total = (cuadratura.desglose_efectivo_total or 0)
+    if hasattr(cuadratura, "desglose_efectivo_total") and callable(getattr(cuadratura.__class__, "desglose_efectivo_total", None)):
+        desglose_total = cuadratura.desglose_efectivo_total or 0
+    else:
+        desglose_total = 0
 
     # 6) Descuadre (lo que conté vs lo que debería dar)
     cuadratura.descuadre_dia = desglose_total - (total_calculado or 0)
@@ -346,7 +349,6 @@ def cuadratura_diaria_create(request):
         form = CuadraturaCajaDiariaForm(request.POST)
 
         if form.is_valid():
-            # ✅ AHORA SÍ: sucursal viene del form (dropdown)
             sucursal = form.cleaned_data.get("sucursal")
             fecha = form.cleaned_data["fecha"]
 
@@ -378,6 +380,7 @@ def cuadratura_diaria_create(request):
                     cuadratura.creado_el = timezone.now()
                 cuadratura.actualizado_el = timezone.now()
 
+                # ✅ Guardar antes de recalcular para que tenga ID y propiedades activas
                 cuadratura.save()
 
                 # Detalles
@@ -401,7 +404,7 @@ def cuadratura_diaria_create(request):
                 cuadratura.jugados_dia  = _sum_tipo(cuadratura, "JUGADOS")
                 cuadratura.otros_1_dia  = _sum_tipo(cuadratura, "OTROS")
 
-                # Recalcular totales
+                # ✅ Recalcular totales ahora que está todo seteado
                 _recalcular_totales(cuadratura)
 
                 cuadratura.actualizado_el = timezone.now()
@@ -415,7 +418,7 @@ def cuadratura_diaria_create(request):
     else:
         form = CuadraturaCajaDiariaForm(initial={"fecha": timezone.now().date()})
         sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
-        primera_sucursal = sucursales.first()  # para valor por defecto en vista inicial
+        primera_sucursal = sucursales.first()
 
         if primera_sucursal:
             fecha = timezone.now().date()
