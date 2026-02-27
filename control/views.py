@@ -414,7 +414,32 @@ def cuadratura_diaria_create(request):
             messages.success(request, "Cuadratura guardada (creada o actualizada) exitosamente.")
             return redirect("control:cuadratura_diaria_list")
 
-        messages.error(request, "Formulario inválido. Revise los datos enviados.")
+        # Calcular caja_anterior para poder renderizar el formulario con error
+        sucursal_id = request.POST.get("sucursal")
+        fecha_post = request.POST.get("fecha") or timezone.now().date()
+        try:
+            sucursal_obj = Sucursal.objects.get(pk=sucursal_id)
+            caja_anterior = get_caja_anterior_en_ciclo(sucursal_obj, fecha_post)
+        except (Sucursal.DoesNotExist, ValueError, TypeError):
+            sucursal_obj = None
+            caja_anterior = 0
+
+        # Detectar si el error es por duplicado sucursal+fecha y dar aviso específico
+        non_field_errors = form.errors.get("__all__", [])
+        es_duplicado = any(
+            "Sucursal" in str(e) and "Fecha" in str(e)
+            for e in non_field_errors
+        )
+        if es_duplicado:
+            nombre_sucursal = sucursal_obj.nombre if sucursal_obj else "el local seleccionado"
+            messages.error(
+                request,
+                f"⚠️ Ya existe una Cuadratura Diaria para <strong>{nombre_sucursal}</strong> "
+                f"en la fecha <strong>{fecha_post}</strong>. "
+                f"No se puede crear un duplicado. Si desea modificarla, búsquela en el listado y edítela desde allí."
+            )
+        else:
+            messages.error(request, "Formulario inválido. Revise los datos enviados.")
 
     else:
         form = CuadraturaCajaDiariaForm(initial={"fecha": timezone.now().date()})
@@ -433,23 +458,9 @@ def cuadratura_diaria_create(request):
         "mes_default": timezone.localdate().strftime("%Y-%m"),
         "caja_anterior": caja_anterior,
     })
-
 @login_required
 def cuadratura_diaria_list(request):
     cuadraturas = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario")
-
-    if request.user.role == "usuario":
-        if getattr(request.user, 'sucursal', None):
-            # Si tiene sucursal -> Ve solo la de ella
-            cuadraturas = cuadraturas.filter(sucursal=request.user.sucursal)
-            sucursales_filtro = Sucursal.objects.filter(id=request.user.sucursal.id)
-        else:
-            # SI NO TIENE SUCURSAL -> Filtro completamente vacío
-            cuadraturas = CuadraturaCajaDiaria.objects.none()
-            sucursales_filtro = Sucursal.objects.none()
-    else:
-        # Solo cae aquí si es Admin -> Ve todas las sucursales
-        sucursales_filtro = Sucursal.objects.filter(is_active=True).order_by("nombre")
 
     # -------------------------
     # Filtros (GET)
@@ -458,8 +469,7 @@ def cuadratura_diaria_list(request):
     fecha_hasta = request.GET.get("fecha_hasta")
     sucursal_id = request.GET.get("sucursal")
 
-    # Si es admin y usó el filtro, se aplica el filtro. 
-    if sucursal_id and request.user.role == "admin":
+    if sucursal_id:
         cuadraturas = cuadraturas.filter(sucursal_id=sucursal_id)
 
     if fecha_desde:
@@ -475,9 +485,10 @@ def cuadratura_diaria_list(request):
         "cuadratura_diaria/list.html",
         {
             "cuadraturas": cuadraturas,
-            "sucursales": sucursales_filtro,
+            "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
         },
     )
+
 
 
 @login_required
@@ -893,22 +904,42 @@ def registro_view(request):
                 messages.error(request, "; ".join(e.messages))
             else:
                 request.session["ultima_zona"] = lectura.zona.id
-                messages.success(request, "Lectura registrada exitosamente.")
+
+                # Calcular la siguiente máquina en orden dentro de la zona
+                maquinas_zona = list(
+                    Maquina.objects.filter(
+                        zona=lectura.zona,
+                        estado="Operativa",
+                        sucursal__is_active=True,
+                    ).order_by("numero_maquina").values_list("id", flat=True)
+                )
+                if lectura.maquina and lectura.maquina.id in maquinas_zona:
+                    idx = maquinas_zona.index(lectura.maquina.id)
+                    siguiente_idx = idx + 1
+                    if siguiente_idx < len(maquinas_zona):
+                        request.session["siguiente_maquina"] = maquinas_zona[siguiente_idx]
+                    else:
+                        request.session.pop("siguiente_maquina", None)
+                else:
+                    request.session.pop("siguiente_maquina", None)
+
+                messages.success(request, f"Lectura registrada. Máquina {lectura.maquina.numero_maquina} guardada.")
                 return redirect("control:registro")
         else:
             messages.error(request, "Formulario inválido. Revise los datos enviados.")
 
     else:
         if turno_abierto:
+            siguiente_maquina_id = request.session.pop("siguiente_maquina", None)
+            initial = {}
             if zona_guardada_id:
-                form = LecturaMaquinaForm(
-                    turno=turno_abierto,
-                    initial={"zona": zona_guardada_id},
-                )
-            else:
-                form = LecturaMaquinaForm(turno=turno_abierto)
+                initial["zona"] = zona_guardada_id
+            if siguiente_maquina_id:
+                initial["maquina"] = siguiente_maquina_id
+            form = LecturaMaquinaForm(turno=turno_abierto, initial=initial if initial else None)
         else:
             form = None
+        siguiente_maquina_id = None  # ya fue consumida
 
     context = {
         "turno_abierto": turno_abierto,
@@ -993,12 +1024,14 @@ def ajax_cuadratura_diaria_numerales(request):
     numeral_dia, numeral_acumulado = calcular_numerales_caja(sucursal, fecha)
 
     caja_anterior_obj = get_caja_anterior_en_ciclo(sucursal, fecha)
-    
+
+    # ✅ CORRECCIÓN: Usamos total_efectivo (caja_total no existe en tu base de datos)
     if caja_anterior_obj:
         caja_anterior = int(caja_anterior_obj.total_efectivo or 0)
     else:
-        # Si no hay cuadratura anterior se utiliza la caja inicial configurada en el local
+        # Si no hay cuadratura anterior, usamos la caja inicial configurada en el local
         caja_anterior = int(sucursal.caja_inicial or 0)
+    
 
     return JsonResponse({
         "ok": True,

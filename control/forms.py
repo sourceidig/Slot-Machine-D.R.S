@@ -53,7 +53,7 @@ class CuadraturaCajaDiariaForm(forms.ModelForm):
             "prestamos", "prestamos_notas",
         ]
         widgets = {
-            "fecha": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "fecha": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
             "sucursal": forms.Select(attrs={"class": "form-control"}),
             "observaciones": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }

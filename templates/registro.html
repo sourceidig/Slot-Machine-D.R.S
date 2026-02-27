@@ -201,70 +201,83 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-    // id de la zona guardada en sesión (puede venir vacío)
-    const zonaGuardada = "{{ zona_guardada|default:'' }}";
-    const zonaSelect = document.getElementById('id_zona');
+        const zonaGuardada   = "{{ zona_guardada|default:'' }}";
+        const zonaSelect     = document.getElementById('id_zona');
+        const siguienteMaqId = localStorage.getItem('siguiente_maquina_id');
 
-    if (zonaGuardada && zonaSelect) {
-        // El formulario ya viene con la opción seleccionada, pero por si acaso:
-        zonaSelect.value = zonaGuardada;
+        if (zonaGuardada && zonaSelect) {
+            zonaSelect.value = zonaGuardada;
 
-        //  Disparar el "change" para que tu JS de zonas/maquinas cargue las máquinas
-        const eventoChange = new Event('change');
-        zonaSelect.dispatchEvent(eventoChange);
-    }
-    });
-    document.getElementById('id_zona').addEventListener('change', function() {
-        const zonaId = this.value;
-        const maquinaSelect = document.getElementById('id_maquina');
-
-        if (zonaId) {
-            fetch(`/ajax/maquinas/${zonaId}/`, {
-                headers: { "X-Requested-With": "XMLHttpRequest" }
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    return response.json();
-                })
-                .then(data => {
-                    maquinaSelect.innerHTML = '<option value="">---------</option>';
-                    data.forEach(maquina => {
-                        const option = document.createElement('option');
-                        option.value = maquina.id;
-                        option.textContent = `M${maquina.numero_maquina} - ${maquina.nombre_juego}`;
-                        maquinaSelect.appendChild(option);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error al cargar máquinas:', error);
-                    alert('Error al cargar las máquinas');
+            if (siguienteMaqId) {
+                // Cargar máquinas y luego pre-seleccionar la siguiente
+                localStorage.removeItem('siguiente_maquina_id');
+                cargarMaquinas(zonaGuardada, function(data) {
+                    const maquinaSelect = document.getElementById('id_maquina');
+                    maquinaSelect.value = siguienteMaqId;
+                    // Mostrar info de la máquina pre-seleccionada
+                    actualizarInfoMaquina(maquinaSelect);
+                    maquinaSelect.focus();
                 });
-        } else {
+            } else {
+                zonaSelect.dispatchEvent(new Event('change'));
+            }
+        }
+    });
+    // ── Cargar máquinas al cambiar zona ──────────────────────────────────────
+    function cargarMaquinas(zonaId, callbackDespues) {
+        const maquinaSelect = document.getElementById('id_maquina');
+        if (!zonaId) {
             maquinaSelect.innerHTML = '<option value="">---------</option>';
+            return;
+        }
+        fetch(`/ajax/maquinas/${zonaId}/`, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(data => {
+                maquinaSelect.innerHTML = '<option value="">---------</option>';
+                data.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = `M${m.numero_maquina} - ${m.nombre_juego}`;
+                    maquinaSelect.appendChild(opt);
+                });
+                if (callbackDespues) callbackDespues(data);
+            })
+            .catch(err => { console.error(err); alert('Error al cargar las máquinas'); });
+    }
+
+    document.getElementById('id_zona').addEventListener('change', function() {
+        cargarMaquinas(this.value);
+    });
+
+    // ── Al guardar, recordar la siguiente máquina en localStorage ────────────
+    document.getElementById('lecturaForm').addEventListener('submit', function() {
+        const maquinaSelect = document.getElementById('id_maquina');
+        const opts = Array.from(maquinaSelect.options).filter(o => o.value !== '');
+        const idx  = opts.findIndex(o => o.value === maquinaSelect.value);
+        if (idx !== -1 && idx + 1 < opts.length) {
+            localStorage.setItem('siguiente_maquina_id', opts[idx + 1].value);
+        } else {
+            localStorage.removeItem('siguiente_maquina_id');
         }
     });
 
     
-    // Mostrar info de máquina al seleccionar
-    document.getElementById('id_maquina').addEventListener('change', function() {
-        const maquinaSelect = this;
-        const selectedOption = maquinaSelect.options[maquinaSelect.selectedIndex];
-        
-        if (maquinaSelect.value) {
-            const maquinaText = selectedOption.text;
-            const parts = maquinaText.split(' - ');
-            
+    // ── Mostrar info de máquina ───────────────────────────────────────────────
+    function actualizarInfoMaquina(sel) {
+        const opt = sel.options[sel.selectedIndex];
+        if (sel.value) {
+            const parts = opt.text.split(' - ');
             if (parts.length >= 2) {
-                const numero = parts[0].replace('M', '');
-                const juego = parts[1];
-                
-                document.getElementById('numeroMaquina').value = numero;
-                document.getElementById('nombreJuego').value = juego;
+                document.getElementById('numeroMaquina').value = parts[0].replace('M', '');
+                document.getElementById('nombreJuego').value   = parts[1];
                 document.getElementById('maquinaInfo').style.display = 'block';
             }
         } else {
             document.getElementById('maquinaInfo').style.display = 'none';
         }
+    }
+    document.getElementById('id_maquina').addEventListener('change', function() {
+        actualizarInfoMaquina(this);
     });
     
     // Calcular total automáticamente
