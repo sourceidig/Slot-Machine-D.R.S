@@ -208,7 +208,6 @@
                 </a>
             </li>
 
-            
             <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'cuadratura_diaria_list' %}active{% endif %}"
                    href="{% url 'control:cuadratura_diaria_list' %}">
@@ -224,6 +223,7 @@
                 </a>
             </li>
             {% endif %}
+
             {% if user.role == 'admin' %}
             <li class="nav-item">
                 <a class="nav-link" href="{% url 'control:controles_list' %}">
@@ -231,7 +231,6 @@
                 </a>
             </li>
             {% endif %}
-
 
             <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'registro' %}active{% endif %}"
@@ -301,10 +300,31 @@
         <main class="content-area">
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+                    {% if message.tags == 'error' %}
+                        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill fs-5 mt-1"></i>
+                            <div>{{ message|safe }}</div>
+                            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% elif message.tags == 'success' %}
+                        <div class="alert alert-success alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-check-circle-fill fs-5 mt-1"></i>
+                            <div>{{ message|safe }}</div>
+                            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% elif message.tags == 'warning' %}
+                        <div class="alert alert-warning alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-exclamation-circle-fill fs-5 mt-1"></i>
+                            <div>{{ message|safe }}</div>
+                            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-info-circle-fill fs-5 mt-1"></i>
+                            <div>{{ message|safe }}</div>
+                            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
                 {% endfor %}
             {% endif %}
 
