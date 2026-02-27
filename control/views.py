@@ -614,10 +614,18 @@ def cuadratura_diaria_export_excel(request):
         ws.cell(row=row, column=2).value = c.sucursal.nombre if c.sucursal else ""
         ws.cell(row=row, column=3).value = getattr(c.usuario, "nombre", "") if c.usuario else ""
 
-        ws.cell(row=row, column=4).value = int(c.zona_1 or 0)
-        ws.cell(row=row, column=5).value = int(c.zona_2 or 0)
-        ws.cell(row=row, column=6).value = int(c.numeral_total or 0)
+        # Estas referencias no existen en models -> CuadraturaCajaDiaria
+       # ws.cell(row=row, column=4).value = int(c.zona_1 or 0)
+       # ws.cell(row=row, column=5).value = int(c.zona_2 or 0)
+       # ws.cell(row=row, column=6).value = int(c.numeral_total or 0)
 
+       # Creo que estas son las que corresponden
+        ws.cell(row=row, column=4).value = int(c.numeral_dia or 0)
+        ws.cell(row=row, column=5).value = int(c.numeral_acumulado or 0)
+        # No se es total_efectivo falta por correguir
+        ws.cell(row=row, column=6).value = int(c.total_efectivo or 0)
+        
+        
         # método del modelo
         ws.cell(row=row, column=7).value = int(c.total_gastos_dia() or 0)
 
