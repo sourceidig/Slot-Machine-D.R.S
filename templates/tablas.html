@@ -94,6 +94,7 @@
                         <th class="text-end">Salida</th>
                         <th class="text-end">Total</th>
                         <th>Usuario</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -108,10 +109,15 @@
                             <td class="text-end">{{ lectura.salida|floatformat:0 }}</td>
                             <td class="text-end"><strong>{{ lectura.total|floatformat:0 }}</strong></td>
                             <td>{{ lectura.usuario.nombre }}</td>
+                            <td>
+                                <a href="{% url 'control:lectura_edit' lectura.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center text-muted">No hay lecturas registradas</td>
+                            <td colspan="10" class="text-center text-muted">No hay lecturas registradas</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -121,12 +127,11 @@
                         <th class="text-end">{{ total_entrada|floatformat:0 }}</th>
                         <th class="text-end">{{ total_salida|floatformat:0 }}</th>
                         <th class="text-end"><strong>{{ total_total|floatformat:0 }}</strong></th>
-                        <th></th>
+                        <th colspan="2"></th>
                     </tr>
                 </tfoot>
             </table>
         </div>
-        
     </div>
 </div>
 {% endblock %}

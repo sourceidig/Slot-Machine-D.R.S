@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Lectura - Slot Machine D.R.S.{% endblock %}
+{% block page_title %}Editar Lectura{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Editar Lectura</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <div class="row g-3">
+                <div class="col-md-4">
+                    {{ form.zona.label_tag }} {{ form.zona }}
+                    {{ form.zona.errors }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.maquina.label_tag }} {{ form.maquina }}
+                    {{ form.maquina.errors }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.nota.label_tag }} {{ form.nota }}
+                    {{ form.nota.errors }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.entrada.label_tag }} {{ form.entrada }}
+                    {{ form.entrada.errors }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.salida.label_tag }} {{ form.salida }}
+                    {{ form.salida.errors }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.total.label_tag }} {{ form.total }}
+                    {{ form.total.errors }}
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Guardar Cambios
+                </button>
+                <a href="{% url 'control:tablas' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left-circle"></i> Volver
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

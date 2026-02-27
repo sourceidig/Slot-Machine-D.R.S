@@ -19,7 +19,8 @@ from control.utils import calcular_numerales_caja
 from .models import CierreTurno, CierreTurnoZona, CierreTurnoMovimiento, CierreTurnoPago, CierreTurnoDenominacion, CicloRecaudacion
 from .forms import CierreTurnoForm, CierreTurnoZonaFormSet, CierreTurnoMovimientoFormSet, CierreTurnoPagoFormSet, CierreTurnoDenFormSet
 from .models import CuadraturaDetalle
-
+from django.views.generic.edit import UpdateView
+from django.urls import reverse_lazy
 from django.db import transaction
 from django.db.models import Q
 import calendar
@@ -1294,8 +1295,17 @@ def tablas_view(request):
     }
 
     return render(request, "tablas.html", context)
+class LecturaEditView(UpdateView):
+    model = LecturaMaquina
+    form_class = LecturaMaquinaForm
+    template_name = "control/lectura_edit.html"
+    success_url = reverse_lazy("control:tablas")
 
-
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        turno = getattr(self.request.user, "turno_activo", None)
+        kwargs["turno"] = turno
+        return kwargs
 @login_required
 def export_excel(request):
     lecturas = LecturaMaquina.objects.all()

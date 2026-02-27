@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-
+from .views import LecturaEditView
 app_name = "control"
 
 urlpatterns = [
@@ -26,6 +26,7 @@ urlpatterns = [
     # Registro
     # -------------------------
     path("registro/", views.registro_view, name="registro"),
+    path("lectura/<int:pk>/editar/", LecturaEditView.as_view(), name="lectura_edit"),
 
     # -------------------------
     # Cuadratura Caja Diaria (EXCEL GRANDE - GERENCIA)
