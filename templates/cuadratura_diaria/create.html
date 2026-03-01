@@ -417,15 +417,26 @@ input[readonly]{
             </div>
 
             <div class="col-md-4">
+              <label class="form-label fw-bold">Billetes Malos</label>
+              {{ form.ef_billetes_malos }}
+            </div>
+
+            <div class="col-md-4">
               <label class="form-label fw-bold">Total desglose</label>
               <input type="text" class="form-control readonly" id="id_desglose_total" value="0" readonly>
+            </div>
+
+            <div class="col-12 mt-2">
+              <button type="button" id="btn_ingresar" class="btn btn-success btn-sm px-4">
+                <i class="bi bi-calculator me-1"></i>Ingresar
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Resumen final (solo mostrar) -->
-      <div class="card mt-4">
+      <!-- Resumen final — oculto hasta presionar Ingresar -->
+      <div class="card mt-4" id="seccion_resumen" style="display:none;">
         <div class="card-header bg-success text-white">
           <h6 class="mb-0">Resumen</h6>
         </div>
@@ -621,7 +632,8 @@ document.addEventListener("DOMContentLoaded", () => {
       getValById("id_ef_5000") +
       getValById("id_ef_2000") +
       getValById("id_ef_1000") +
-      getValById("id_ef_monedas");
+      getValById("id_ef_monedas") +
+      getValById("id_ef_billetes_malos");
 
     setVal(desgloseTotalEl, total);
     recalcUI();
@@ -712,9 +724,28 @@ function recalcUI() {
     formEl.addEventListener("submit", () => buildHiddenDetalles(), true);
   }
 
+  // ========= botón Ingresar — mostrar resumen =========
+  const btnIngresar = document.getElementById("btn_ingresar");
+  const seccionResumen = document.getElementById("seccion_resumen");
+
+  if (btnIngresar) {
+    btnIngresar.addEventListener("click", () => {
+      recalcUI();
+      if (seccionResumen) {
+        seccionResumen.style.display = "block";
+        seccionResumen.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  // Si estamos editando (resumen ya tiene datos), mostrarlo directamente
+  {% if editar %}
+  if (seccionResumen) seccionResumen.style.display = "block";
+  {% endif %}
+
   // ========= listeners inputs =========
   const idsToWatch = [
-    "id_ef_20000","id_ef_10000","id_ef_5000","id_ef_2000","id_ef_1000","id_ef_monedas",
+    "id_ef_20000","id_ef_10000","id_ef_5000","id_ef_2000","id_ef_1000","id_ef_monedas","id_ef_billetes_malos",
     "id_retiro_diario",
     "id_sorteos_dia","id_gastos_dia","id_sueldo_b_dia","id_regalos_dia","id_jugados_dia",
     "id_redbank_dia","id_transfer_dia","id_prestamos",

@@ -374,7 +374,7 @@ def cuadratura_diaria_create(request):
                 cuadratura.sucursal = sucursal
 
                 # Asignar campos ef_* manualmente
-                for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas']:
+                for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas', 'ef_billetes_malos']:
                     setattr(cuadratura, field, form.cleaned_data.get(field, 0))
 
                 # desglose_efectivo_total es un @property, se calcula automáticamente
@@ -545,7 +545,7 @@ def cuadratura_diaria_edit(request, pk):
             c.descuadre_acum = (c.descuadre_ant or 0) + (c.descuadre_dia or 0)
 
             # Guardar campos de desglose de billetes
-            for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas']:
+            for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas', 'ef_billetes_malos']:
                 setattr(c, field, form.cleaned_data.get(field, 0))
 
             # Recalcular ganancia, numeral_dia, descuadre y total_efectivo correctamente
@@ -913,7 +913,7 @@ def dashboard_view(request):
         "chart_data": chart_data,
         "top_maquinas": top_maquinas,
         "bottom_maquinas": bottom_maquinas,
-        "sucursales": Sucursal.objects.all().order_by("nombre"),
+        "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
         "fecha_desde": fecha_desde,
         "fecha_hasta": fecha_hasta,
     }
@@ -962,7 +962,7 @@ def turno_view(request):
         "turno_abierto": turno_abierto,
         "cantidad_lecturas": cantidad_lecturas,
         "form": form,
-        "sucursales": Sucursal.objects.all(),
+        "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
     }
 
     return render(request, "turno.html", context)
@@ -1476,8 +1476,8 @@ def tablas_view(request):
         "total_entrada": total_entrada,
         "total_salida": total_salida,
         "total_total": total_total,
-        "sucursales": Sucursal.objects.all(),
-        "zonas": Zona.objects.all(),
+        "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
+        "zonas": Zona.objects.filter(is_active=True).order_by("sucursal", "orden", "nombre"),
         "maquinas": Maquina.objects.all(),
         "usuarios": Usuario.objects.filter(role="usuario"),
     }
@@ -2503,13 +2503,27 @@ def guardar_control(request, turno_id):
 
 @login_required
 def controles_list(request):
-    # si quieres filtrar por sucursal del usuario, aquí
     qs = (
         ControlLecturas.objects
         .select_related("sucursal", "turno", "creado_por")
         .order_by("-fecha_trabajo", "-id")
     )
-    return render(request, "controles/list.html", {"controles": qs})
+
+    sucursal_id  = request.GET.get("sucursal")
+    fecha_desde  = request.GET.get("fecha_desde")
+    fecha_hasta  = request.GET.get("fecha_hasta")
+
+    if sucursal_id:
+        qs = qs.filter(sucursal_id=sucursal_id)
+    if fecha_desde:
+        qs = qs.filter(fecha_trabajo__gte=fecha_desde)
+    if fecha_hasta:
+        qs = qs.filter(fecha_trabajo__lte=fecha_hasta)
+
+    return render(request, "controles/list.html", {
+        "controles": qs,
+        "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
+    })
 
 
 @login_required

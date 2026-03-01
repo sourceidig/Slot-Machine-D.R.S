@@ -269,6 +269,7 @@ class CuadraturaCajaDiaria(models.Model):
 
     prestamos = models.IntegerField(null=True, blank=True, default=0)
     prestamos_acum = models.IntegerField(null=True, blank=True, default=0)
+    ef_billetes_malos = models.IntegerField(null=True, blank=True, default=0)
     prestamos_notas = models.TextField(blank=True, default="")
 
     caja = models.IntegerField(default=0, verbose_name="Caja")
@@ -317,6 +318,7 @@ class CuadraturaCajaDiaria(models.Model):
             + (self.ef_2000 or 0)
             + (self.ef_1000 or 0)
             + (self.ef_monedas or 0)
+            + (self.ef_billetes_malos or 0)
         )
 # ==========================
 # DETALLES CUADRATURA (ITEMS)

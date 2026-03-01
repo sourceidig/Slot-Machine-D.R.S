@@ -20,7 +20,7 @@
             {% if user.role == 'admin' %}
                 <div class="col-md-3">
                     <label class="form-label">Sucursal</label>
-                    <select name="sucursal" class="form-control">
+                    <select name="sucursal" id="filtro_sucursal" class="form-control">
                         <option value="">Todas</option>
                         {% for sucursal in sucursales %}
                             <option value="{{ sucursal.id }}" {% if request.GET.sucursal == sucursal.id|stringformat:"s" %}selected{% endif %}>
@@ -32,10 +32,12 @@
                 
                 <div class="col-md-3">
                     <label class="form-label">Zona</label>
-                    <select name="zona" class="form-control">
+                    <select name="zona" id="filtro_zona" class="form-control">
                         <option value="">Todas</option>
                         {% for zona in zonas %}
-                            <option value="{{ zona.id }}" {% if request.GET.zona == zona.id|stringformat:"s" %}selected{% endif %}>
+                            <option value="{{ zona.id }}"
+                                data-sucursal="{{ zona.sucursal_id }}"
+                                {% if request.GET.zona == zona.id|stringformat:"s" %}selected{% endif %}>
                                 {{ zona.nombre }}
                             </option>
                         {% endfor %}
@@ -134,4 +136,37 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const sucursalSel = document.getElementById("filtro_sucursal");
+    const zonaSel = document.getElementById("filtro_zona");
+    if (!sucursalSel || !zonaSel) return;
+
+    // Guardar todas las opciones originales con su data-sucursal
+    const todasLasOpciones = Array.from(zonaSel.options).filter(o => o.value !== "");
+
+    function filtrarZonas() {
+        const sucId = sucursalSel.value;
+        const zonaActual = zonaSel.value;
+
+        zonaSel.innerHTML = '<option value="">Todas</option>';
+        todasLasOpciones.forEach(function(opt) {
+            if (!sucId || opt.dataset.sucursal === sucId) {
+                zonaSel.appendChild(opt.cloneNode(true));
+            }
+        });
+
+        // Restaurar selección si sigue disponible
+        if (zonaActual) {
+            const existe = Array.from(zonaSel.options).find(o => o.value === zonaActual);
+            if (existe) zonaSel.value = zonaActual;
+        }
+    }
+
+    sucursalSel.addEventListener("change", filtrarZonas);
+    // Ejecutar al cargar para respetar filtro activo desde GET
+    filtrarZonas();
+});
+</script>
 {% endblock %}

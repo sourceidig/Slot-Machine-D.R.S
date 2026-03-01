@@ -57,7 +57,7 @@ class CuadraturaCajaDiariaForm(forms.ModelForm):
             "otros_3_ant", "otros_3_dia", "otros_3_notas",
             "descuadre_ant", "descuadre_dia", "descuadre_notas",
             "caja", "retiro_diario", "observaciones",
-            "ef_20000","ef_10000","ef_5000","ef_2000","ef_1000","ef_monedas",
+            "ef_20000","ef_10000","ef_5000","ef_2000","ef_1000","ef_monedas","ef_billetes_malos",
             "prestamos", "prestamos_acum", "prestamos_notas",
         ]
         widgets = {

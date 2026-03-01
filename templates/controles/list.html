@@ -1,33 +1,77 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="container mt-4">
-  <h3>Controles guardados</h3>
+{% block page_title %}Controles de Lectura{% endblock %}
 
-  <table class="table table-bordered">
-    <thead>
-      <tr>
-        <th>Fecha</th>
-        <th>Sucursal</th>
-        <th>Creado por</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for c in controles %}
-      <tr>
-        <td>{{ c.fecha_trabajo }}</td>
-        <td>{{ c.sucursal.nombre }}</td>
-        <td>{{ c.creado_por.username }}</td>
-        <td>
-          <a class="btn btn-sm btn-primary" href="{% url 'control:controles_detail' c.id %}">
-            Ver
-          </a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="4">No hay controles guardados.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+    <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Controles Guardados</h5>
+  </div>
+
+  <div class="card-body">
+    <!-- Filtros -->
+    <form method="get" class="row g-2 mb-4 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Sucursal</label>
+        <select name="sucursal" class="form-select form-select-sm">
+          <option value="">Todas las sucursales</option>
+          {% for s in sucursales %}
+            <option value="{{ s.id }}" {% if request.GET.sucursal == s.id|stringformat:"s" %}selected{% endif %}>
+              {{ s.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Fecha Desde</label>
+        <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ request.GET.fecha_desde }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Fecha Hasta</label>
+        <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ request.GET.fecha_hasta }}">
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100">
+          <i class="bi bi-funnel"></i> Filtrar
+        </button>
+        <a href="{% url 'control:controles_list' %}" class="btn btn-secondary btn-sm w-100">
+          <i class="bi bi-x-circle"></i> Limpiar
+        </a>
+      </div>
+    </form>
+
+    <!-- Tabla -->
+    <div class="table-responsive">
+      <table class="table table-hover table-bordered align-middle mb-0" style="font-size:0.9rem;">
+        <thead class="table-dark">
+          <tr>
+            <th>Fecha</th>
+            <th>Sucursal</th>
+            <th>Creado por</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in controles %}
+          <tr>
+            <td class="fw-semibold">{{ c.fecha_trabajo|date:"d/m/Y" }}</td>
+            <td>{{ c.sucursal.nombre }}</td>
+            <td class="text-muted small">{{ c.creado_por.username }}</td>
+            <td class="text-center">
+              <a class="btn btn-sm btn-info text-white" href="{% url 'control:controles_detail' c.id %}">
+                <i class="bi bi-eye"></i> Ver
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4">
+              <i class="bi bi-inbox fs-3 d-block mb-2"></i>No hay controles guardados
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 {% endblock %}
