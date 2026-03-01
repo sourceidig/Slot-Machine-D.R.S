@@ -50,7 +50,7 @@ class CuadraturaCajaDiariaForm(forms.ModelForm):
             "descuadre_ant", "descuadre_dia", "descuadre_notas",
             "caja", "retiro_diario", "observaciones",
             "ef_20000","ef_10000","ef_5000","ef_2000","ef_1000","ef_monedas",
-            "prestamos", "prestamos_notas",
+            "prestamos", "prestamos_acum", "prestamos_notas",
         ]
         widgets = {
             "fecha": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "class": "form-control"}),
@@ -61,29 +61,28 @@ class CuadraturaCajaDiariaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Si tienes campo sucursal dentro del ModelForm (a veces no está en fields)
         if "sucursal" in self.fields:
             self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
             self.fields["sucursal"].required = True
             self.fields["sucursal"].widget.attrs.update({
                 "class": "form-select",
             })
-        # Bloquear numerales (si existen en el form)
+
         for f in ["numeral_dia", "numeral_acumulado", "numeral_total"]:
             if f in self.fields:
                 self.fields[f].disabled = True
 
-        # Estilo + quitar flechas + permitir vacío
+        id_forced_fields = [
+            "ef_20000", "ef_10000", "ef_5000", "ef_2000", "ef_1000", "ef_monedas", "retiro_diario"
+        ]
+
         for name, field in self.fields.items():
-    # NO tocar estos (si los tocas, rompes el select o el date)
             if name in ["fecha", "observaciones", "sucursal"]:
                 continue
 
-            # Si algún día agregas más selects/choices, tampoco los toques aquí
             if isinstance(field, forms.ModelChoiceField) or isinstance(field, forms.ChoiceField):
                 continue
 
-            # Notas -> compact textarea
             if "notas" in name:
                 field.widget = forms.Textarea(attrs={
                     "class": "form-control form-control-sm",
@@ -92,18 +91,20 @@ class CuadraturaCajaDiariaForm(forms.ModelForm):
                 })
                 continue
 
-            # Numéricos -> SIN flechas, SIN 0 por defecto, permite vacío
-            field.required = False
-            field.widget = forms.TextInput(attrs={
+            attrs = {
                 "class": "form-control form-control-sm text-end",
-                "type": "text",                 # NO number => sin flechas
+                "type": "text",
                 "inputmode": "numeric",
                 "autocomplete": "off",
                 "placeholder": "",
-            })
+            }
 
+            if name in id_forced_fields:
+                attrs["id"] = f"id_{name}"
 
-        # Prestamos: permite negativo (igual sin flechas)
+            field.required = False
+            field.widget = forms.TextInput(attrs=attrs)
+
         if "prestamos" in self.fields:
             self.fields["prestamos"].required = False
             self.fields["prestamos"].widget = forms.TextInput(attrs={
@@ -468,6 +469,3 @@ CierreTurnoZonaFormSet = inlineformset_factory(
     extra=0,
     can_delete=False,
 )
-
-
-

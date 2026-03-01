@@ -1,117 +1,107 @@
 {% extends 'base.html' %}
-
 {% block page_title %}Cuadraturas Caja Diarias{% endblock %}
 
 {% block content %}
-            <div class="card">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-list-ul"></i> Cuadraturas Caja</h5>
-
-                    <a href="{% url 'control:cuadratura_diaria_create' %}" class="btn btn-light btn-sm">
-                        <i class="bi bi-plus-circle"></i> Nueva Cuadratura
-                    </a>
-                    <a class="btn btn-success"
-                        href="{% url 'control:cuadratura_diaria_export_excel' %}?{{ request.GET.urlencode }}">
-                        <i class="bi bi-file-earmark-excel"></i> Exportar
-                    </a>
-
-                </div>
-                <div class="card-body">
-                    <!-- Filtros -->
-                    <form method="get" class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <label class="form-label">Local</label>
-                            <select name="sucursal" class="form-select">
-                                <option value="">Todos</option>
-                                {% for s in sucursales %}
-                                    <option value="{{ s.id }}" {% if request.GET.sucursal == s.id|stringformat:"s" %}selected{% endif %}>
-                                        {{ s.nombre }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="col-md-4">
-                <label class="form-label">Local</label>
-                <select name="sucursal" class="form-select">
-                    <option value="">Todos</option>
-                    {% for s in sucursales %}
-                        <option value="{{ s.id }}" {% if request.GET.sucursal == s.id|stringformat:"s" %}selected{% endif %}>
-                            {{ s.nombre }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Fecha Desde</label>
-                <input type="date" name="fecha_desde" class="form-control" value="{{ request.GET.fecha_desde }}">
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Fecha Hasta</label>
-                <input type="date" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
-            </div>
-            <div class="col-md-4 d-flex align-items-end gap-2">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-funnel"></i> Filtrar
-                </button>
-
-                <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-secondary">
-                    <i class="bi bi-x-circle"></i> Limpiar
-                </a>
-
-                <a class="btn btn-success"
-                href="{% url 'control:cuadratura_diaria_export_excel' %}?{{ request.GET.urlencode }}">
-                    <i class="bi bi-file-earmark-excel"></i> Exportar
-                </a>
-            </div>
-
-        </form>
-
-        <!-- Tabla -->
-        <div class="table-responsive">
-            <table class="table table-hover table-striped">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Local</th>
-                        <th>Usuario</th>
-                        <th class="text-end">Numeral Total</th>
-                        <th class="text-end">Total Gastos</th>
-                        <th class="text-end">Ganancia</th>
-                        <th class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for cuad in cuadraturas %}
-                    <tr>
-                        <td>{{ cuad.fecha|date:"d/m/Y" }}</td>
-                        <td>{{ cuad.sucursal.nombre }}</td>
-                        <td>{{ cuad.usuario.nombre }}</td>
-                        <td class="text-end">{{ cuad.numeral_total|floatformat:0 }}</td>
-                        <td class="text-end">{{ cuad.total_gastos_dia|floatformat:0 }}</td>
-                        <td class="text-end">{{ cuad.ganancia|floatformat:0 }}</td>
-                        <td class="text-center">
-                            <a href="{% url 'control:cuadratura_diaria_detail' cuad.id %}" class="btn btn-sm btn-info">
-                                <i class="bi bi-eye"></i> Ver
-                            </a>
-                            <a href="{% url 'control:cuadratura_diaria_edit' cuad.id %}" class="btn btn-sm btn-warning">
-                                <i class="bi bi-pencil"></i> Editar
-                            </a>
-                            <a href="{% url 'control:cuadratura_diaria_delete' cuad.id %}" class="btn btn-sm btn-danger">
-                                <i class="bi bi-trash"></i> Borrar
-                            </a>
-                        </td>
-
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">No hay cuadraturas registradas</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+<div class="card shadow-sm">
+  <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+    <h5 class="mb-0"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Cuadraturas Caja</h5>
+    <div class="d-flex gap-2">
+      <a href="{% url 'control:cuadratura_diaria_create' %}" class="btn btn-light btn-sm">
+        <i class="bi bi-plus-circle"></i> Nueva Cuadratura
+      </a>
+      <a href="{% url 'control:cuadratura_diaria_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
+        <i class="bi bi-file-earmark-excel"></i> Exportar
+      </a>
     </div>
+  </div>
+
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-4 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Local</label>
+        <select name="sucursal" class="form-select form-select-sm">
+          <option value="">Todos los locales</option>
+          {% for s in sucursales %}
+            <option value="{{ s.id }}" {% if request.GET.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Fecha Desde</label>
+        <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ request.GET.fecha_desde }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Fecha Hasta</label>
+        <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ request.GET.fecha_hasta }}">
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-funnel"></i> Filtrar</button>
+        <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-secondary btn-sm w-100"><i class="bi bi-x-circle"></i> Limpiar</a>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-hover table-bordered align-middle mb-0" style="font-size:0.88rem;">
+        <thead class="table-dark">
+          <tr>
+            <th>Fecha</th>
+            <th>Local</th>
+            <th>Usuario</th>
+            <th class="text-end">Numeral Día</th>
+            <th class="text-end">Numeral Acum.</th>
+            <th class="text-end">Total Gastos</th>
+            <th class="text-end">Ganancia</th>
+            <th class="text-end">Desglose</th>
+            <th class="text-end">Retiro</th>
+            <th class="text-end">Total Efectivo</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cuad in cuadraturas %}
+          <tr>
+            <td class="fw-semibold text-nowrap">{{ cuad.fecha|date:"d/m/Y" }}</td>
+            <td>{{ cuad.sucursal.nombre }}</td>
+            <td class="text-muted small">{{ cuad.usuario.nombre }}</td>
+            <td class="text-end">
+              {% if cuad.numeral_dia %}
+                <span class="{% if cuad.numeral_dia >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold">
+                  ${{ cuad.numeral_dia|floatformat:0 }}
+                </span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-end fw-semibold">${{ cuad.numeral_acumulado|default:0|floatformat:0 }}</td>
+            <td class="text-end text-danger">${{ cuad.total_gastos_dia|floatformat:0 }}</td>
+            <td class="text-end">
+              <span class="badge {% if cuad.ganancia >= 0 %}bg-success{% else %}bg-danger{% endif %} fs-6 px-3">
+                ${{ cuad.ganancia|default:0|floatformat:0 }}
+              </span>
+            </td>
+            <td class="text-end">${{ cuad.desglose_efectivo_total|floatformat:0 }}</td>
+            <td class="text-end text-warning fw-semibold">
+              {% if cuad.retiro_diario %}${{ cuad.retiro_diario|floatformat:0 }}{% else %}—{% endif %}
+            </td>
+            <td class="text-end">
+              <span class="fw-bold {% if cuad.total_efectivo >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ cuad.total_efectivo|floatformat:0 }}
+              </span>
+            </td>
+            <td class="text-center text-nowrap">
+              <a href="{% url 'control:cuadratura_diaria_detail' cuad.id %}" class="btn btn-sm btn-info text-white" title="Ver detalle"><i class="bi bi-eye"></i></a>
+              <a href="{% url 'control:cuadratura_diaria_edit' cuad.id %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+              <a href="{% url 'control:cuadratura_diaria_delete' cuad.id %}" class="btn btn-sm btn-danger" title="Borrar"><i class="bi bi-trash"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="11" class="text-center text-muted py-5">
+              <i class="bi bi-inbox fs-2 d-block mb-2"></i>No hay cuadraturas registradas
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 {% endblock %}

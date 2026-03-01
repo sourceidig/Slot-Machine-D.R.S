@@ -1,10 +1,10 @@
-from datetime import timedelta, timezone
-from .models import ControlLecturas, ControlLecturasLinea, LecturaMaquina, CicloRecaudacion, CuadraturaCajaDiaria
-from datetime import datetime
+from datetime import timedelta
+from .models import (
+    ControlLecturas, ControlLecturasLinea,
+    LecturaMaquina, CicloRecaudacion, CuadraturaCajaDiaria
+)
 
 def get_referencia_anterior(maquina, fecha_trabajo):
-    from .models import ControlLecturas, ControlLecturasLinea, LecturaMaquina
-
     ciclo = getattr(maquina.sucursal, "ciclo_recaudacion", None)
 
     if ciclo and fecha_trabajo == ciclo.inicio_ciclo:
@@ -47,7 +47,6 @@ def calcular_numerales_caja(sucursal, fecha):
     # Si hay lectura, usa total_general (conversión segura)
     numeral_dia = int(control.total_general or 0) if control else 0
 
-   
     # 2) Buscar última cuadratura anterior
     anterior = CuadraturaCajaDiaria.objects.filter(
         sucursal=sucursal,
@@ -67,6 +66,7 @@ def get_inicio_ciclo(sucursal):
         return ciclo.inicio_ciclo
     except CicloRecaudacion.DoesNotExist:
         return None
+
 
 def get_caja_anterior_en_ciclo(sucursal, fecha):
     """
@@ -88,10 +88,10 @@ def get_caja_anterior_en_ciclo(sucursal, fecha):
     if cuadratura:
         return cuadratura
     else:
-        # Si no hay cuadratura anterior en el ciclo, usamos caja_inicial como fallback
+        # Dummy fallback
         class DummyCuadratura:
             caja_total = 0
-            desglose_efectivo_total = 0  # 💥 Esto es lo que faltaba
+            desglose_efectivo_total = 0  
             numeral_dia = 0
             redbank_dia = 0
             transfer_dia = 0
@@ -102,6 +102,19 @@ def get_caja_anterior_en_ciclo(sucursal, fecha):
             regalos_dia = 0
             jugados_dia = 0
 
+        return DummyCuadratura()
+
 
 def es_dia_1_del_ciclo(sucursal, fecha):
-    return get_caja_anterior_en_ciclo(sucursal, fecha) is None
+    """
+    Devuelve True si no hay cuadraturas anteriores en el ciclo.
+    """
+    inicio = get_inicio_ciclo(sucursal)
+    qs = CuadraturaCajaDiaria.objects.filter(
+        sucursal=sucursal,
+        fecha__lt=fecha
+    )
+    if inicio:
+        qs = qs.filter(fecha__gte=inicio)
+
+    return not qs.exists()

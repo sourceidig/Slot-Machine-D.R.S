@@ -37,6 +37,7 @@ urlpatterns = [
     path("cuadratura-diaria/<int:pk>/editar/", views.cuadratura_diaria_edit, name="cuadratura_diaria_edit"),
     path("cuadratura-diaria/<int:pk>/eliminar/", views.cuadratura_diaria_delete, name="cuadratura_diaria_delete"),
     path("cuadratura-diaria/export-excel/", views.cuadratura_diaria_export_excel, name="cuadratura_diaria_export_excel"),
+    path("cuadratura-diaria/recalcular/", views.cuadratura_diaria_recalcular_todo, name="cuadratura_diaria_recalcular"),
 
     # -------------------------
     # Cierre Turno (COLUMNA ROJA - ATENDEDORAS)  -> CierreTurno

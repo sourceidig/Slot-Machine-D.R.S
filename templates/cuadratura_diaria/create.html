@@ -120,6 +120,8 @@ input[readonly]{
             <div class="col-4">
               <input type="text" class="form-control readonly" id="id_caja_anterior" value="{{ caja_anterior }}" readonly>
               <div class="small text-muted mt-1">Caja anterior</div>
+              <input type="hidden" id="id_caja_inicial" value="{{ caja_inicial|default:0 }}">
+              <input type="hidden" id="id_prestamos_acum_ant" value="{{ prestamos_acum_ant|default:0 }}">
             </div>
           </div>
         </div>
@@ -381,20 +383,38 @@ input[readonly]{
       <div class="card mt-3">
         <div class="card-header">
           <div class="d-flex align-items-center justify-content-between">
-            <div class="section-title mb-0">Desglose de efectivo </div>
+            <div class="section-title mb-0">Desglose de efectivo</div>
             <div class="small text-muted"></div>
           </div>
         </div>
 
         <div class="card-body">
           <div class="row g-3 align-items-end">
-            <div class="col-md-4"><label class="form-label fw-bold">$20.000</label>{{ form.ef_20000 }}</div>
-            <div class="col-md-4"><label class="form-label fw-bold">$10.000</label>{{ form.ef_10000 }}</div>
-            <div class="col-md-4"><label class="form-label fw-bold">$5.000</label>{{ form.ef_5000 }}</div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">$20.000</label>
+              {{ form.ef_20000 }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">$10.000</label>
+              {{ form.ef_10000 }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">$5.000</label>
+              {{ form.ef_5000 }}
+            </div>
 
-            <div class="col-md-4"><label class="form-label fw-bold">$2.000</label>{{ form.ef_2000 }}</div>
-            <div class="col-md-4"><label class="form-label fw-bold">$1.000</label>{{ form.ef_1000 }}</div>
-            <div class="col-md-4"><label class="form-label fw-bold">Monedas</label>{{ form.ef_monedas }}</div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">$2.000</label>
+              {{ form.ef_2000 }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">$1.000</label>
+              {{ form.ef_1000 }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Monedas</label>
+              {{ form.ef_monedas }}
+            </div>
 
             <div class="col-md-4">
               <label class="form-label fw-bold">Total desglose</label>
@@ -517,6 +537,12 @@ document.addEventListener("DOMContentLoaded", () => {
         setVal(numeralDiaEl, data.numeral_dia ?? 0);
         setVal(numeralAcumEl, data.numeral_acumulado ?? 0);
         setVal(cajaAnteriorEl, data.caja_anterior ?? 0);
+        // Actualizar caja_inicial para recalcular ganancia correctamente
+        const cajaInicialEl = document.getElementById("id_caja_inicial");
+        if (cajaInicialEl) cajaInicialEl.value = data.caja_inicial ?? 0;
+        const prestamosAcumAntEl = document.getElementById("id_prestamos_acum_ant");
+        if (prestamosAcumAntEl) prestamosAcumAntEl.value = data.prestamos_acum_ant ?? 0;
+        recalcUI();
       } else {
         setVal(numeralDiaEl, 0);
         setVal(numeralAcumEl, 0);
@@ -626,11 +652,20 @@ function recalcUI() {
   const descuadre = desglose - total;
   setVal(descuadreEl, descuadre);
 
-  const ganancia = numeralDiaVal - (sorteos + gastos + sueldos + regalos + jugados + redbank + transfer);
+  // Ganancia = desglose efectivo - caja inicial - prestamos acumulados
+  // prestamos_acum = prestamos anteriores (del dia anterior) + prestamos de hoy
+  const cajaInicialVal = parseInt(document.getElementById("id_caja_inicial")?.value || 0);
+  const prestamosAntVal = parseInt(document.getElementById("id_prestamos_acum_ant")?.value || 0);
+  const prestamosHoy = parseIntSafe(document.getElementById("id_prestamos")?.value);
+  const prestamosAcum = prestamosAntVal + prestamosHoy;
+  const ganancia = desglose - cajaInicialVal - prestamosAcum;
   setVal(gananciaEl, ganancia);
 
   const retiro = parseIntSafe(document.getElementById("id_retiro_diario")?.value);
-  setVal(totalEfectivoEl, desglose - retiro);
+  // El retiro NO se resta visualmente aquí.
+  // Se guarda en BD como: total_efectivo = desglose - retiro
+  // y aparece restado en "Caja anterior" del día siguiente.
+  setVal(totalEfectivoEl, desglose);
 }
 
   // ========= 5) Hidden detalles (para backend) =========

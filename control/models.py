@@ -268,6 +268,7 @@ class CuadraturaCajaDiaria(models.Model):
     descuadre_ant = models.IntegerField(default=0); descuadre_dia = models.IntegerField(default=0); descuadre_acum = models.IntegerField(default=0); descuadre_notas = models.TextField(blank=True, default="")
 
     prestamos = models.IntegerField(null=True, blank=True, default=0)
+    prestamos_acum = models.IntegerField(null=True, blank=True, default=0)
     prestamos_notas = models.TextField(blank=True, default="")
 
     caja = models.IntegerField(default=0, verbose_name="Caja")
