@@ -368,14 +368,7 @@ def cuadratura_diaria_create(request):
                 })
 
             with transaction.atomic():
-                existente = CuadraturaCajaDiaria.objects.filter(
-                    sucursal=sucursal,
-                    fecha=fecha
-                ).first()
-
                 cuadratura = form.save(commit=False)
-                if existente:
-                    cuadratura.id = existente.id
 
                 cuadratura.usuario = request.user
                 cuadratura.sucursal = sucursal
@@ -445,22 +438,15 @@ def cuadratura_diaria_create(request):
                 sucursal=sucursal_obj, fecha__lt=fecha_post
             ).order_by("-fecha", "-creado_el").first()
             caja_anterior = int(prev.total_efectivo or 0) if prev else int(sucursal_obj.caja_inicial or 0)
+            caja_inicial = int(sucursal_obj.caja_inicial or 0)
+            prestamos_acum_ant = int(prev.prestamos_acum or 0) if prev else 0
         except (Sucursal.DoesNotExist, ValueError, TypeError):
             sucursal_obj = None
             caja_anterior = 0
+            caja_inicial = 0
+            prestamos_acum_ant = 0
 
-        non_field_errors = form.errors.get("__all__", [])
-        es_duplicado = any("Sucursal" in str(e) and "Fecha" in str(e) for e in non_field_errors)
-        if es_duplicado:
-            nombre_sucursal = sucursal_obj.nombre if sucursal_obj else "el local seleccionado"
-            messages.error(
-                request,
-                f"⚠️ Ya existe una Cuadratura Diaria para <strong>{nombre_sucursal}</strong> "
-                f"en la fecha <strong>{fecha_post}</strong>. "
-                f"No se puede crear un duplicado. Si desea modificarla, búsquela en el listado y edítela desde allí."
-            )
-        else:
-            messages.error(request, "Formulario inválido. Revise los datos enviados.")
+        messages.error(request, "Formulario inválido. Revise los datos enviados.")
 
     else:
         form = CuadraturaCajaDiariaForm(initial={"fecha": timezone.now().date()})
@@ -524,9 +510,11 @@ def cuadratura_diaria_list(request):
 @login_required
 def cuadratura_diaria_detail(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
+    # Última caja guardada antes de esta (mismo día más antigua, o días anteriores)
     caja_anterior_obj = CuadraturaCajaDiaria.objects.filter(
-        sucursal=cuadratura.sucursal,
-        fecha__lt=cuadratura.fecha
+        sucursal=cuadratura.sucursal
+    ).exclude(pk=cuadratura.pk if cuadratura.pk else 0).filter(
+        fecha__lte=cuadratura.fecha
     ).order_by("-fecha", "-creado_el").first()
     caja_anterior = int(caja_anterior_obj.total_efectivo or 0) if caja_anterior_obj else int(cuadratura.sucursal.caja_inicial or 0)
     return render(request, "cuadratura_diaria/detail.html", {
@@ -585,9 +573,11 @@ def cuadratura_diaria_edit(request, pk):
     else:
         form = CuadraturaCajaDiariaForm(instance=cuadratura)
 
+    # Última caja guardada antes de esta (mismo día más antigua, o días anteriores)
     caja_anterior_obj = CuadraturaCajaDiaria.objects.filter(
-        sucursal=cuadratura.sucursal,
-        fecha__lt=cuadratura.fecha
+        sucursal=cuadratura.sucursal
+    ).exclude(pk=cuadratura.pk if cuadratura.pk else 0).filter(
+        fecha__lte=cuadratura.fecha
     ).order_by("-fecha", "-creado_el").first()
     caja_anterior = int(caja_anterior_obj.total_efectivo or 0) if caja_anterior_obj else int(cuadratura.sucursal.caja_inicial or 0)
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
@@ -1028,34 +1018,60 @@ def registro_view(request):
             try:
                 lectura.total = int(lectura.entrada or 0) - int(lectura.salida or 0)
                 lectura.full_clean()
-                lectura.save()
+
+                # ── Validación: los contadores nunca deben retroceder ──
+                from .utils import get_referencia_anterior
+                entrada_ant, salida_ant, fuente = get_referencia_anterior(
+                    lectura.maquina, turno_abierto.fecha
+                )
+                entrada_ant = int(entrada_ant or 0)
+                salida_ant  = int(salida_ant or 0)
+                entrada_nueva = int(lectura.entrada or 0)
+                salida_nueva  = int(lectura.salida or 0)
+
+                errores = []
+                if entrada_nueva < entrada_ant:
+                    errores.append(
+                        f"Entrada ingresada ({entrada_nueva:,}) es MENOR al valor anterior ({entrada_ant:,}). "
+                        f"Verifique que los datos estén bien ingresados."
+                    )
+                if salida_nueva < salida_ant:
+                    errores.append(
+                        f"Salida ingresada ({salida_nueva:,}) es MENOR al valor anterior ({salida_ant:,}). "
+                        f"Verifique que los datos estén bien ingresados."
+                    )
+
+                if errores:
+                    for err in errores:
+                        messages.error(request, f"⚠️ Máquina {lectura.numero_maquina}: {err}")
+                else:
+                    lectura.save()
+                    request.session["ultima_zona"] = lectura.zona.id
+
+                    # Calcular la siguiente máquina en orden dentro de la zona
+                    maquinas_zona = list(
+                        Maquina.objects.filter(
+                            zona=lectura.zona,
+                            estado="Operativa",
+                            sucursal__is_active=True,
+                        ).order_by("numero_maquina").values_list("id", flat=True)
+                    )
+                    if lectura.maquina and lectura.maquina.id in maquinas_zona:
+                        idx = maquinas_zona.index(lectura.maquina.id)
+                        siguiente_idx = idx + 1
+                        if siguiente_idx < len(maquinas_zona):
+                            request.session["siguiente_maquina"] = maquinas_zona[siguiente_idx]
+                        else:
+                            request.session.pop("siguiente_maquina", None)
+                    else:
+                        request.session.pop("siguiente_maquina", None)
+
+                    messages.success(request, f"Lectura registrada. Máquina {lectura.maquina.numero_maquina} guardada.")
+                    return redirect("control:registro")
             except IntegrityError:
                 messages.error(request, "Ya existe una lectura para esa máquina en este turno.")
             except ValidationError as e:
                 messages.error(request, "; ".join(e.messages))
-            else:
-                request.session["ultima_zona"] = lectura.zona.id
-
-                # Calcular la siguiente máquina en orden dentro de la zona
-                maquinas_zona = list(
-                    Maquina.objects.filter(
-                        zona=lectura.zona,
-                        estado="Operativa",
-                        sucursal__is_active=True,
-                    ).order_by("numero_maquina").values_list("id", flat=True)
-                )
-                if lectura.maquina and lectura.maquina.id in maquinas_zona:
-                    idx = maquinas_zona.index(lectura.maquina.id)
-                    siguiente_idx = idx + 1
-                    if siguiente_idx < len(maquinas_zona):
-                        request.session["siguiente_maquina"] = maquinas_zona[siguiente_idx]
-                    else:
-                        request.session.pop("siguiente_maquina", None)
-                else:
-                    request.session.pop("siguiente_maquina", None)
-
-                messages.success(request, f"Lectura registrada. Máquina {lectura.maquina.numero_maquina} guardada.")
-                return redirect("control:registro")
         else:
             messages.error(request, "Formulario inválido. Revise los datos enviados.")
 
@@ -1441,15 +1457,15 @@ def tablas_view(request):
         if usuario_id:
             lecturas = lecturas.filter(usuario_id=usuario_id)
         if fecha_desde:
-            lecturas = lecturas.filter(fecha_registro__date__gte=fecha_desde)
+            lecturas = lecturas.filter(fecha_trabajo__gte=fecha_desde)
         if fecha_hasta:
-            lecturas = lecturas.filter(fecha_registro__date__lte=fecha_hasta)
+            lecturas = lecturas.filter(fecha_trabajo__lte=fecha_hasta)
 
     fecha = request.GET.get("fecha")
     if fecha and request.user.role == "usuario":
-        lecturas = lecturas.filter(fecha_registro__date=fecha)
+        lecturas = lecturas.filter(fecha_trabajo=fecha)
 
-    lecturas = lecturas.order_by("-fecha_registro")[:200]
+    lecturas = lecturas.order_by("-fecha_trabajo", "-fecha_registro")
 
     total_entrada = lecturas.aggregate(Sum("entrada"))["entrada__sum"] or 0
     total_salida = lecturas.aggregate(Sum("salida"))["salida__sum"] or 0

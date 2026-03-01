@@ -31,6 +31,14 @@ class EncuadreCajaAdminForm(forms.ModelForm):
 # CUADRATURA DIARIA (EXCEL GRANDE)
 # ======================================================
 
+class BlankZeroTextInput(forms.TextInput):
+    """Muestra vacío cuando el valor es 0 o None. Al guardar, vacío = 0."""
+    def format_value(self, value):
+        if value in (0, "0", None, ""):
+            return ""
+        return value
+
+
 class CuadraturaCajaDiariaForm(forms.ModelForm):
     class Meta:
         model = CuadraturaCajaDiaria
@@ -103,17 +111,34 @@ class CuadraturaCajaDiariaForm(forms.ModelForm):
                 attrs["id"] = f"id_{name}"
 
             field.required = False
-            field.widget = forms.TextInput(attrs=attrs)
+            field.widget = BlankZeroTextInput(attrs=attrs)
 
         if "prestamos" in self.fields:
             self.fields["prestamos"].required = False
-            self.fields["prestamos"].widget = forms.TextInput(attrs={
+            self.fields["prestamos"].widget = BlankZeroTextInput(attrs={
                 "class": "form-control form-control-sm text-end",
                 "type": "text",
                 "inputmode": "numeric",
                 "autocomplete": "off",
-                "placeholder": "Positivo suma / Negativo resta",
+                "placeholder": "",
             })
+
+
+    def clean(self):
+        cleaned = super().clean()
+        # Convertir campos vacíos a 0 para todos los IntegerFields
+        integer_field_names = [
+            name for name, field in self.fields.items()
+            if isinstance(field.widget, forms.TextInput)
+            and "notas" not in name
+            and name not in ["fecha", "observaciones", "sucursal"]
+        ]
+        for name in integer_field_names:
+            val = cleaned.get(name)
+            if val is None or val == "":
+                cleaned[name] = 0
+        return cleaned
+
 # ======================================================
 # TURNO
 # ======================================================
@@ -159,8 +184,8 @@ class LecturaMaquinaForm(forms.ModelForm):
         fields = ["zona", "maquina", "entrada", "salida", "total", "nota"]
         widgets = {
             "maquina": forms.Select(attrs={"class": "form-control form-control-lg"}),
-            "entrada": forms.NumberInput(attrs={"class": "form-control form-control-lg", "min": "0"}),
-            "salida": forms.NumberInput(attrs={"class": "form-control form-control-lg", "min": "0"}),
+            "entrada": BlankZeroTextInput(attrs={"class": "form-control form-control-lg", "inputmode": "numeric", "autocomplete": "off"}),
+            "salida": BlankZeroTextInput(attrs={"class": "form-control form-control-lg", "inputmode": "numeric", "autocomplete": "off"}),
             "total": forms.NumberInput(attrs={"class": "form-control form-control-lg", "readonly": "readonly"}),
             "nota": forms.TextInput(attrs={"class": "form-control form-control-lg", "placeholder": "Opcional"}),
         }
@@ -188,15 +213,16 @@ class LecturaMaquinaForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        entrada = cleaned.get("entrada")
-        salida = cleaned.get("salida")
+        entrada = cleaned.get("entrada") or 0
+        salida = cleaned.get("salida") or 0
         zona = cleaned.get("zona")
         maquina = cleaned.get("maquina")
-        if entrada is not None and salida is not None:
-            cleaned["total"] = int(entrada) - int(salida)
-        if entrada is not None and entrada < 0:
+        cleaned["entrada"] = entrada
+        cleaned["salida"] = salida
+        cleaned["total"] = int(entrada) - int(salida)
+        if entrada < 0:
             self.add_error("entrada", "La entrada no puede ser negativa.")
-        if salida is not None and salida < 0:
+        if salida < 0:
             self.add_error("salida", "La salida no puede ser negativa.")
 
         if maquina and zona and maquina.zona_id != zona.id:

@@ -100,7 +100,7 @@
                 <tbody>
                     {% for lectura in lecturas %}
                         <tr>
-                            <td>{{ lectura.fecha_registro|date:"d/m/Y H:i" }}</td>
+                            <td>{% if lectura.fecha_trabajo %}{{ lectura.fecha_trabajo|date:"d/m/Y" }}{% else %}{{ lectura.fecha_registro|date:"d/m/Y" }}{% endif %}</td>
                             <td>{{ lectura.sucursal.nombre }}</td>
                             <td>{{ lectura.zona.nombre }}</td>
                             <td>M{{ lectura.numero_maquina|stringformat:"02d" }}</td>

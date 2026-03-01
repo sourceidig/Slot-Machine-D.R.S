@@ -289,12 +289,6 @@ class CuadraturaCajaDiaria(models.Model):
 
     class Meta:
         ordering = ["-fecha", "-creado_el"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["sucursal", "fecha"],
-                name="uniq_cuadratura_por_sucursal_fecha"
-            )
-        ]
     def __str__(self):
         return f"Cuadratura diaria {self.sucursal.nombre} - {self.fecha}"
 
