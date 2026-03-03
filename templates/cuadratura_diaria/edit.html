@@ -2,28 +2,47 @@
 {% block page_title %}Editar Cuadratura Caja{% endblock %}
 
 {% block content %}
-<div class="card">
-  <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-    <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Editar Cuadratura</h5>
-    <a class="btn btn-light btn-sm" href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}">
-      <i class="bi bi-arrow-left"></i> Volver
-    </a>
-  </div>
 
-  <div class="card-body">
+<div class="pg-header pg-header-green">
+  <div>
+    <h5><i class="bi bi-pencil-square me-2"></i>Editar Cuadratura Caja Diaria</h5>
+    <div class="sub">{{ cuadratura.sucursal.nombre }} — {{ cuadratura.fecha|date:"d/m/Y" }}</div>
+  </div>
+  <a href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}" class="btn btn-sm btn-light">
+    <i class="bi bi-arrow-left me-1"></i> Volver
+  </a>
+</div>
+
+<div style="max-width:600px;margin:0 auto;">
+<div class="pg-card">
+  <div class="pg-card-body">
     <form method="post">
       {% csrf_token %}
-      {{ form.as_p }}
+      {% if form.errors %}
+      <div class="alert alert-danger rounded-3 small mb-4">
+        {% for field in form %}{% for err in field.errors %}
+        <div><i class="bi bi-exclamation-circle me-1"></i>{{ field.label }}: {{ err }}</div>
+        {% endfor %}{% endfor %}
+      </div>
+      {% endif %}
 
-      <div class="d-flex gap-2 mt-3">
-        <button class="btn btn-success">
-          <i class="bi bi-check-circle"></i> Guardar
+      {% for field in form %}
+      <div class="mb-3">
+        <label class="pg-label">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="text-muted mt-1" style="font-size:11px;">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div class="text-danger mt-1" style="font-size:12px;">{{ field.errors.as_text }}</div>{% endif %}
+      </div>
+      {% endfor %}
+
+      <div class="pg-form-footer">
+        <button type="submit" class="btn-pg-primary" style="border:none;cursor:pointer;">
+          <i class="bi bi-floppy me-1"></i> Guardar cambios
         </button>
-        <a class="btn btn-secondary" href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}">
-          Cancelar
-        </a>
+        <a href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}" class="btn-pg-secondary" style="text-decoration:none;">Cancelar</a>
       </div>
     </form>
   </div>
+</div>
 </div>
 {% endblock %}

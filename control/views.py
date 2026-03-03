@@ -1573,12 +1573,17 @@ def cuadratura_zona_view(request, turno_id):
     for zona in zonas:
         lecs = lecturas_por_zona.get(zona.id, [])
         total_lecs = sum(l.total for l in lecs)
+        az = asig_zonas.get(zona.id)
+        cz = cz_map.get(zona.id)
         zonas_data.append({
             "zona": zona,
-            "asignacion": asig_zonas.get(zona.id),
-            "cz": cz_map.get(zona.id),
+            "asignacion": az,
+            "cz": cz,
             "lecturas": lecs,
             "total_lecturas": total_lecs,
+            "val_banano":   cz.banano   if cz else (az.banano   if az else 0),
+            "val_prestamo": cz.prestamo if cz else (az.prestamo if az else 0),
+            "val_retiros":  cz.retiros  if cz else (az.retiros  if az else 0),
         })
 
     slots = list(

@@ -1,148 +1,806 @@
-{% extends "base.html" %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PLAZA GAMES{% endblock %}</title>
 
-{% block page_title %}Control de Lecturas{% endblock %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
 
-{% block content %}
+    <style>
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
 
-<!-- Header -->
-<div class="card border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:14px;">
-  <div class="card-body py-3 px-4">
-    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-      <div>
-        <h5 class="text-white fw-bold mb-1"><i class="bi bi-archive me-2"></i>Control de Lecturas</h5>
-        <div class="text-white-50 small d-flex gap-3 flex-wrap">
-          <span><i class="bi bi-building me-1"></i>{{ control.sucursal.nombre }}</span>
-          <span><i class="bi bi-calendar3 me-1"></i>{{ control.fecha_trabajo|date:"d/m/Y" }}</span>
-          {% if control.turno %}<span><i class="bi bi-clock me-1"></i>{{ control.turno.tipo_turno }}</span>{% endif %}
-          <span><i class="bi bi-person me-1"></i>{{ control.creado_por.nombre|default:control.creado_por.username|default:"—" }}</span>
+        :root {
+            --sidebar-width: 240px;
+            --gold: #c9a84c;
+            --gold-light: #e8c97a;
+            --gold-dim: rgba(201, 168, 76, 0.15);
+            --sidebar-bg: #0f1117;
+            --sidebar-border: rgba(201, 168, 76, 0.12);
+            --text-primary: #f0ece4;
+            --text-muted: #7a7570;
+            --nav-hover: rgba(255,255,255,0.04);
+            --nav-active-bg: rgba(201, 168, 76, 0.1);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+            background: #f1f0ee;
+            color: #1a1a1a;
+        }
+
+        /* ── SIDEBAR ──────────────────────────── */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            border-right: 1px solid var(--sidebar-border);
+        }
+
+        /* Brand */
+        .sidebar-brand {
+            padding: 1.4rem 1.3rem 1.1rem;
+            border-bottom: 1px solid var(--sidebar-border);
+            flex-shrink: 0;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            text-decoration: none;
+        }
+
+        .brand-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--gold) 0%, #8a5e20 100%);
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.05rem;
+            color: #0f1117;
+            flex-shrink: 0;
+            box-shadow: 0 2px 14px rgba(201,168,76,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+
+        .brand-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .brand-sub {
+            font-size: 0.62rem;
+            color: var(--gold);
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            font-weight: 500;
+            margin-top: 2px;
+            opacity: 0.85;
+        }
+
+        /* Nav */
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.6rem 0 0.6rem;
+            scrollbar-width: none;
+        }
+        .sidebar-nav::-webkit-scrollbar { display: none; }
+
+        .nav-section-label {
+            font-size: 0.59rem;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 0.9rem 1.3rem 0.3rem;
+            user-select: none;
+        }
+
+        .sidebar-nav .nav-link {
+            color: rgba(240, 236, 228, 0.6);
+            padding: 0.52rem 0.9rem 0.52rem 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            font-size: 0.83rem;
+            font-weight: 400;
+            transition: all 0.15s ease;
+            border-left: 2px solid transparent;
+            border-radius: 6px;
+            margin: 1px 0.6rem;
+            text-decoration: none;
+            position: relative;
+        }
+
+        .sidebar-nav .nav-link i {
+            font-size: 0.88rem;
+            width: 16px;
+            text-align: center;
+            opacity: 0.6;
+            transition: opacity 0.15s, color 0.15s;
+            flex-shrink: 0;
+        }
+
+        .sidebar-nav .nav-link:hover {
+            background: var(--nav-hover);
+            color: rgba(240,236,228,0.9);
+            border-left-color: rgba(201,168,76,0.2);
+        }
+        .sidebar-nav .nav-link:hover i { opacity: 0.9; }
+
+        .sidebar-nav .nav-link.active {
+            background: var(--nav-active-bg);
+            color: var(--gold-light);
+            font-weight: 500;
+            border-left: 2px solid var(--gold);
+        }
+        .sidebar-nav .nav-link.active i {
+            opacity: 1;
+            color: var(--gold);
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: var(--sidebar-border);
+            margin: 0.6rem 1.3rem;
+        }
+
+        /* Footer */
+        .sidebar-footer {
+            padding: 0.9rem 1.3rem;
+            border-top: 1px solid var(--sidebar-border);
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            flex-shrink: 0;
+        }
+
+        .user-avatar {
+            width: 30px; height: 30px;
+            background: linear-gradient(135deg, #1e1d18, #2e2c22);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid rgba(201,168,76,0.25);
+            font-size: 0.8rem;
+            color: var(--gold);
+            flex-shrink: 0;
+        }
+
+        .user-info { min-width: 0; flex: 1; }
+
+        .user-name {
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-role {
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        .logout-btn {
+            width: 26px; height: 26px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 5px;
+            color: var(--text-muted);
+            transition: all 0.15s;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .logout-btn:hover {
+            background: rgba(255,80,80,0.12);
+            color: #ff7070;
+        }
+        .logout-btn i { font-size: 0.85rem; }
+
+        /* ── MAIN ─────────────────────────────── */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-bar {
+            background: #ffffff;
+            border-bottom: 1px solid #e6e3de;
+            padding: 0.75rem 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+        }
+
+        .top-bar-icon {
+            width: 6px; height: 6px;
+            background: var(--gold);
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .top-bar-title {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            letter-spacing: -0.01em;
+        }
+
+        .content-area {
+            padding: 1.5rem 1.75rem;
+            flex: 1;
+        }
+
+        /* ── CARDS ────────────────────────────── */
+        .card {
+            border: 1px solid #e6e3de;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            border-radius: 10px;
+        }
+
+        .alert { border-radius: 8px; font-size: 0.875rem; }
+
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; position: relative; }
+            .main-content { margin-left: 0; }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+
+  <!-- ═══ DESIGN SYSTEM GLOBAL ═══════════════════════════════ -->
+  <style>
+    /* ── Inputs & Selects ── */
+    .form-control, .form-select {
+      border-radius: 8px !important;
+      border: 1.5px solid #e2e8f0 !important;
+      font-size: 14px !important;
+      padding: 8px 12px !important;
+      color: #1e293b !important;
+      transition: border-color .15s, box-shadow .15s;
+      background-color: #fff;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: #059669 !important;
+      box-shadow: 0 0 0 3px rgba(5,150,105,.12) !important;
+      outline: none;
+    }
+    .form-control[readonly] { background: #f8fafc; }
+    .form-control-sm, .form-select-sm {
+      padding: 5px 10px !important;
+      font-size: 13px !important;
+    }
+
+    /* ── Labels ── */
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 4px;
+    }
+
+    /* ── Buttons ── */
+    .btn-success { background-color: #059669 !important; border-color: #059669 !important; }
+    .btn-success:hover, .btn-success:active { background-color: #047857 !important; border-color: #047857 !important; }
+    .btn-outline-success { color: #059669 !important; border-color: #059669 !important; }
+    .btn-outline-success:hover { background-color: #059669 !important; color: #fff !important; }
+
+    /* ── Page Header Card ── */
+    .ds-header {
+      background: linear-gradient(135deg, #0f172a, #1e3a5f);
+      border-radius: 14px;
+      color: white;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 15px rgba(15,23,42,.25);
+      margin-bottom: 1.5rem;
+    }
+    .ds-header h5, .ds-header h6 { margin-bottom: 0; color: white; font-weight: 700; }
+    .ds-header .ds-sub { color: rgba(255,255,255,.6); font-size: 12px; margin-top: 2px; }
+
+    /* ── Danger Header (Encuadre) ── */
+    .ds-header-danger { background: linear-gradient(135deg, #7f1d1d, #b91c1c) !important; }
+
+    /* ── Content Cards ── */
+    .ds-card {
+      background: white;
+      border-radius: 14px !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+      border: none !important;
+    }
+
+    /* ── Section Dividers inside forms ── */
+    .ds-section {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: #64748b;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Form Footer (save/cancel buttons) ── */
+    .ds-form-footer {
+      border-top: 1px solid #f1f5f9;
+      padding-top: 16px;
+      margin-top: 20px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Tables ── */
+    .ds-table thead th {
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0 !important;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: #64748b;
+      font-weight: 600;
+      padding: 10px 16px;
+    }
+    .ds-table tbody tr:hover { background: #f8fafc; }
+    .ds-table tbody td { padding: 11px 16px; vertical-align: middle; color: #1e293b; font-size: 13px; }
+    .ds-table tbody td:first-child { font-weight: 600; }
+    .ds-table tfoot td { font-size: 13px; font-weight: 600; padding: 10px 16px; }
+
+    /* ── Filter bar ── */
+    .ds-filter { background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+                 box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+
+    /* ── KPI Cards ── */
+    .ds-kpi { border-radius: 12px; padding: 14px 18px; text-align: center; border: none;
+              box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+    .ds-kpi .ds-kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; opacity: .7; }
+    .ds-kpi .ds-kpi-val { font-size: 22px; font-weight: 800; margin-top: 2px; }
+
+    /* ── Info boxes inside forms ── */
+    .ds-info-box { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px 16px; }
+    .ds-warn-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 12px 16px; }
+    .ds-success-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 16px; }
+    .ds-danger-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 12px 16px; }
+
+    /* ── Readonly value display ── */
+    .ds-val { font-size: 20px; font-weight: 800; }
+
+    /* ── Print ── */
+    @media print { .ds-header, .no-print { display: none !important; } }
+  </style>
+
+  <!-- ═══ PLAZA GAMES — DESIGN SYSTEM ═══ -->
+  <style>
+    /* ── Variables ──────────────────────────────── */
+    :root {
+      --pg-navy:       #0f172a;
+      --pg-navy-2:     #1e293b;
+      --pg-navy-3:     #334155;
+      --pg-green:      #059669;
+      --pg-green-light:#d1fae5;
+      --pg-green-dark: #047857;
+      --pg-blue:       #2563eb;
+      --pg-blue-light: #eff6ff;
+      --pg-red:        #dc2626;
+      --pg-amber:      #d97706;
+      --pg-text:       #1e293b;
+      --pg-text-muted: #64748b;
+      --pg-border:     #e2e8f0;
+      --pg-bg:         #f8fafc;
+      --pg-radius:     12px;
+      --pg-radius-lg:  14px;
+      --pg-shadow:     0 1px 3px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.05);
+    }
+
+    /* ── Form controls ──────────────────────────── */
+    .form-control,
+    .form-select {
+      border-radius: 8px !important;
+      border: 1.5px solid var(--pg-border) !important;
+      font-size: 14px !important;
+      padding: 8px 12px !important;
+      color: var(--pg-text) !important;
+      background: #fff !important;
+      transition: border-color .18s, box-shadow .18s !important;
+    }
+    .form-control:focus,
+    .form-select:focus {
+      border-color: var(--pg-green) !important;
+      box-shadow: 0 0 0 3px rgba(5,150,105,.12) !important;
+      outline: none !important;
+    }
+    .form-control[readonly],
+    .form-control:disabled {
+      background: #f1f5f9 !important;
+      color: var(--pg-text) !important;
+    }
+    .form-control.fw-bold[readonly] {
+      font-weight: 700 !important;
+    }
+
+    /* ── Labels ────────────────────────────────── */
+    .pg-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--pg-text-muted);
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    /* ── Page header banner ─────────────────────── */
+    .pg-header {
+      background: linear-gradient(135deg, var(--pg-navy), var(--pg-navy-2));
+      border-radius: var(--pg-radius-lg);
+      padding: 14px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .pg-header h5, .pg-header h6 {
+      color: #fff;
+      font-weight: 700;
+      margin: 0;
+    }
+    .pg-header .sub {
+      color: rgba(255,255,255,.55);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    /* Variantes de color del header */
+    .pg-header-green  { background: linear-gradient(135deg, #064e3b, var(--pg-green)); }
+    .pg-header-blue   { background: linear-gradient(135deg, #1e3a8a, var(--pg-blue)); }
+    .pg-header-red    { background: linear-gradient(135deg, #7f1d1d, var(--pg-red)); }
+    .pg-header-amber  { background: linear-gradient(135deg, #78350f, var(--pg-amber)); }
+
+    /* ── Form card ───────────────────────────────── */
+    .pg-card {
+      background: #fff;
+      border: none;
+      border-radius: var(--pg-radius-lg);
+      box-shadow: var(--pg-shadow);
+      margin-bottom: 16px;
+    }
+    .pg-card .pg-card-body {
+      padding: 24px;
+    }
+    .pg-card .pg-card-section {
+      padding: 12px 20px;
+      background: var(--pg-bg);
+      border-bottom: 1px solid var(--pg-border);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--pg-text-muted);
+      border-radius: var(--pg-radius-lg) var(--pg-radius-lg) 0 0;
+    }
+
+    /* ── Buttons ────────────────────────────────── */
+    .btn-pg-primary {
+      background: var(--pg-green);
+      border-color: var(--pg-green);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 9px 20px;
+      font-size: 14px;
+      transition: background .15s, transform .1s;
+    }
+    .btn-pg-primary:hover {
+      background: var(--pg-green-dark);
+      border-color: var(--pg-green-dark);
+      color: #fff;
+    }
+    .btn-pg-secondary {
+      background: transparent;
+      border: 1.5px solid var(--pg-border);
+      color: var(--pg-text-muted);
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 9px 20px;
+      font-size: 14px;
+    }
+    .btn-pg-secondary:hover {
+      border-color: var(--pg-navy-3);
+      color: var(--pg-text);
+    }
+    .btn-pg-danger {
+      background: var(--pg-red);
+      border-color: var(--pg-red);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 9px 20px;
+      font-size: 14px;
+    }
+
+    /* ── Form footer ─────────────────────────────── */
+    .pg-form-footer {
+      display: flex;
+      gap: 10px;
+      padding-top: 16px;
+      margin-top: 16px;
+      border-top: 1px solid var(--pg-border);
+    }
+
+    /* ── Section divider dentro de form ─────────── */
+    .pg-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--pg-text-muted);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--pg-border);
+      margin-bottom: 14px;
+      margin-top: 20px;
+    }
+
+    /* ── Tables dentro de forms ──────────────────── */
+    .pg-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+    }
+    .pg-table thead th {
+      background: var(--pg-bg);
+      color: var(--pg-text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      padding: 8px 12px;
+      border-bottom: 2px solid var(--pg-border);
+    }
+    .pg-table tbody td {
+      padding: 7px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .pg-table tbody tr:last-child td { border-bottom: none; }
+    .pg-table tbody tr:hover { background: #fafbfc; }
+    .pg-table tfoot td {
+      padding: 8px 12px;
+      font-weight: 700;
+      background: var(--pg-bg);
+      border-top: 2px solid var(--pg-border);
+    }
+
+    /* ── Delete confirm ────────────────────────── */
+    .pg-delete-box {
+      max-width: 460px;
+      margin: 60px auto;
+    }
+    .pg-delete-icon {
+      width: 56px; height: 56px;
+      background: #fee2e2;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+{% if user.is_authenticated %}
+
+    <aside class="sidebar">
+
+        <div class="sidebar-brand">
+            <a href="{% url 'control:dashboard' %}" class="brand-logo">
+                <div class="brand-icon">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-name">Plaza</span>
+                    <span class="brand-sub">GAMES</span>
+                </div>
+            </a>
         </div>
-      </div>
-      <a href="{% url 'control:controles_list' %}" class="btn btn-sm btn-light">
-        <i class="bi bi-arrow-left me-1"></i> Volver
-      </a>
-    </div>
-  </div>
-</div>
 
-<!-- KPIs -->
-<div class="d-flex gap-3 mb-4 flex-wrap" style="max-width:860px;margin:0 auto 1.5rem auto;">
-  <div class="card border-0 shadow-sm flex-fill text-center" style="border-radius:12px;border-top:3px solid #2563eb;">
-    <div class="card-body py-3">
-      <div class="text-muted fw-semibold" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Máquinas</div>
-      <div class="fw-bold" style="font-size:26px;color:#2563eb;">{{ lineas|length }}</div>
-    </div>
-  </div>
-  <div class="card border-0 shadow-sm flex-fill text-center" style="border-radius:12px;border-top:3px solid #059669;">
-    <div class="card-body py-3">
-      <div class="text-muted fw-semibold" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Numeral del día</div>
-      <div class="fw-bold" style="font-size:26px;color:#059669;">{{ control.total_general }}</div>
-    </div>
-  </div>
-  <div class="card border-0 shadow-sm flex-fill text-center" style="border-radius:12px;border-top:3px solid #7c3aed;">
-    <div class="card-body py-3">
-      <div class="text-muted fw-semibold" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Zonas</div>
-      <div class="fw-bold" style="font-size:26px;color:#7c3aed;">{{ subtotales|length }}</div>
-    </div>
-  </div>
-</div>
+        <nav class="sidebar-nav">
 
-<!-- Tablas por zona -->
-{% regroup lineas by zona as zonas_group %}
+            {% if user.role == 'admin' %}
+            <div class="nav-section-label">Principal</div>
+            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+               href="{% url 'control:dashboard' %}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            {% endif %}
 
-<div style="max-width:860px;margin:0 auto;">
-{% for grupo in zonas_group %}
-<div class="card border-0 shadow-sm mb-3" style="border-radius:14px;overflow:hidden;">
+            <div class="nav-section-label">Operaciones</div>
 
-  <!-- Header zona -->
-  <div class="px-4 py-2 d-flex align-items-center justify-content-between"
-       style="background:#eff6ff;border-bottom:2px solid #bfdbfe;">
-    <span class="fw-bold d-flex align-items-center gap-2" style="color:#1d4ed8;">
-      <i class="bi bi-map-fill"></i> {{ grupo.grouper.nombre|default:"Sin zona" }}
-      <span class="badge bg-white text-secondary ms-1" style="font-size:11px;border:1px solid #e2e8f0;">
-        {{ grupo.list|length }} máq.
-      </span>
+            <a class="nav-link {% if request.resolver_match.url_name == 'turno' %}active{% endif %}"
+               href="{% url 'control:turno' %}">
+                <i class="bi bi-clock-history"></i> Turno
+            </a>
+
+            <a class="nav-link {% if request.resolver_match.url_name == 'cierre_turno_list' %}active{% endif %}"
+               href="{% url 'control:cierre_turno_list' %}">
+                <i class="bi bi-calculator"></i> Caja Turnos
+            </a>
+
+            <a class="nav-link {% if request.resolver_match.url_name == 'cuadratura_diaria_list' %}active{% endif %}"
+               href="{% url 'control:cuadratura_diaria_list' %}">
+                <i class="bi bi-calendar2-week"></i> Caja
+            </a>
+
+            {% if user.role == 'admin' %}
+            <a class="nav-link {% if request.resolver_match.url_name == 'recaudacion' %}active{% endif %}"
+               href="{% url 'control:recaudacion' %}">
+                <i class="bi bi-bar-chart-steps"></i> Recaudación
+            </a>
+
+            <a class="nav-link {% if request.resolver_match.url_name == 'controles_list' %}active{% endif %}"
+               href="{% url 'control:controles_list' %}">
+                <i class="bi bi-archive"></i> Controles
+            </a>
+            {% endif %}
+
+            </a>
+
+            <a class="nav-link {% if request.resolver_match.url_name == 'registro' %}active{% endif %}"
+               href="{% url 'control:registro' %}">
+                <i class="bi bi-clipboard-data"></i> Registro
+            </a>
+
+            {% if user.role == 'admin' %}
+            <div class="sidebar-divider"></div>
+            <div class="nav-section-label">Configuración</div>
+
+            <a class="nav-link {% if request.resolver_match.url_name == 'maquinas_list' %}active{% endif %}"
+               href="{% url 'control:maquinas_list' %}">
+                <i class="bi bi-cpu"></i> Máquinas
+            </a>
+
+            <a class="nav-link {% if request.resolver_match.url_name == 'zonas_list' %}active{% endif %}"
+               href="{% url 'control:zonas_list' %}">
+                <i class="bi bi-grid-3x3"></i> Zonas
+            </a>
+
+            <a class="nav-link {% if request.resolver_match.url_name == 'sucursales_list' %}active{% endif %}"
+               href="{% url 'control:sucursales_list' %}">
+                <i class="bi bi-building"></i> Sucursales
+            </a>
+
+            <a class="nav-link {% if request.resolver_match.url_name == 'usuarios_list' %}active{% endif %}"
+               href="{% url 'control:usuarios_list' %}">
+                <i class="bi bi-people"></i> Usuarios
+            </a>
+            {% endif %}
+
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-avatar">
+                <i class="bi bi-person-fill"></i>
+            </div>
+            <div class="user-info">
+                <div class="user-name">{{ user.nombre }}</div>
+                <div class="user-role">{{ user.get_role_display }}</div>
+            </div>
+            <a href="{% url 'control:logout' %}" class="logout-btn" title="Cerrar sesión">
+                <i class="bi bi-box-arrow-right"></i>
+            </a>
+        </div>
+
+    </aside>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="top-bar-icon"></div>
+            <span class="top-bar-title">{% block page_title %}{% endblock %}</span>
+        </div>
+
+        <main class="content-area">
+            {% if messages %}
+                {% for message in messages %}
+                    {% if message.tags == 'error' %}
+                        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill fs-5 mt-1"></i>
+                            <div>{{ message|safe }}</div>
+                            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% elif message.tags == 'success' %}
+                        <div class="alert alert-success alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-check-circle-fill fs-5 mt-1"></i>
+                            <div>{{ message|safe }}</div>
+                            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% elif message.tags == 'warning' %}
+                        <div class="alert alert-warning alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-exclamation-circle-fill fs-5 mt-1"></i>
+                            <div>{{ message|safe }}</div>
+                            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-info-circle-fill fs-5 mt-1"></i>
+                            <div>{{ message|safe }}</div>
+                            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+            {% block content %}
+{% if request.session.notif_recaudacion_ids %}
+{% for inf_id in request.session.notif_recaudacion_ids %}
+<div class="alert alert-success alert-dismissible d-flex align-items-start gap-3 mb-0"
+     style="border-radius:0;border:none;border-bottom:1px solid #86efac;background:#f0fdf4;margin-bottom:0!important;">
+  <i class="bi bi-check-circle-fill fs-5 mt-1 flex-shrink-0" style="color:#16a34a;"></i>
+  <div class="flex-grow-1">
+    <strong>Se realizó una recaudación automática</strong>
+    <span class="text-muted small ms-2">
+      Un nuevo informe de recaudación fue generado para tu local.
     </span>
-    <span class="fw-bold" style="color:#059669;font-size:16px;">
-      {% for key, val in subtotales.items %}{% if key == grupo.grouper.id %}{{ val }}{% endif %}{% endfor %}
-    </span>
+    <a href="{% url 'control:informe_recaudacion_list' %}" class="btn btn-sm btn-success ms-2 py-0 px-2" style="font-size:12px;">
+      Ver informe
+    </a>
   </div>
-
-  <!-- Tabla -->
-  <table class="table mb-0" style="font-size:15px;">
-    <thead style="background:#f8fafc;">
-      <tr style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.3px;">
-        <th class="px-4 py-2 fw-semibold" style="width:50px;">#</th>
-        <th class="py-2 fw-semibold">Juego / Servidor</th>
-        <th class="py-2 fw-semibold text-end" style="color:#475569;">E. Histórica</th>
-        <th class="py-2 fw-semibold text-end" style="color:#475569;">S. Histórica</th>
-        <th class="py-2 fw-semibold text-end" style="color:#1d4ed8;">E. Parcial</th>
-        <th class="py-2 fw-semibold text-end" style="color:#7c3aed;">S. Parcial</th>
-        <th class="py-2 fw-semibold text-end pe-4" style="color:#059669;">Total</th>
-        <th class="py-2" style="width:50px;"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for linea in grupo.list %}
-      <tr style="{% if forloop.even %}background:#fafbfc;{% endif %}border-bottom:1px solid #f1f5f9;">
-        <td class="px-4 py-3">
-          <span class="badge rounded-pill fw-bold" style="background:#dbeafe;color:#1d4ed8;font-size:12px;min-width:28px;">
-            {{ linea.numero_maquina }}
-          </span>
-        </td>
-        <td class="py-3">
-          <div class="fw-bold" style="color:#1e293b;font-size:15px;">{{ linea.juego|default:"—" }}</div>
-          <div class="text-muted" style="font-size:12px;">{{ linea.servidor|default:"—" }}</div>
-        </td>
-        <td class="py-3 text-end fw-semibold" style="color:#475569;font-size:16px;">{{ linea.entrada_historica }}</td>
-        <td class="py-3 text-end fw-semibold" style="color:#475569;font-size:16px;">{{ linea.salida_historica }}</td>
-        <td class="py-3 text-end fw-bold" style="color:#1d4ed8;font-size:17px;">{{ linea.entrada_parcial }}</td>
-        <td class="py-3 text-end fw-bold" style="color:#7c3aed;font-size:17px;">{{ linea.salida_parcial }}</td>
-        <td class="py-3 text-end pe-4 fw-bold" style="color:{% if linea.total < 0 %}#dc2626{% else %}#059669{% endif %};font-size:20px;">
-          {{ linea.total }}
-        </td>
-        <td class="py-3 text-center">
-          {% if linea.maquina %}
-          <a href="{% url 'control:lectura_edit_from_control' linea.pk control.pk %}"
-             class="btn btn-sm btn-outline-secondary p-1" style="line-height:1;">
-            <i class="bi bi-pencil" style="font-size:12px;"></i>
-          </a>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-    <tfoot>
-      <tr style="background:#f0f9ff;border-top:2px solid #bfdbfe;">
-        <td colspan="4" class="px-4 py-2 text-end text-muted fw-semibold" style="font-size:13px;">
-          Subtotal {{ grupo.grouper.nombre|default:"Sin zona" }}
-        </td>
-        <td class="py-2 text-end fw-bold" style="color:#1d4ed8;font-size:16px;">
-          {% with subtotal_e=0 %}{% for l in grupo.list %}{% endfor %}{% endwith %}—
-        </td>
-        <td class="py-2 text-end fw-bold" style="color:#7c3aed;font-size:16px;">—</td>
-        <td class="py-2 text-end pe-4 fw-bold" style="color:#059669;font-size:18px;">
-          {% for key, val in subtotales.items %}{% if key == grupo.grouper.id %}{{ val }}{% endif %}{% endfor %}
-        </td>
-        <td></td>
-      </tr>
-    </tfoot>
-  </table>
+  <form method="post" action="{% url 'control:dismiss_notificacion' inf_id %}" class="d-inline">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.path }}">
+    <button type="submit" class="btn-close" aria-label="Cerrar"></button>
+  </form>
 </div>
-{% empty %}
-<div class="p-4 text-center text-muted">Sin líneas registradas.</div>
 {% endfor %}
+{% endif %}{% endblock %}
+        </main>
+    </div>
 
-<!-- Total general -->
-<div class="card border-0 shadow-sm mt-2" style="border-radius:12px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
-  <div class="card-body py-3 px-4 d-flex justify-content-between align-items-center">
-    <span class="fw-bold text-muted" style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;">
-      <i class="bi bi-calculator me-1"></i> Total General — Numeral del día
-    </span>
-    <span class="fw-bold" style="color:#059669;font-size:28px;">{{ control.total_general }}</span>
-  </div>
-</div>
+{% else %}
+    {% block login_content %}{% endblock %}
+{% endif %}
 
-</div>
-
-{% endblock %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

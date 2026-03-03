@@ -1,123 +1,123 @@
 {% extends 'base.html' %}
-
-{% block title %}{{ title }} - Slot Machine D.R.S.{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-8 mx-auto">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">{{ title }}</h5>
-            </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="id_sucursal" class="form-label">Sucursal *</label>
-                            {{ form.sucursal }}
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <label for="id_zona" class="form-label">Zona *</label>
-                            {{ form.zona }}
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="id_numero_maquina" class="form-label">Número de Máquina *</label>
-                            {{ form.numero_maquina }}
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <label for="id_codigo_interno" class="form-label">Numero Interface</label>
-                            {{ form.codigo_interno }}
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_nombre_juego" class="form-label">Nombre del Juego *</label>
-                        {{ form.nombre_juego }}
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="id_servidor" class="form-label">Servidor</label>
-                            {{ form.servidor }}
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <label for="id_numero_serie" class="form-label">RTP</label>
-                            {{ form.numero_serie }}
-                        </div>
-                    </div>
-                    <div class="row">
-                    <div class="col-md-6">
-                        <label>Contador inicial entrada</label>
-                        {{ form.contador_inicial_entrada }}
-                    </div>
 
-                    <div class="col-md-6">
-                        <label>Contador inicial salida</label>
-                        {{ form.contador_inicial_salida }}
-                    </div>
-                </div>
+<div class="pg-header">
+  <div>
+    <h5><i class="bi bi-cpu me-2"></i>{{ title }}</h5>
+    <div class="sub">Completá los datos de la máquina</div>
+  </div>
+  <a href="{% url 'control:maquinas_list' %}" class="btn btn-sm btn-light">
+    <i class="bi bi-arrow-left me-1"></i> Volver
+  </a>
+</div>
 
-                        
-                        <div class="col-md-6 mb-3">
-                            <label for="id_ubicacion_detalle" class="form-label">Detalle de Ubicación</label>
-                            {{ form.ubicacion_detalle }}
-                        </div>
-                    </div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" name="guardar" class="btn btn-primary">
-                          <i class="bi bi-save"></i> Guardar
-                          </button>
-
-                        <button type="submit" name="guardar_otro" class="btn btn-success">
-                            <i class="bi bi-plus-circle"></i> Guardar y agregar otro
-                        </button>
-
-                        <a href="{% url 'control:maquinas_list' %}" class="btn btn-secondary">
-                            Cancelar
-                        </a>
-                    </div>
-
-                </form>
-            </div>
-        </div>
+<div style="max-width:680px;margin:0 auto;">
+<div class="pg-card">
+  <div class="pg-card-body">
+  <form method="post">
+    {% csrf_token %}
+    {% if form.errors %}
+    <div class="alert alert-danger rounded-3 small mb-4">
+      {% for field in form %}{% for err in field.errors %}
+      <div><i class="bi bi-exclamation-circle me-1"></i>{{ field.label }}: {{ err }}</div>
+      {% endfor %}{% endfor %}
     </div>
+    {% endif %}
+
+    <!-- Ubicación -->
+    <div class="pg-section-title" style="margin-top:0;">Ubicación</div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="pg-label">Sucursal <span class="text-danger">*</span></label>
+        {{ form.sucursal }}
+      </div>
+      <div class="col-md-6">
+        <label class="pg-label">Zona <span class="text-danger">*</span></label>
+        {{ form.zona }}
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="pg-label">Número de Máquina <span class="text-danger">*</span></label>
+        {{ form.numero_maquina }}
+      </div>
+      <div class="col-md-6">
+        <label class="pg-label">N° Interface (Código interno)</label>
+        {{ form.codigo_interno }}
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="pg-label">Detalle de Ubicación</label>
+      {{ form.ubicacion_detalle }}
+    </div>
+
+    <!-- Juego -->
+    <div class="pg-section-title">Juego</div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="pg-label">Nombre del Juego <span class="text-danger">*</span></label>
+        {{ form.nombre_juego }}
+      </div>
+      <div class="col-md-3">
+        <label class="pg-label">Servidor</label>
+        {{ form.servidor }}
+      </div>
+      <div class="col-md-3">
+        <label class="pg-label">RTP</label>
+        {{ form.numero_serie }}
+      </div>
+    </div>
+
+    <!-- Contadores -->
+    <div class="pg-section-title">Contadores iniciales</div>
+    <div class="row g-3 mb-1">
+      <div class="col-md-6">
+        <label class="pg-label">Contador inicial entrada</label>
+        {{ form.contador_inicial_entrada }}
+      </div>
+      <div class="col-md-6">
+        <label class="pg-label">Contador inicial salida</label>
+        {{ form.contador_inicial_salida }}
+      </div>
+    </div>
+
+    <div class="pg-form-footer">
+      <button type="submit" name="guardar" class="btn-pg-primary" style="border:none;cursor:pointer;">
+        <i class="bi bi-floppy me-1"></i> Guardar
+      </button>
+      <button type="submit" name="guardar_otro" class="btn btn-outline-success px-4 fw-semibold" style="border-radius:8px;font-size:14px;">
+        <i class="bi bi-plus-circle me-1"></i> Guardar y agregar otro
+      </button>
+      <a href="{% url 'control:maquinas_list' %}" class="btn-pg-secondary" style="text-decoration:none;">Cancelar</a>
+    </div>
+  </form>
+  </div>
+</div>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const sucursalSelect = document.getElementById("id_sucursal");
-    const zonaSelect = document.getElementById("id_zona");
+  const sucursalSelect = document.getElementById("id_sucursal");
+  const zonaSelect = document.getElementById("id_zona");
+  if (!sucursalSelect || !zonaSelect) return;
 
-    sucursalSelect.addEventListener("change", function () {
-        const sucursalId = this.value;
-
-        // limpiar zonas
-        zonaSelect.innerHTML = '<option value="">---------</option>';
-
-        if (!sucursalId) return;
-
-        fetch(`/ajax/zonas/?sucursal_id=${sucursalId}`)
-            .then(response => response.json())
-            .then(data => {
-                data.forEach(zona => {
-                    const option = document.createElement("option");
-                    option.value = zona.id;
-                    option.textContent = zona.nombre;
-                    zonaSelect.appendChild(option);
-                });
-            });
-    });
+  sucursalSelect.addEventListener("change", function () {
+    const sucursalId = this.value;
+    zonaSelect.innerHTML = '<option value="">---------</option>';
+    if (!sucursalId) return;
+    fetch(`/ajax/zonas/?sucursal_id=${sucursalId}`)
+      .then(r => r.json())
+      .then(data => {
+        data.forEach(zona => {
+          const opt = document.createElement("option");
+          opt.value = zona.id;
+          opt.textContent = zona.nombre;
+          zonaSelect.appendChild(opt);
+        });
+      });
+  });
 });
 </script>
-
 {% endblock %}

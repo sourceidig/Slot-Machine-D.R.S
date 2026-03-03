@@ -3,42 +3,24 @@
 {% block page_title %}Cuadratura de Turno{% endblock %}
 
 {% block content %}
-<div class="card">
-  <div class="card-header bg-primary text-white">
-    <h5 class="mb-0">
-      <i class="bi bi-calculator"></i>
-      Cuadratura de Caja - Turno
-    </h5>
-    <small>
-      {{ turno.sucursal.nombre }} |
-      {{ turno.fecha|date:"d/m/Y" }} |
-      {{ turno.tipo_turno }} |
-      {{ turno.usuario.nombre }}
-    </small>
-  </div>
-
-  <div class="card-body pb-0">
-    <div class="row g-2 mb-3">
-      <div class="col-md-3">
-        <label class="form-label fw-bold">Usuario</label>
-        <input class="form-control" value="{{ turno.usuario.nombre }}" readonly>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label fw-bold">Sucursal</label>
-        <input class="form-control" value="{{ turno.sucursal.nombre }}" readonly>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label fw-bold">Fecha</label>
-        <input class="form-control" value="{{ turno.fecha|date:'d/m/Y' }}" readonly>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label fw-bold">Turno</label>
-        <input class="form-control" value="{{ turno.tipo_turno }}" readonly>
-      </div>
+<div class="pg-header pg-header-blue">
+  <div>
+    <h5><i class="bi bi-calculator me-2"></i>Cuadratura de Caja — Turno</h5>
+    <div class="sub d-flex gap-3 flex-wrap">
+      <span><i class="bi bi-building me-1"></i>{{ turno.sucursal.nombre }}</span>
+      <span><i class="bi bi-calendar3 me-1"></i>{{ turno.fecha|date:"d/m/Y" }}</span>
+      <span><i class="bi bi-clock me-1"></i>{{ turno.tipo_turno }}</span>
+      <span><i class="bi bi-person me-1"></i>{{ turno.usuario.nombre }}</span>
     </div>
   </div>
+  <a href="{% url 'control:turno' %}" class="btn btn-sm btn-light">
+    <i class="bi bi-arrow-left me-1"></i> Volver
+  </a>
+</div>
 
-  <div class="card-body pt-0">
+<div style="max-width:800px;margin:0 auto;">
+<div class="pg-card">
+  <div class="pg-card-body" style="padding-bottom:0;">
     <form method="post" id="formCuadratura">
       {% csrf_token %}
 
@@ -46,8 +28,8 @@
 
       {% for block in zona_blocks %}
         <div class="border rounded mb-3 p-2">
-          <div class="bg-light px-2 py-2 border-bottom fw-bold">
-            ZONA: {{ block.zona.nombre }}
+          <div class="pg-card-section" style="border-radius:8px 8px 0 0;">
+            <i class="bi bi-map-fill me-2"></i> ZONA: {{ block.zona.nombre }}
           </div>
 
           <div class="table-responsive mt-2">
@@ -113,7 +95,7 @@
               <hr class="my-3">
 
             <div class="card">
-                <div class="card-header fw-bold">DETALLE ENTREGADO (MONTO)</div>
+                <div class="pg-card-section">Detalle entregado (monto)</div>
                 <div class="card-body">
 
                     <div class="row g-2">
@@ -183,7 +165,7 @@
      <hr class="my-4">
 
      <div class="card mb-3">
-        <div class="card-header fw-bold">DETALLE ENTREGADO (MONTO POR DENOMINACIÓN)</div>
+        <div class="pg-card-section">Detalle entregado (monto por denominación)</div>
         <div class="card-body">
 
             {{ den_fs.management_form }}
@@ -225,18 +207,18 @@
         {{ form.observaciones }}
       </div>
 
-      <div class="mt-4 d-flex gap-2">
-        <button type="submit" class="btn btn-success btn-lg">
-          <i class="bi bi-check-circle"></i> Guardar Cuadratura
+      <div class="pg-form-footer mt-3">
+        <button type="submit" class="btn-pg-primary" style="border:none;cursor:pointer;">
+          <i class="bi bi-floppy me-1"></i> Guardar Cuadratura
         </button>
-        <a href="{% url 'control:turno' %}" class="btn btn-secondary btn-lg">
-          <i class="bi bi-x-circle"></i> Volver
-        </a>
+        <a href="{% url 'control:turno' %}" class="btn-pg-secondary" style="text-decoration:none;">Cancelar</a>
       </div>
 
     </form>
   </div>
 </div>
+</div><!-- /pg-card -->
+</div><!-- /max-width -->
 {% endblock %}
 
 {% block extra_js %}
