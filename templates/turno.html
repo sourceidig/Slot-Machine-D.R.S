@@ -1,120 +1,393 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block page_title %}Gestión de Turno{% endblock %}
 
 {% block content %}
 
+<!-- ═══════════════════════════════════════════════════
+     SECCIÓN SUPERIOR: configuración del turno
+     - Sin turno: campos editables + botón "Iniciar"
+     - Con turno: info + botones de acción
+════════════════════════════════════════════════════ -->
+
 {% if turno_abierto %}
-    <!-- TURNO ABIERTO -->
-    <div class="card">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0">
-                <i class="bi bi-clock"></i> Turno Abierto
-            </h5>
+
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;">
+  <div class="card-body py-3 px-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+
+      <!-- Info del turno activo -->
+      <div class="d-flex align-items-center gap-4 flex-wrap">
+        <span class="badge bg-success d-flex align-items-center gap-1 px-3 py-2">
+          <i class="bi bi-circle-fill" style="font-size:8px;"></i> Turno Abierto
+        </span>
+        <div>
+          <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Sucursal</div>
+          <div class="fw-bold">{{ turno_abierto.sucursal.nombre }}</div>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Sucursal:</strong> {{ turno_abierto.sucursal.nombre }}</p>
-                    <p><strong>Fecha:</strong> {{ turno_abierto.fecha|date:"d/m/Y" }}</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>Tipo de Turno:</strong> {{ turno_abierto.tipo_turno }}</p>
-                    <p><strong>Lecturas Registradas:</strong> {{ cantidad_lecturas }}</p>
-                </div>
-            </div>
-
-            <div class="mt-3">
-                {% if turno_abierto.observaciones %}
-                <p><strong>Observaciones:</strong> {{ turno_abierto.observaciones }}</p>
-                {% endif %}
-            </div>
-
-            <div class="mt-4 d-flex gap-2">
-                <!-- Added button to create cuadratura when closing turno -->
-                <a class="btn btn-primary btn-lg"
-                    href="{% url 'control:cierre_turno' turno_abierto.id %}">
-                    <i class="bi bi-calculator"></i> Crear Cuadratura y Cerrar Turno
-                </a>
-                <a class="btn btn-outline-danger"
-                    href="{% url 'control:cerrar_turno_sin_cuadratura' turno_abierto.id %}">
-                    Cerrar turno (sin cuadratura)
-                </a>
-
-                <a href="{% url 'control:registro' %}" class="btn btn-info btn-lg">
-                    <i class="bi bi-clipboard-data"></i> Ir a Registro
-                </a>
-            </div>
+        <div>
+          <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Fecha</div>
+          <div class="fw-bold">{{ turno_abierto.fecha|date:"d/m/Y" }}</div>
         </div>
-    </div>
-
-    <!-- HISTORIAL DE LECTURAS -->
-    <div class="card mt-4">
-        <div class="card-header">
-            <h6 class="mb-0">
-                <i class="bi bi-list-check"></i> Últimas Lecturas del Turno
-            </h6>
+        <div>
+          <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Tipo</div>
+          <div class="fw-bold">{{ turno_abierto.tipo_turno }}</div>
         </div>
-        <div class="card-body">
-            {% if cantidad_lecturas > 0 %}
-            <p class="text-muted">Ver todas las lecturas en la pestaña <a href="{% url 'control:tablas' %}">Tablas</a></p>
-            {% else %}
-            <p class="text-muted">Aún no hay lecturas registradas en este turno.</p>
-            {% endif %}
+        <div>
+          <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Lecturas</div>
+          <div class="fw-bold">{{ cantidad_lecturas }}</div>
         </div>
-    </div>
+      </div>
 
-{% else %}
-<!-- INICIAR NUEVO TURNO (minimal) -->
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-md-8 col-lg-5">
-
-      <div class="card shadow-sm border-0 rounded-4">
-        <div class="card-body p-4">
-
-          <div class="d-flex align-items-center gap-2 mb-3">
-            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle text-primary"
-                  style="width:40px;height:40px;">
-              <i class="bi bi-plus-circle"></i>
-            </span>
-            <div>
-              <h5 class="mb-0">Iniciar Turno</h5>
-              <small class="text-muted">Selecciona sucursal, fecha y tipo.</small>
-            </div>
-          </div>
-
-          <form method="post" class="vstack gap-3">
-            {% csrf_token %}
-
-            <div>
-              <label class="form-label mb-1">Sucursal <span class="text-danger">*</span></label>
-              {{ form.sucursal }}
-            </div>
-
-            <div>
-              <label class="form-label mb-1">Fecha <span class="text-danger">*</span></label>
-              {{ form.fecha }}
-            </div>
-
-            <div>
-              <label class="form-label mb-1">Tipo de Turno <span class="text-danger">*</span></label>
-              {{ form.tipo_turno }}
-            </div>
-
-            <button type="submit" class="btn btn-success w-100 py-2">
-              <i class="bi bi-play-circle me-1"></i> Iniciar Turno
-            </button>
-          </form>
-
-        </div>
+      <!-- Acciones -->
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'control:cuadratura_zona' turno_abierto.id %}" class="btn btn-primary btn-sm">
+          <i class="bi bi-calculator me-1"></i> Cuadratura
+        </a>
+        <a href="{% url 'control:registro' %}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-clipboard-data me-1"></i> Registro
+        </a>
+        <a href="{% url 'control:cerrar_turno_sin_cuadratura' turno_abierto.id %}"
+           class="btn btn-outline-danger btn-sm"
+           onclick="return confirm('¿Cerrar el turno sin cuadratura?')">
+          <i class="bi bi-x-circle me-1"></i> Cerrar turno
+        </a>
       </div>
 
     </div>
   </div>
 </div>
+
+{% else %}
+
+<!-- Sin turno: campos de configuración inline -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;border:2px dashed #cbd5e1;">
+  <div class="card-body py-3 px-4">
+    <form method="post" id="form-iniciar-turno">
+      {% csrf_token %}
+      <div class="d-flex align-items-end gap-3 flex-wrap">
+
+        <div style="min-width:180px;">
+          <label class="form-label small fw-semibold mb-1">
+            Sucursal <span class="text-danger">*</span>
+          </label>
+          {{ form.sucursal }}
+          {% if form.sucursal.errors %}
+            <div class="text-danger" style="font-size:11px;">{{ form.sucursal.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div style="min-width:160px;">
+          <label class="form-label small fw-semibold mb-1">
+            Fecha <span class="text-danger">*</span>
+          </label>
+          {{ form.fecha }}
+          {% if form.fecha.errors %}
+            <div class="text-danger" style="font-size:11px;">{{ form.fecha.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div style="min-width:150px;">
+          <label class="form-label small fw-semibold mb-1">
+            Tipo de Turno <span class="text-danger">*</span>
+          </label>
+          {{ form.tipo_turno }}
+          {% if form.tipo_turno.errors %}
+            <div class="text-danger" style="font-size:11px;">{{ form.tipo_turno.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="pb-1">
+          <button type="submit" class="btn btn-success px-4">
+            <i class="bi bi-play-circle me-1"></i> Iniciar Turno
+          </button>
+        </div>
+
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endif %}
 
 
+<!-- ═══════════════════════════════════════════════════
+     SECCIÓN ASIGNACIONES
+     - Con turno: activa y funcional
+     - Sin turno: visible pero deshabilitada
+════════════════════════════════════════════════════ -->
+
+{% if turno_abierto %}
+<form method="post" action="{% url 'control:guardar_asignaciones' turno_abierto.id %}">
+  {% csrf_token %}
+  <input type="hidden" name="cant_redbank"   id="cant_redbank_input"   value="{{ cant_redbank }}">
+  <input type="hidden" name="cant_servicios" id="cant_servicios_input" value="{{ cant_servicios }}">
+{% endif %}
+
+  <!-- ZONAS -->
+  <div class="card border-0 shadow-sm mb-4 {% if not turno_abierto %}opacity-50{% endif %}" style="border-radius:14px;">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h6 class="fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-map text-primary"></i> Asignación por Zonas
+        </h6>
+        {% if not turno_abierto %}
+          <span class="badge bg-secondary-subtle text-secondary small">Iniciá el turno para asignar</span>
+        {% endif %}
+      </div>
+
+      {% if turno_abierto %}
+        {% if zonas %}
+          <div class="vstack gap-3">
+            {% for zona in zonas %}
+              <div class="border rounded-3 p-3" id="zona-card-{{ zona.id }}" style="background:#fafbfc;">
+                <div class="row align-items-center g-2">
+                  <div class="col-auto">
+                    <span class="badge bg-secondary-subtle text-secondary px-3 py-2 rounded-pill fw-semibold">
+                      {{ zona.nombre }}
+                    </span>
+                  </div>
+                  <div class="col">
+                    <select name="zona_{{ zona.id }}_usuario"
+                            class="form-select form-select-sm zona-user-select"
+                            data-zona="{{ zona.id }}"
+                            onchange="toggleZonaForm({{ zona.id }}, this.value)">
+                      <option value="">Sin asignar</option>
+                      {% for u in usuarios_sucursal %}
+                        <option value="{{ u.id }}">{{ u.nombre }} ({{ u.get_role_display }})</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+                <div class="zona-form mt-3" id="zona-form-{{ zona.id }}" style="display:none;">
+                  <div class="p-3 rounded-3" style="background:linear-gradient(135deg,#f0fdf4,#f8fafc);border:1px solid #bbf7d0;">
+                    <div class="row g-2">
+                      <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Banano</label>
+                        <input type="number" min="0" name="zona_{{ zona.id }}_banano"
+                               id="zona-banano-{{ zona.id }}" class="form-control form-control-sm" placeholder="0">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Préstamo</label>
+                        <input type="number" min="0" name="zona_{{ zona.id }}_prestamo"
+                               id="zona-prestamo-{{ zona.id }}" class="form-control form-control-sm" placeholder="0">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Retiros</label>
+                        <input type="number" min="0" name="zona_{{ zona.id }}_retiros"
+                               id="zona-retiros-{{ zona.id }}" class="form-control form-control-sm" placeholder="0">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted small mb-0">No hay zonas activas en esta sucursal.</p>
+        {% endif %}
+      {% else %}
+        <!-- Placeholder zonas sin turno -->
+        <div class="border rounded-3 p-3" style="background:#fafbfc;">
+          <div class="d-flex align-items-center gap-3">
+            <span class="badge bg-secondary-subtle text-secondary px-3 py-2 rounded-pill">Zona —</span>
+            <div class="flex-grow-1" style="height:32px;background:#f1f5f9;border-radius:6px;"></div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- REDBANK -->
+  <div class="card border-0 shadow-sm mb-4 {% if not turno_abierto %}opacity-50{% endif %}" style="border-radius:14px;">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-bank text-warning"></i> Asignación Redbank
+      </h6>
+      {% if turno_abierto %}
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <span class="small fw-semibold text-muted">Cantidad:</span>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" style="min-width:30px;padding:0 8px;"
+                    onclick="changeCant('redbank',-1)">-</button>
+            <span id="cant_redbank_display" class="fw-bold px-2">{{ cant_redbank }}</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" style="min-width:30px;padding:0 8px;"
+                    onclick="changeCant('redbank',1)">+</button>
+          </div>
+        </div>
+        <div id="redbank-slots" class="vstack gap-2">
+          {% if cant_redbank_range %}
+            {% for i in cant_redbank_range %}
+              <div class="d-flex align-items-center gap-3 p-2 border rounded-3" style="background:#f0f9ff;">
+                <span class="small fw-bold text-primary" style="min-width:85px;">Redbank {{ i }}</span>
+                <select name="redbank_{{ i }}_usuario" class="form-select form-select-sm">
+                  <option value="">Sin asignar</option>
+                  {% for u in usuarios_sucursal %}
+                    <option value="{{ u.id }}">{{ u.nombre }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="text-muted small mb-0">Usá + para agregar Redbanks.</p>
+          {% endif %}
+        </div>
+      {% else %}
+        <p class="text-muted small mb-0">Iniciá el turno para configurar.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- SERVICIOS -->
+  <div class="card border-0 shadow-sm mb-4 {% if not turno_abierto %}opacity-50{% endif %}" style="border-radius:14px;">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-controller" style="color:#8b5cf6;"></i> Asignación Servicios
+      </h6>
+      {% if turno_abierto %}
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <span class="small fw-semibold text-muted">Cantidad:</span>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" style="min-width:30px;padding:0 8px;"
+                    onclick="changeCant('servicios',-1)">-</button>
+            <span id="cant_servicios_display" class="fw-bold px-2">{{ cant_servicios }}</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" style="min-width:30px;padding:0 8px;"
+                    onclick="changeCant('servicios',1)">+</button>
+          </div>
+        </div>
+        <div id="servicios-slots" class="vstack gap-2">
+          {% if cant_servicios_range %}
+            {% for i in cant_servicios_range %}
+              <div class="d-flex align-items-center gap-3 p-2 border rounded-3" style="background:#faf5ff;">
+                <span class="small fw-bold" style="color:#8b5cf6;min-width:85px;">Servicio {{ i }}</span>
+                <select name="servicio_{{ i }}_usuario" class="form-select form-select-sm">
+                  <option value="">Sin asignar</option>
+                  {% for u in usuarios_sucursal %}
+                    <option value="{{ u.id }}">{{ u.nombre }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="text-muted small mb-0">Usá + para agregar Servicios.</p>
+          {% endif %}
+        </div>
+      {% else %}
+        <p class="text-muted small mb-0">Iniciá el turno para configurar.</p>
+      {% endif %}
+    </div>
+  </div>
+
+{% if turno_abierto %}
+  <div class="d-flex justify-content-end mb-4">
+    <button type="submit" class="btn btn-success px-4">
+      <i class="bi bi-floppy me-1"></i> Guardar Asignaciones
+    </button>
+  </div>
+</form>
+{% endif %}
+
 {% endblock %}
 
+
+{% block extra_js %}
+{% if turno_abierto %}
+<script>
+const ASIG_ZONAS = {
+  {% for zona_id, az in asig_zonas.items %}
+  "{{ zona_id }}": {uid:"{{ az.usuario_id|default:'' }}", banano:{{ az.banano|default:0 }}, prestamo:{{ az.prestamo|default:0 }}, retiros:{{ az.retiros|default:0 }}},
+  {% endfor %}
+};
+
+const ASIG_SLOTS = {
+  {% for key, slot in asig_slots.items %}"{{ key.0 }}_{{ key.1 }}":"{{ slot.usuario_id|default:'' }}",{% endfor %}
+};
+
+const UOPTS = [
+  {% for u in usuarios_sucursal %}{"id":"{{ u.id }}","nombre":"{{ u.nombre }}"},{% endfor %}
+];
+
+function buildSelectOpts(savedUid) {
+  let opts = '<option value="">Sin asignar</option>';
+  UOPTS.forEach(u => {
+    opts += `<option value="${u.id}"${u.id===savedUid?' selected':''}>${u.nombre}</option>`;
+  });
+  return opts;
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  document.querySelectorAll(".zona-user-select").forEach(sel => {
+    const zid = sel.dataset.zona;
+    const saved = ASIG_ZONAS[zid];
+    if (saved && saved.uid) {
+      sel.value = saved.uid;
+      toggleZonaForm(zid, saved.uid, saved.banano, saved.prestamo, saved.retiros);
+    }
+  });
+  document.querySelectorAll("[name^='redbank_'][name$='_usuario']").forEach(sel => {
+    const n = sel.name.match(/redbank_(\d+)_usuario/)[1];
+    const saved = ASIG_SLOTS["redbank_"+n];
+    if (saved) sel.value = saved;
+  });
+  document.querySelectorAll("[name^='servicio_'][name$='_usuario']").forEach(sel => {
+    const n = sel.name.match(/servicio_(\d+)_usuario/)[1];
+    const saved = ASIG_SLOTS["servicio_"+n];
+    if (saved) sel.value = saved;
+  });
+});
+
+function toggleZonaForm(zid, uid, banano, prestamo, retiros) {
+  const form = document.getElementById("zona-form-"+zid);
+  const card = document.getElementById("zona-card-"+zid);
+  if (!form) return;
+  if (uid) {
+    form.style.display = "block";
+    card.style.borderColor = "#86efac";
+    card.style.background = "#f0fdf4";
+    if (banano   !== undefined) document.getElementById("zona-banano-"+zid).value   = banano   || 0;
+    if (prestamo !== undefined) document.getElementById("zona-prestamo-"+zid).value = prestamo || 0;
+    if (retiros  !== undefined) document.getElementById("zona-retiros-"+zid).value  = retiros  || 0;
+  } else {
+    form.style.display = "none";
+    card.style.borderColor = "";
+    card.style.background = "#fafbfc";
+  }
+}
+
+function changeCant(tipo, delta) {
+  const isRedbank = tipo === "redbank";
+  const inp       = document.getElementById("cant_"+tipo+"_input");
+  const display   = document.getElementById("cant_"+tipo+"_display");
+  const container = document.getElementById(tipo+"-slots");
+
+  let n = Math.max(0, (parseInt(inp.value)||0) + delta);
+  inp.value = n;
+  display.textContent = n;
+
+  container.innerHTML = "";
+  if (n === 0) {
+    const p = document.createElement("p");
+    p.className = "text-muted small mb-0";
+    p.textContent = "Usá + para agregar "+(isRedbank ? "Redbanks" : "Servicios")+".";
+    container.appendChild(p);
+  } else {
+    for (let i = 1; i <= n; i++) {
+      const key      = (isRedbank ? "redbank" : "servicio")+"_"+i;
+      const savedUid = ASIG_SLOTS[key] || "";
+      const div      = document.createElement("div");
+      div.className  = "d-flex align-items-center gap-3 p-2 border rounded-3";
+      div.style.background = isRedbank ? "#f0f9ff" : "#faf5ff";
+      const labelColor = isRedbank ? "color:#0369a1;" : "color:#8b5cf6;";
+      div.innerHTML =
+        `<span class="small fw-bold" style="min-width:85px;${labelColor}">`+
+        (isRedbank ? "Redbank" : "Servicio")+` ${i}</span>`+
+        `<select name="${isRedbank?'redbank':'servicio'}_${i}_usuario" class="form-select form-select-sm">`+
+        buildSelectOpts(savedUid)+`</select>`;
+      container.appendChild(div);
+    }
+  }
+}
+</script>
+{% endif %}
+{% endblock %}

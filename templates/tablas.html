@@ -15,6 +15,13 @@
     </div>
     <div class="card-body">
         
+        <!-- Indicador de filtro activo -->
+        {% if user.role == 'admin' and not request.GET.sucursal and not request.GET.zona and not request.GET.usuario and not request.GET.fecha_desde and not request.GET.fecha_hasta %}
+        <div class="alert alert-info py-2 mb-3">
+            <i class="bi bi-info-circle"></i> Mostrando lecturas de <strong>hoy</strong>. Usa los filtros para ver otras fechas.
+        </div>
+        {% endif %}
+
         <!-- Filtros -->
         <form method="get" class="row g-3 mb-4">
             {% if user.role == 'admin' %}

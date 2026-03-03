@@ -209,7 +209,7 @@ class LecturaMaquina(models.Model):
         return f"Lectura {self.numero_maquina} - {self.nombre_juego} ({self.fecha_registro})"
 
     def save(self, *args, **kwargs):
-    # 1) fecha_trabajo SIEMPRE desde el turno (si existe)
+        # 1) fecha_trabajo SIEMPRE desde el turno (si existe)
         if self.turno_id and not self.fecha_trabajo:
             self.fecha_trabajo = self.turno.fecha
 
@@ -220,22 +220,21 @@ class LecturaMaquina(models.Model):
             self.sucursal = self.maquina.sucursal
             self.zona = self.maquina.zona
 
-        # 3) SOLO al crear: calcular anterior/parciales/total
+        # 3) Al CREAR: obtener referencia anterior desde historial
         if not self.pk:
-            # import local para evitar circular import
             from .utils import get_referencia_anterior
-
             entrada_ant, salida_ant, fuente = get_referencia_anterior(
                 self.maquina,
                 self.fecha_trabajo
             )
-
             self.entrada_anterior = int(entrada_ant or 0)
             self.salida_anterior = int(salida_ant or 0)
 
-            self.entrada_dia = int(self.entrada or 0) - self.entrada_anterior
-            self.salida_dia  = int(self.salida or 0)  - self.salida_anterior
-            self.total       = self.entrada_dia - self.salida_dia
+        # 4) Siempre recalcular parciales y total (al crear Y al editar)
+        #    Al editar, entrada_anterior/salida_anterior ya tienen el valor correcto guardado.
+        self.entrada_dia = int(self.entrada or 0) - int(self.entrada_anterior or 0)
+        self.salida_dia  = int(self.salida or 0)  - int(self.salida_anterior or 0)
+        self.total       = self.entrada_dia - self.salida_dia
 
         super().save(*args, **kwargs)
 
@@ -548,3 +547,166 @@ class ControlLecturasLinea(models.Model):
 
     class Meta:
         ordering = ["numero_maquina", "id"]
+
+
+# ==========================
+# ASIGNACIONES DE TURNO
+# ==========================
+
+class AsignacionTurnoZona(models.Model):
+    turno = models.ForeignKey(
+        Turno, on_delete=models.CASCADE, related_name="asignaciones_zona"
+    )
+    zona = models.ForeignKey(
+        Zona, on_delete=models.CASCADE, related_name="asignaciones_turno"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="asignaciones_zona",
+    )
+    banano   = models.IntegerField(default=0)
+    prestamo = models.IntegerField(default=0)
+    retiros  = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ("turno", "zona")
+
+    def __str__(self):
+        return f"Zona {self.zona} turno {self.turno_id}"
+
+
+class AsignacionTurnoSlot(models.Model):
+    TIPO_CHOICES = [("redbank", "Redbank"), ("servicio", "Servicio")]
+    turno   = models.ForeignKey(
+        Turno, on_delete=models.CASCADE, related_name="asignaciones_slot"
+    )
+    tipo    = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    numero  = models.PositiveSmallIntegerField()
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="asignaciones_slot",
+    )
+
+    class Meta:
+        unique_together = ("turno", "tipo", "numero")
+
+    def __str__(self):
+        return f"{self.tipo} {self.numero} turno {self.turno_id}"
+
+# ═══════════════════════════════════════════════════════════════
+# INFORME DE RECAUDACIÓN
+# Snapshot generado al cerrar un ciclo de recaudación.
+# ═══════════════════════════════════════════════════════════════
+
+class InformeRecaudacion(models.Model):
+    sucursal      = models.ForeignKey("Sucursal", on_delete=models.CASCADE, related_name="informes_recaudacion")
+    fecha_inicio  = models.DateField(verbose_name="Inicio del ciclo")
+    fecha_cierre  = models.DateField(verbose_name="Cierre del ciclo")
+    creado_por    = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    creado_en     = models.DateTimeField(auto_now_add=True)
+
+    # Totales del ciclo (desnormalizados para mostrar rápido)
+    total_numeral        = models.BigIntegerField(default=0)
+    total_entrada        = models.BigIntegerField(default=0)
+    total_salida         = models.BigIntegerField(default=0)
+
+    # Notificación post-recaudación: True cuando el primer usuario la vio y cerró
+    notificacion_consumida = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-fecha_cierre", "-creado_en"]
+
+    def __str__(self):
+        return f"Recaudación {self.sucursal} {self.fecha_inicio} → {self.fecha_cierre}"
+
+    @property
+    def rtp(self):
+        if self.total_entrada and self.total_entrada > 0:
+            return round(self.total_salida / self.total_entrada * 100, 1)
+        return 0
+
+
+class InformeRecaudacionLinea(models.Model):
+    """Una fila de la tabla de máquinas del informe."""
+    informe         = models.ForeignKey(InformeRecaudacion, on_delete=models.CASCADE, related_name="lineas")
+    zona            = models.ForeignKey("Zona", on_delete=models.SET_NULL, null=True, blank=True)
+    zona_nombre     = models.CharField(max_length=80, blank=True)   # snapshot
+
+    numero_maquina  = models.IntegerField()
+    codigo_interno  = models.CharField(max_length=80, blank=True)
+    servidor        = models.CharField(max_length=60, blank=True)
+    juego           = models.CharField(max_length=120, blank=True)
+
+    # Contadores al INICIO del ciclo (snapshot de contador_inicial)
+    hist_entrada_inicio  = models.BigIntegerField(default=0)
+    hist_salida_inicio   = models.BigIntegerField(default=0)
+    # Contadores al CIERRE del ciclo (último control)
+    hist_entrada_cierre  = models.BigIntegerField(default=0)
+    hist_salida_cierre   = models.BigIntegerField(default=0)
+
+    # Parciales del ciclo (= cierre - inicio)
+    parcial_entrada = models.BigIntegerField(default=0)
+    parcial_salida  = models.BigIntegerField(default=0)
+    total           = models.BigIntegerField(default=0)
+
+    class Meta:
+        ordering = ["zona_nombre", "numero_maquina"]
+
+    @property
+    def rtp(self):
+        if self.parcial_entrada and self.parcial_entrada > 0:
+            return round(self.parcial_salida / self.parcial_entrada * 100, 1)
+        return 0
+
+
+class InformeRecaudacionCaja(models.Model):
+    """Resumen de caja acumulado del ciclo (1-a-1 con InformeRecaudacion)."""
+    informe          = models.OneToOneField(InformeRecaudacion, on_delete=models.CASCADE, related_name="resumen_caja")
+
+    numeral          = models.BigIntegerField(default=0)
+    prestamos        = models.BigIntegerField(default=0)
+    retiros          = models.BigIntegerField(default=0)
+    redbank          = models.BigIntegerField(default=0)
+    transferencias   = models.BigIntegerField(default=0)
+    sueldo_extra     = models.BigIntegerField(default=0)
+    sorteos          = models.BigIntegerField(default=0)
+    gastos           = models.BigIntegerField(default=0)
+    regalos          = models.BigIntegerField(default=0)
+    jugados          = models.BigIntegerField(default=0)
+    otros            = models.BigIntegerField(default=0)
+    billetes_malos   = models.BigIntegerField(default=0)
+    descuadre        = models.BigIntegerField(default=0)
+    total_caja       = models.BigIntegerField(default=0)   # caja final al cierre
+
+    def __str__(self):
+        return f"Caja {self.informe}"
+
+
+# ═══════════════════════════════════════════════════════════════
+# PROGRAMACIÓN AUTOMÁTICA DE RECAUDACIÓN
+# ═══════════════════════════════════════════════════════════════
+
+class ProgramacionRecaudacion(models.Model):
+    sucursal    = models.OneToOneField(
+        "Sucursal", on_delete=models.CASCADE,
+        related_name="programacion_recaudacion"
+    )
+    activa      = models.BooleanField(default=True)
+    dia_del_mes = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Día del mes en que se ejecuta la recaudación (1-31)"
+    )
+    hora        = models.TimeField(help_text="Hora del cierre automático (24h)")
+    creado_por  = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True
+    )
+    creado_en   = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Prog. recaudación {self.sucursal} — día {self.dia_del_mes} a las {self.hora:%H:%M}"

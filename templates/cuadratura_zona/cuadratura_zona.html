@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+{% load static custom_filters %}
+
+{% block page_title %}Cuadratura de Zona{% endblock %}
+
+{% block content %}
+
+{% if turno %}
+
+<!-- Header -->
+<div class="card border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:14px;">
+  <div class="card-body py-3 px-4">
+    <div class="d-flex align-items-center justify-content-between gap-3">
+      <div>
+        <h5 class="text-white fw-bold mb-1 d-flex align-items-center gap-2">
+          <i class="bi bi-calculator"></i> Cuadratura de Zona
+        </h5>
+        <div class="text-white-50 small">
+          {{ turno.sucursal.nombre }} &nbsp;|&nbsp; {{ turno.fecha|date:"d/m/Y" }} &nbsp;|&nbsp; {{ turno.tipo_turno }} &nbsp;|&nbsp; {{ turno.usuario.nombre }}
+        </div>
+      </div>
+      <a href="{% url 'control:turno' %}" class="btn btn-sm btn-light d-flex align-items-center gap-1" style="white-space:nowrap;">
+        <i class="bi bi-arrow-left"></i> Volver
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="mb-4">
+  <div class="d-flex flex-wrap gap-2" id="seccion-tabs">
+
+    {% for item in zonas_data %}
+    <button type="button" class="tab-btn {% if forloop.first %}tab-activo{% endif %}"
+            onclick="activarTab(this, 'panel-zona-{{ item.zona.id }}')">
+      <span class="tab-icon" style="background:#dbeafe;color:#1d4ed8;"><i class="bi bi-map-fill"></i></span>
+      <span class="tab-label">{{ item.zona.nombre }}</span>
+      <span class="tab-user">{% if item.asignacion and item.asignacion.usuario %}{{ item.asignacion.usuario.nombre }}{% else %}Sin asignar{% endif %}</span>
+    </button>
+    {% endfor %}
+
+    {% for item in redbank_data %}
+    <button type="button" class="tab-btn" onclick="activarTab(this, 'panel-redbank-{{ item.numero }}')">
+      <span class="tab-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-bank"></i></span>
+      <span class="tab-label">Redbank {{ item.numero }}</span>
+      <span class="tab-user">{% if item.usuario %}{{ item.usuario.nombre }}{% else %}Sin asignar{% endif %}</span>
+    </button>
+    {% endfor %}
+
+    {% for item in servicio_data %}
+    <button type="button" class="tab-btn" onclick="activarTab(this, 'panel-servicio-{{ item.numero }}')">
+      <span class="tab-icon" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-controller"></i></span>
+      <span class="tab-label">Servicio {{ item.numero }}</span>
+      <span class="tab-user">{% if item.usuario %}{{ item.usuario.nombre }}{% else %}Sin asignar{% endif %}</span>
+    </button>
+    {% endfor %}
+
+  </div>
+</div>
+
+<!-- Paneles de zonas -->
+{% for item in zonas_data %}
+<div class="panel-cuadratura {% if not forloop.first %}d-none{% endif %}" id="panel-zona-{{ item.zona.id }}">
+
+  <form method="post" action="{% url 'control:guardar_cuadratura_zona' turno.id item.zona.id %}">
+    {% csrf_token %}
+
+    <!-- Badge zona + usuario -->
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <span class="badge px-3 py-2 fw-semibold" style="background:#dbeafe;color:#1d4ed8;border-radius:10px;font-size:13px;">
+        <i class="bi bi-map-fill me-1"></i>{{ item.zona.nombre }}
+      </span>
+      {% if item.asignacion and item.asignacion.usuario %}
+        <span class="text-muted small"><i class="bi bi-person me-1"></i>{{ item.asignacion.usuario.nombre }}</span>
+      {% endif %}
+    </div>
+
+    <!-- Contenido limitado en ancho -->
+    <div style="max-width:680px;margin:0 auto;">
+
+      <!-- Lecturas -->
+      {% if item.lecturas %}
+      <div class="card border-0 mb-3" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+        <div class="card-body p-3">
+          <div class="small fw-semibold text-muted text-uppercase mb-2" style="letter-spacing:.5px;font-size:10px;">Lecturas de la zona</div>
+          <table class="table table-sm table-borderless mb-1" style="font-size:13px;">
+            <thead>
+              <tr style="color:#94a3b8;">
+                <th>N° Máq.</th><th>Juego</th>
+                <th class="text-end">Entrada</th><th class="text-end">Salida</th><th class="text-end">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lec in item.lecturas %}
+              <tr>
+                <td>{{ lec.numero_maquina }}</td><td>{{ lec.nombre_juego }}</td>
+                <td class="text-end">{{ lec.entrada_dia }}</td>
+                <td class="text-end">{{ lec.salida_dia }}</td>
+                <td class="text-end fw-semibold">{{ lec.total }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr style="border-top:2px solid #e2e8f0;">
+                <td colspan="4" class="text-end fw-bold small text-muted">TOTAL ZONA:</td>
+                <td class="text-end fw-bold" style="color:#1d4ed8;">{{ item.total_lecturas }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Datos de caja -->
+      <div class="card border-0 mb-3" style="background:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;">
+        <div class="card-body p-3">
+          <div class="small fw-semibold text-muted text-uppercase mb-2" style="letter-spacing:.5px;font-size:10px;">Datos de caja</div>
+          <div class="row g-2">
+            <div class="col-4">
+              <label class="form-label small fw-semibold mb-1">Banano</label>
+              <input type="number" min="0" name="banano" class="form-control form-control-sm text-end"
+                     value="{{ item.cz.banano|default:item.asignacion.banano|default:0 }}">
+            </div>
+            <div class="col-4">
+              <label class="form-label small fw-semibold mb-1">Préstamos</label>
+              <input type="number" name="prestamo" class="form-control form-control-sm text-end"
+                     value="{{ item.cz.prestamo|default:item.asignacion.prestamo|default:0 }}">
+            </div>
+            <div class="col-4">
+              <label class="form-label small fw-semibold mb-1">Retiros</label>
+              <input type="number" min="0" name="retiros" class="form-control form-control-sm text-end"
+                     value="{{ item.cz.retiros|default:item.asignacion.retiros|default:0 }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desglose efectivo -->
+      <div class="card border-0 mb-3" style="background:#fffbeb;border-radius:12px;border:1px solid #fde68a;">
+        <div class="card-body p-3">
+          <div class="small fw-semibold text-muted text-uppercase mb-2" style="letter-spacing:.5px;font-size:10px;">Desglose efectivo entregado</div>
+          <div class="row g-2">
+            {% for denom in denominaciones %}
+            <div class="col-4">
+              <label class="form-label mb-1" style="font-size:11px;font-weight:600;color:#92400e;">${{ denom.label }}</label>
+              <input type="number" min="0" name="ef_{{ denom.key }}"
+                     class="form-control form-control-sm text-end ef-input"
+                     value="{% if item.cz %}{{ item.cz|get_ef:denom.key }}{% else %}0{% endif %}"
+                     oninput="calcularTotal('{{ item.zona.id }}')">
+            </div>
+            {% endfor %}
+            <div class="col-4">
+              <label class="form-label mb-1" style="font-size:11px;font-weight:600;color:#92400e;">Monedas ($)</label>
+              <input type="number" min="0" name="ef_monedas"
+                     class="form-control form-control-sm text-end ef-input"
+                     value="{% if item.cz %}{{ item.cz.monedas_monto|default:0 }}{% else %}0{% endif %}"
+                     oninput="calcularTotal('{{ item.zona.id }}')">
+            </div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-2 pt-2" style="border-top:1px solid #fde68a;">
+            <span class="small fw-semibold text-muted">Total efectivo:</span>
+            <span class="fw-bold" id="total-ef-{{ item.zona.id }}" style="color:#d97706;">
+              ${% if item.cz %}{{ item.cz.detalle_entregado_total|default:0 }}{% else %}0{% endif %}
+            </span>
+            <input type="hidden" name="detalle_entregado_total" id="hidden-total-{{ item.zona.id }}"
+                   value="{% if item.cz %}{{ item.cz.detalle_entregado_total|default:0 }}{% else %}0{% endif %}">
+          </div>
+        </div>
+      </div>
+
+      <!-- Notas -->
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Notas</label>
+        <textarea name="notas" rows="2" class="form-control form-control-sm"
+                  placeholder="Observaciones de la zona...">{% if item.cz %}{{ item.cz.notas }}{% endif %}</textarea>
+      </div>
+
+      <!-- Descuadre -->
+      <div class="card border-0 mb-3" style="background:#fef2f2;border-radius:12px;border:1px solid #fecaca;">
+        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+          <div>
+            <div class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.5px;font-size:10px;">Descuadre</div>
+            <div class="text-muted" style="font-size:11px;">Se calculará al guardar</div>
+          </div>
+          <span class="fw-bold fs-5" style="color:{% if item.cz and item.cz.descuadre %}#dc2626{% else %}#16a34a{% endif %};">
+            ${% if item.cz %}{{ item.cz.descuadre|default:0 }}{% else %}0{% endif %}
+          </span>
+        </div>
+      </div>
+
+      <!-- Guardar -->
+      <div class="d-flex justify-content-end">
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="bi bi-floppy me-1"></i> Guardar {{ item.zona.nombre }}
+        </button>
+      </div>
+
+    </div><!-- /max-width -->
+  </form>
+</div>
+{% endfor %}
+
+<!-- Paneles Redbank -->
+{% for item in redbank_data %}
+<div class="panel-cuadratura d-none" id="panel-redbank-{{ item.numero }}">
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <span class="badge px-3 py-2 fw-semibold" style="background:#fef3c7;color:#d97706;border-radius:10px;font-size:13px;">
+      <i class="bi bi-bank me-1"></i>Redbank {{ item.numero }}
+    </span>
+    {% if item.usuario %}<span class="text-muted small"><i class="bi bi-person me-1"></i>{{ item.usuario.nombre }}</span>{% endif %}
+  </div>
+  <div class="card border-0 p-4 text-center text-muted" style="max-width:680px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;">
+    <i class="bi bi-bank fs-1 mb-2 d-block" style="color:#fbbf24;"></i>
+    <p class="mb-0 fw-semibold">La cuadratura de Redbank se configurará próximamente.</p>
+    <p class="small mt-1 mb-0">El registro de asignación quedó guardado.</p>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Paneles Servicios -->
+{% for item in servicio_data %}
+<div class="panel-cuadratura d-none" id="panel-servicio-{{ item.numero }}">
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <span class="badge px-3 py-2 fw-semibold" style="background:#ede9fe;color:#7c3aed;border-radius:10px;font-size:13px;">
+      <i class="bi bi-controller me-1"></i>Servicio {{ item.numero }}
+    </span>
+    {% if item.usuario %}<span class="text-muted small"><i class="bi bi-person me-1"></i>{{ item.usuario.nombre }}</span>{% endif %}
+  </div>
+  <div class="card border-0 p-4 text-center text-muted" style="max-width:680px;border-radius:12px;background:#faf5ff;border:1px solid #e9d5ff;">
+    <i class="bi bi-controller fs-1 mb-2 d-block" style="color:#a78bfa;"></i>
+    <p class="mb-0 fw-semibold">La cuadratura de Servicios se configurará próximamente.</p>
+    <p class="small mt-1 mb-0">El registro de asignación quedó guardado.</p>
+  </div>
+</div>
+{% endfor %}
+
+{% if not zonas_data and not redbank_data and not servicio_data %}
+<div class="card border-0 shadow-sm p-5 text-center text-muted" style="border-radius:14px;">
+  <i class="bi bi-exclamation-circle fs-1 mb-3 d-block"></i>
+  <p class="mb-0">No hay zonas, Redbank ni Servicios asignados a este turno.</p>
+  <a href="{% url 'control:turno' %}" class="btn btn-outline-primary mt-3">
+    <i class="bi bi-arrow-left me-1"></i> Volver a Turno
+  </a>
+</div>
+{% endif %}
+
+{% else %}
+<div class="alert alert-warning">No se encontró el turno.</div>
+{% endif %}
+
+{% endblock %}
+
+
+{% block extra_js %}
+<style>
+  .tab-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 14px; border: 2px solid #e2e8f0; border-radius: 12px;
+    background: #fff; cursor: pointer; transition: all .15s ease;
+    min-width: 90px; text-align: center;
+  }
+  .tab-btn:hover { border-color: #94a3b8; background: #f8fafc; }
+  .tab-btn.tab-activo { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .tab-icon { width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px; }
+  .tab-label { font-size:12px; font-weight:700; color:#1e293b; white-space:nowrap; }
+  .tab-user { font-size:10px; color:#64748b; max-width:86px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .panel-cuadratura { animation: fadeIn .15s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+</style>
+
+<script>
+function activarTab(btn, targetId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-activo'));
+  document.querySelectorAll('.panel-cuadratura').forEach(p => p.classList.add('d-none'));
+  btn.classList.add('tab-activo');
+  const panel = document.getElementById(targetId);
+  if (panel) panel.classList.remove('d-none');
+}
+
+function calcularTotal(zonaId) {
+  const panel = document.getElementById('panel-zona-' + zonaId);
+  if (!panel) return;
+  let total = 0;
+  panel.querySelectorAll('.ef-input').forEach(inp => { total += parseFloat(inp.value) || 0; });
+  const display = document.getElementById('total-ef-' + zonaId);
+  const hidden  = document.getElementById('hidden-total-' + zonaId);
+  if (display) display.textContent = '$' + total.toLocaleString('es-CL');
+  if (hidden)  hidden.value = total;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  {% for item in zonas_data %}calcularTotal('{{ item.zona.id }}');{% endfor %}
+});
+</script>
+{% endblock %}

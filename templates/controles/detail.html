@@ -1,51 +1,148 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block page_title %}Control de Lecturas{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center">
-    <div>
-      <h3>Control de Lecturas</h3>
-      <div class="text-muted">{{ control.sucursal.nombre }} | {{ control.fecha_trabajo }}</div>
+
+<!-- Header -->
+<div class="card border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:14px;">
+  <div class="card-body py-3 px-4">
+    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+      <div>
+        <h5 class="text-white fw-bold mb-1"><i class="bi bi-archive me-2"></i>Control de Lecturas</h5>
+        <div class="text-white-50 small d-flex gap-3 flex-wrap">
+          <span><i class="bi bi-building me-1"></i>{{ control.sucursal.nombre }}</span>
+          <span><i class="bi bi-calendar3 me-1"></i>{{ control.fecha_trabajo|date:"d/m/Y" }}</span>
+          {% if control.turno %}<span><i class="bi bi-clock me-1"></i>{{ control.turno.tipo_turno }}</span>{% endif %}
+          <span><i class="bi bi-person me-1"></i>{{ control.creado_por.nombre|default:control.creado_por.username|default:"—" }}</span>
+        </div>
+      </div>
+      <a href="{% url 'control:controles_list' %}" class="btn btn-sm btn-light">
+        <i class="bi bi-arrow-left me-1"></i> Volver
+      </a>
     </div>
-    <a class="btn btn-secondary" href="{% url 'control:controles_list' %}">Volver</a>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="d-flex gap-3 mb-4 flex-wrap" style="max-width:860px;margin:0 auto 1.5rem auto;">
+  <div class="card border-0 shadow-sm flex-fill text-center" style="border-radius:12px;border-top:3px solid #2563eb;">
+    <div class="card-body py-3">
+      <div class="text-muted fw-semibold" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Máquinas</div>
+      <div class="fw-bold" style="font-size:26px;color:#2563eb;">{{ lineas|length }}</div>
+    </div>
+  </div>
+  <div class="card border-0 shadow-sm flex-fill text-center" style="border-radius:12px;border-top:3px solid #059669;">
+    <div class="card-body py-3">
+      <div class="text-muted fw-semibold" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Numeral del día</div>
+      <div class="fw-bold" style="font-size:26px;color:#059669;">{{ control.total_general }}</div>
+    </div>
+  </div>
+  <div class="card border-0 shadow-sm flex-fill text-center" style="border-radius:12px;border-top:3px solid #7c3aed;">
+    <div class="card-body py-3">
+      <div class="text-muted fw-semibold" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Zonas</div>
+      <div class="fw-bold" style="font-size:26px;color:#7c3aed;">{{ subtotales|length }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tablas por zona -->
+{% regroup lineas by zona as zonas_group %}
+
+<div style="max-width:860px;margin:0 auto;">
+{% for grupo in zonas_group %}
+<div class="card border-0 shadow-sm mb-3" style="border-radius:14px;overflow:hidden;">
+
+  <!-- Header zona -->
+  <div class="px-4 py-2 d-flex align-items-center justify-content-between"
+       style="background:#eff6ff;border-bottom:2px solid #bfdbfe;">
+    <span class="fw-bold d-flex align-items-center gap-2" style="color:#1d4ed8;">
+      <i class="bi bi-map-fill"></i> {{ grupo.grouper.nombre|default:"Sin zona" }}
+      <span class="badge bg-white text-secondary ms-1" style="font-size:11px;border:1px solid #e2e8f0;">
+        {{ grupo.list|length }} máq.
+      </span>
+    </span>
+    <span class="fw-bold" style="color:#059669;font-size:16px;">
+      {% for key, val in subtotales.items %}{% if key == grupo.grouper.id %}{{ val }}{% endif %}{% endfor %}
+    </span>
   </div>
 
-  <table class="table table-bordered mt-3">
-    <thead>
-      <tr>
-        <th>Zona</th>
-        <th>N°</th>
-        <th>Servidor</th>
-        <th>Juego</th>
-        <th>Entrada Histórica</th>
-        <th>Salida Histórica</th>
-        <th>Entrada Parcial</th>
-        <th>Salida Parcial</th>
-        <th>Total</th>
+  <!-- Tabla -->
+  <table class="table mb-0" style="font-size:15px;">
+    <thead style="background:#f8fafc;">
+      <tr style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.3px;">
+        <th class="px-4 py-2 fw-semibold" style="width:50px;">#</th>
+        <th class="py-2 fw-semibold">Juego / Servidor</th>
+        <th class="py-2 fw-semibold text-end" style="color:#475569;">E. Histórica</th>
+        <th class="py-2 fw-semibold text-end" style="color:#475569;">S. Histórica</th>
+        <th class="py-2 fw-semibold text-end" style="color:#1d4ed8;">E. Parcial</th>
+        <th class="py-2 fw-semibold text-end" style="color:#7c3aed;">S. Parcial</th>
+        <th class="py-2 fw-semibold text-end pe-4" style="color:#059669;">Total</th>
+        <th class="py-2" style="width:50px;"></th>
       </tr>
     </thead>
-
     <tbody>
-      {% for l in lineas %}
-      <tr>
-        <td>{{ l.zona.nombre }}</td>
-        <td>{{ l.numero_maquina }}</td>
-        <td>{{ l.servidor }}</td>
-        <td>{{ l.juego }}</td>
-        <td>{{ l.entrada_historica }}</td>
-        <td>{{ l.salida_historica }}</td>
-        <td>{{ l.entrada_parcial }}</td>
-        <td>{{ l.salida_parcial }}</td>
-        <td><strong>{{ l.total }}</strong></td>
+      {% for linea in grupo.list %}
+      <tr style="{% if forloop.even %}background:#fafbfc;{% endif %}border-bottom:1px solid #f1f5f9;">
+        <td class="px-4 py-3">
+          <span class="badge rounded-pill fw-bold" style="background:#dbeafe;color:#1d4ed8;font-size:12px;min-width:28px;">
+            {{ linea.numero_maquina }}
+          </span>
+        </td>
+        <td class="py-3">
+          <div class="fw-bold" style="color:#1e293b;font-size:15px;">{{ linea.juego|default:"—" }}</div>
+          <div class="text-muted" style="font-size:12px;">{{ linea.servidor|default:"—" }}</div>
+        </td>
+        <td class="py-3 text-end fw-semibold" style="color:#475569;font-size:16px;">{{ linea.entrada_historica }}</td>
+        <td class="py-3 text-end fw-semibold" style="color:#475569;font-size:16px;">{{ linea.salida_historica }}</td>
+        <td class="py-3 text-end fw-bold" style="color:#1d4ed8;font-size:17px;">{{ linea.entrada_parcial }}</td>
+        <td class="py-3 text-end fw-bold" style="color:#7c3aed;font-size:17px;">{{ linea.salida_parcial }}</td>
+        <td class="py-3 text-end pe-4 fw-bold" style="color:{% if linea.total < 0 %}#dc2626{% else %}#059669{% endif %};font-size:20px;">
+          {{ linea.total }}
+        </td>
+        <td class="py-3 text-center">
+          {% if linea.maquina %}
+          <a href="{% url 'control:lectura_edit_from_control' linea.pk control.pk %}"
+             class="btn btn-sm btn-outline-secondary p-1" style="line-height:1;">
+            <i class="bi bi-pencil" style="font-size:12px;"></i>
+          </a>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
-
     <tfoot>
-      <tr>
-        <td colspan="8" class="text-end"><strong>Total General (Numeral del día):</strong></td>
-        <td><strong>{{ control.total_general }}</strong></td>
+      <tr style="background:#f0f9ff;border-top:2px solid #bfdbfe;">
+        <td colspan="4" class="px-4 py-2 text-end text-muted fw-semibold" style="font-size:13px;">
+          Subtotal {{ grupo.grouper.nombre|default:"Sin zona" }}
+        </td>
+        <td class="py-2 text-end fw-bold" style="color:#1d4ed8;font-size:16px;">
+          {% with subtotal_e=0 %}{% for l in grupo.list %}{% endfor %}{% endwith %}—
+        </td>
+        <td class="py-2 text-end fw-bold" style="color:#7c3aed;font-size:16px;">—</td>
+        <td class="py-2 text-end pe-4 fw-bold" style="color:#059669;font-size:18px;">
+          {% for key, val in subtotales.items %}{% if key == grupo.grouper.id %}{{ val }}{% endif %}{% endfor %}
+        </td>
+        <td></td>
       </tr>
     </tfoot>
   </table>
 </div>
+{% empty %}
+<div class="p-4 text-center text-muted">Sin líneas registradas.</div>
+{% endfor %}
+
+<!-- Total general -->
+<div class="card border-0 shadow-sm mt-2" style="border-radius:12px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+  <div class="card-body py-3 px-4 d-flex justify-content-between align-items-center">
+    <span class="fw-bold text-muted" style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;">
+      <i class="bi bi-calculator me-1"></i> Total General — Numeral del día
+    </span>
+    <span class="fw-bold" style="color:#059669;font-size:28px;">{{ control.total_general }}</span>
+  </div>
+</div>
+
+</div>
+
 {% endblock %}

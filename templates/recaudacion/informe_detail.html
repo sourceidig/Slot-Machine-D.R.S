@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %}Informe de Recaudación{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════
+     HEADER
+══════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#064e3b,#059669);border-radius:14px;">
+  <div class="card-body py-3 px-4">
+    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+      <div>
+        <h5 class="text-white fw-bold mb-1 d-flex align-items-center gap-2">
+          <i class="bi bi-receipt"></i> Informe de Recaudación
+        </h5>
+        <div class="text-white-50 small d-flex gap-3 flex-wrap">
+          <span><i class="bi bi-building me-1"></i>{{ informe.sucursal.nombre }}</span>
+          <span><i class="bi bi-calendar-range me-1"></i>{{ informe.fecha_inicio|date:"d/m/Y" }} → {{ informe.fecha_cierre|date:"d/m/Y" }}</span>
+          <span><i class="bi bi-person me-1"></i>{{ informe.creado_por.nombre|default:informe.creado_por.username|default:"—" }}</span>
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'control:informe_recaudacion_list' %}" class="btn btn-sm btn-light">
+          <i class="bi bi-arrow-left me-1"></i> Lista
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     RESUMEN SUPERIOR - KPIs
+══════════════════════════════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center" style="border-radius:12px;border-top:3px solid #059669;">
+      <div class="card-body py-3">
+        <div class="text-muted small text-uppercase mb-1" style="font-size:10px;letter-spacing:.5px;">Numeral ciclo</div>
+        <div class="fw-bold fs-5" style="color:#059669;">{{ informe.total_numeral }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center" style="border-radius:12px;border-top:3px solid #1d4ed8;">
+      <div class="card-body py-3">
+        <div class="text-muted small text-uppercase mb-1" style="font-size:10px;letter-spacing:.5px;">Entrada total</div>
+        <div class="fw-bold fs-5" style="color:#1d4ed8;">{{ informe.total_entrada }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center" style="border-radius:12px;border-top:3px solid #7c3aed;">
+      <div class="card-body py-3">
+        <div class="text-muted small text-uppercase mb-1" style="font-size:10px;letter-spacing:.5px;">Salida total</div>
+        <div class="fw-bold fs-5" style="color:#7c3aed;">{{ informe.total_salida }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center" style="border-radius:12px;border-top:3px solid {% if informe.rtp > 80 %}#dc2626{% elif informe.rtp > 50 %}#d97706{% else %}#16a34a{% endif %};">
+      <div class="card-body py-3">
+        <div class="text-muted small text-uppercase mb-1" style="font-size:10px;letter-spacing:.5px;">RTP ciclo</div>
+        <div class="fw-bold fs-5" style="color:{% if informe.rtp > 80 %}#dc2626{% elif informe.rtp > 50 %}#d97706{% else %}#16a34a{% endif %};">{{ informe.rtp }}%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     TABLA POR ZONA Y MÁQUINA
+══════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+  <div class="card-body p-0">
+    <div class="px-4 py-3 border-bottom" style="background:#f8fafc;border-radius:14px 14px 0 0;">
+      <h6 class="fw-bold mb-0 d-flex align-items-center gap-2">
+        <i class="bi bi-table text-primary"></i> Detalle por Máquina
+      </h6>
+    </div>
+
+    {% for zona_nombre, zona_data in por_zona.items %}
+    <div class="{% if not forloop.first %}border-top{% endif %}">
+
+      <!-- Encabezado zona -->
+      <div class="d-flex align-items-center justify-content-between px-4 py-2" style="background:#f0f9ff;">
+        <span class="badge px-3 py-1 fw-semibold" style="background:#dbeafe;color:#1d4ed8;border-radius:8px;font-size:12px;">
+          <i class="bi bi-map-fill me-1"></i>{{ zona_nombre }}
+        </span>
+        <div class="d-flex gap-3 small text-muted">
+          <span>Total zona: <strong style="color:#059669;">{{ zona_data.total }}</strong></span>
+          <span>RTP: <strong>{{ zona_data.rtp }}%</strong></span>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0" style="font-size:12px;">
+          <thead>
+            <tr style="color:#94a3b8;background:#fafafa;">
+              <th class="px-3" style="width:40px;">N°</th>
+              <th>Cód.</th>
+              <th>Servidor</th>
+              <th>Juego</th>
+              <th class="text-end" style="color:#64748b;">Hist. Entrada ini</th>
+              <th class="text-end" style="color:#64748b;">Hist. Salida ini</th>
+              <th class="text-end" style="color:#64748b;">Hist. Entrada fin</th>
+              <th class="text-end" style="color:#64748b;">Hist. Salida fin</th>
+              <th class="text-end" style="color:#1d4ed8;font-weight:700;">Parcial E.</th>
+              <th class="text-end" style="color:#7c3aed;font-weight:700;">Parcial S.</th>
+              <th class="text-end" style="color:#059669;font-weight:700;">Total</th>
+              <th class="text-end">RTP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for linea in zona_data.lineas %}
+            <tr>
+              <td class="px-3 fw-semibold">{{ linea.numero_maquina }}</td>
+              <td class="text-muted small">{{ linea.codigo_interno|default:"—" }}</td>
+              <td>{{ linea.servidor|default:"—" }}</td>
+              <td>{{ linea.juego|default:"—" }}</td>
+              <td class="text-end text-muted">{{ linea.hist_entrada_inicio }}</td>
+              <td class="text-end text-muted">{{ linea.hist_salida_inicio }}</td>
+              <td class="text-end text-muted">{{ linea.hist_entrada_cierre }}</td>
+              <td class="text-end text-muted">{{ linea.hist_salida_cierre }}</td>
+              <td class="text-end fw-semibold" style="color:#1d4ed8;">{{ linea.parcial_entrada }}</td>
+              <td class="text-end fw-semibold" style="color:#7c3aed;">{{ linea.parcial_salida }}</td>
+              <td class="text-end fw-bold" style="color:{% if linea.total < 0 %}#dc2626{% else %}#059669{% endif %};">
+                {{ linea.total }}
+              </td>
+              <td class="text-end">
+                <span class="badge {% if linea.rtp > 80 %}bg-danger-subtle text-danger{% elif linea.rtp > 50 %}bg-warning-subtle text-warning{% else %}bg-success-subtle text-success{% endif %}" style="font-size:10px;">
+                  {{ linea.rtp }}%
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr style="background:#f0fdf4;border-top:2px solid #86efac;">
+              <td colspan="8" class="text-end fw-bold text-muted px-3 small">Subtotal {{ zona_nombre }}</td>
+              <td class="text-end fw-bold" style="color:#1d4ed8;">{{ zona_data.entrada }}</td>
+              <td class="text-end fw-bold" style="color:#7c3aed;">{{ zona_data.salida }}</td>
+              <td class="text-end fw-bold" style="color:#059669;">{{ zona_data.total }}</td>
+              <td class="text-end fw-bold">{{ zona_data.rtp }}%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    {% empty %}
+    <div class="p-4 text-center text-muted">Sin líneas registradas.</div>
+    {% endfor %}
+
+    <!-- Total general -->
+    <div class="d-flex justify-content-end align-items-center gap-4 px-4 py-3"
+         style="background:#f0fdf4;border-top:2px solid #86efac;border-radius:0 0 14px 14px;">
+      <span class="small fw-semibold text-muted text-uppercase">Total general ciclo</span>
+      <span class="fw-bold" style="color:#1d4ed8;">E: {{ informe.total_entrada }}</span>
+      <span class="fw-bold" style="color:#7c3aed;">S: {{ informe.total_salida }}</span>
+      <span class="fw-bold fs-5" style="color:#059669;">{{ informe.total_numeral }}</span>
+      <span class="badge bg-success-subtle text-success">{{ informe.rtp }}% RTP</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     DOS COLUMNAS: RESÚMENES + CAJA
+══════════════════════════════════ -->
+<div class="row g-4 mb-4">
+
+  <!-- Izquierda: Resumen por Servidor + Juego -->
+  <div class="col-12 col-lg-7">
+
+    <!-- Por Servidor -->
+    <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
+      <div class="card-body p-0">
+        <div class="px-3 py-2 border-bottom" style="background:#fef9c3;border-radius:12px 12px 0 0;">
+          <h6 class="fw-bold mb-0 small d-flex align-items-center gap-2">
+            <i class="bi bi-server text-warning"></i> Resumen por Servidor
+          </h6>
+        </div>
+        <table class="table table-sm mb-0" style="font-size:12px;">
+          <thead style="color:#94a3b8;">
+            <tr>
+              <th class="px-3">Servidor</th>
+              <th class="text-center">Cant.</th>
+              <th class="text-end">Entrada</th>
+              <th class="text-end">Salida</th>
+              <th class="text-end fw-bold" style="color:#059669;">Total</th>
+              <th class="text-end">RTP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for servidor, d in por_servidor.items %}
+            <tr>
+              <td class="px-3 fw-semibold">{{ servidor }}</td>
+              <td class="text-center text-muted">{{ d.cant }}</td>
+              <td class="text-end" style="color:#1d4ed8;">{{ d.entrada }}</td>
+              <td class="text-end" style="color:#7c3aed;">{{ d.salida }}</td>
+              <td class="text-end fw-bold" style="color:#059669;">{{ d.total }}</td>
+              <td class="text-end">
+                <span class="badge {% if d.rtp > 80 %}bg-danger-subtle text-danger{% elif d.rtp > 50 %}bg-warning-subtle text-warning{% else %}bg-success-subtle text-success{% endif %}" style="font-size:10px;">
+                  {{ d.rtp }}%
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Por Juego -->
+    <div class="card border-0 shadow-sm" style="border-radius:12px;">
+      <div class="card-body p-0">
+        <div class="px-3 py-2 border-bottom" style="background:#ede9fe;border-radius:12px 12px 0 0;">
+          <h6 class="fw-bold mb-0 small d-flex align-items-center gap-2">
+            <i class="bi bi-controller" style="color:#7c3aed;"></i> Resumen por Juego
+          </h6>
+        </div>
+        <table class="table table-sm mb-0" style="font-size:12px;">
+          <thead style="color:#94a3b8;">
+            <tr>
+              <th class="px-3">Juego</th>
+              <th class="text-center">Cant.</th>
+              <th class="text-end">Entrada</th>
+              <th class="text-end">Salida</th>
+              <th class="text-end fw-bold" style="color:#059669;">Total</th>
+              <th class="text-end">RTP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for juego, d in por_juego.items %}
+            <tr>
+              <td class="px-3 fw-semibold">{{ juego }}</td>
+              <td class="text-center text-muted">{{ d.cant }}</td>
+              <td class="text-end" style="color:#1d4ed8;">{{ d.entrada }}</td>
+              <td class="text-end" style="color:#7c3aed;">{{ d.salida }}</td>
+              <td class="text-end fw-bold" style="color:#059669;">{{ d.total }}</td>
+              <td class="text-end">
+                <span class="badge {% if d.rtp > 80 %}bg-danger-subtle text-danger{% elif d.rtp > 50 %}bg-warning-subtle text-warning{% else %}bg-success-subtle text-success{% endif %}" style="font-size:10px;">
+                  {{ d.rtp }}%
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Derecha: Resumen Caja -->
+  <div class="col-12 col-lg-5">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+      <div class="card-body p-0">
+        <div class="px-3 py-2 border-bottom" style="background:#f0fdf4;border-radius:12px 12px 0 0;">
+          <h6 class="fw-bold mb-0 small d-flex align-items-center gap-2">
+            <i class="bi bi-cash-stack" style="color:#059669;"></i> Resumen Caja del Ciclo
+          </h6>
+        </div>
+
+        {% if caja %}
+        <div class="p-3">
+          {% with rows=caja %}
+          <table class="table table-sm mb-0" style="font-size:13px;">
+            <tbody>
+              <tr style="background:#f0fdf4;">
+                <td class="fw-bold" style="color:#059669;">NUMERAL</td>
+                <td class="text-end fw-bold fs-6" style="color:#059669;">{{ caja.numeral }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Préstamos</td>
+                <td class="text-end fw-semibold" style="color:{% if caja.prestamos < 0 %}#dc2626{% else %}#374151{% endif %};">{{ caja.prestamos }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Retiros</td>
+                <td class="text-end fw-semibold" style="color:#dc2626;">{{ caja.retiros }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Redbank</td>
+                <td class="text-end fw-semibold">{{ caja.redbank }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Transferencias</td>
+                <td class="text-end fw-semibold">{{ caja.transferencias }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Sueldo Extra</td>
+                <td class="text-end fw-semibold">{{ caja.sueldo_extra }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Sorteos</td>
+                <td class="text-end fw-semibold">{{ caja.sorteos }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Gastos</td>
+                <td class="text-end fw-semibold">{{ caja.gastos }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Regalos</td>
+                <td class="text-end fw-semibold">{{ caja.regalos }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Jugados</td>
+                <td class="text-end fw-semibold">{{ caja.jugados }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Otros</td>
+                <td class="text-end fw-semibold">{{ caja.otros }}</td>
+              </tr>
+              <tr style="border-top:1px solid #fecaca;background:#fef2f2;">
+                <td class="text-muted">Billetes malos</td>
+                <td class="text-end fw-semibold" style="color:#dc2626;">- {{ caja.billetes_malos }}</td>
+              </tr>
+              <tr style="background:#fef2f2;">
+                <td class="text-muted small">Descuadre acum.</td>
+                <td class="text-end small" style="color:{% if caja.descuadre != 0 %}#dc2626{% else %}#16a34a{% endif %};">{{ caja.descuadre }}</td>
+              </tr>
+              <tr style="background:#f0fdf4;border-top:2px solid #86efac;">
+                <td class="fw-bold fs-6">TOTAL CAJA</td>
+                <td class="text-end fw-bold fs-5" style="color:#059669;">{{ caja.total_caja }}</td>
+              </tr>
+            </tbody>
+          </table>
+          {% endwith %}
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted small">Sin datos de caja para este ciclo.</div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

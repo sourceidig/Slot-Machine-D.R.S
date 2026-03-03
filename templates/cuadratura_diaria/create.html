@@ -82,6 +82,21 @@ input[readonly]{
 
 </style>
 
+{% if zonas_faltantes %}
+<div class="alert alert-warning d-flex align-items-start gap-3 mb-3" style="border-radius:12px;">
+  <i class="bi bi-exclamation-triangle-fill fs-5 mt-1 flex-shrink-0"></i>
+  <div>
+    <strong>Control incompleto — faltan zonas por subir</strong>
+    <p class="mb-1 mt-1 small">La Cuadratura Diaria no se puede crear hasta que todas las zonas tengan su control guardado. Faltan:</p>
+    <ul class="mb-0 small">
+      {% for zona in zonas_faltantes %}
+        <li>{{ zona }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
 <div class="card">
   <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
     <h5 class="mb-0"><i class="bi bi-calculator"></i> Cuadratura Caja Diaria</h5>
@@ -471,9 +486,13 @@ input[readonly]{
       <div id="detallesHiddenContainer"></div>
 
       <div class="action-bar mt-3 d-flex gap-2 justify-content-end">
-        <button type="submit" class="btn btn-primary">
+        {% if not zonas_faltantes %}
+    <button type="submit" class="btn btn-primary">
           <i class="bi bi-save"></i> Guardar
         </button>
+    {% else %}
+    <button type="button" class="btn btn-secondary" disabled title="Faltan zonas por subir"><i class="bi bi-lock me-1"></i> Faltan zonas por subir</button>
+    {% endif %}
         <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-outline-secondary">
           Cancelar
         </a>

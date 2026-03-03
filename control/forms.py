@@ -154,16 +154,19 @@ class TurnoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        # Extrer el usuario 
-        self.user = kwargs.pop('user',None)
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
-  
-        # Si el usuario existe, es "usuario/atendedora" y tiene una sucursal asignada:
-        if self.user and self.user.role == "usuario" and self.user.sucursal:
-            # Se selecciona sucursal por defecto
+
+        if self.user and self.user.role == "admin":
+            # Admin: seleccion libre, sin valor por defecto
+            self.fields["sucursal"].empty_label = "Seleccionar sucursal"
+            self.fields["sucursal"].initial = None
+            self.fields["tipo_turno"].empty_label = None  # el select de tipo ya tiene choices fijos
+
+        elif self.user and self.user.role == "usuario" and self.user.sucursal:
+            # TODO (futuro): encargad@ tambien entra aqui con sucursal, fecha y tipo bloqueados
             self.fields["sucursal"].initial = self.user.sucursal
-            # Campo bloqueado 
             self.fields["sucursal"].disabled = True
 
  

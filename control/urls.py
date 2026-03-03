@@ -21,6 +21,7 @@ urlpatterns = [
     # -------------------------
     path("turno/", views.turno_view, name="turno"),
     path("turno/cerrar/<int:turno_id>/", views.cerrar_turno, name="cerrar_turno"),
+    path("turno/<int:turno_id>/asignaciones/", views.guardar_asignaciones, name="guardar_asignaciones"),
 
     # -------------------------
     # Registro
@@ -109,14 +110,22 @@ urlpatterns = [
     #------------------------
 
     path("recaudacion/", views.recaudacion_view, name="recaudacion"),
+    path("recaudacion/cerrar-ciclo/", views.cerrar_ciclo_y_generar_informe, name="cerrar_ciclo"),
+    path("recaudacion/programacion/", views.programacion_recaudacion_view, name="programacion_recaudacion"),
+    path("recaudacion/notificacion/<int:pk>/dismiss/", views.dismiss_notificacion_recaudacion, name="dismiss_notificacion"),
+    path("recaudacion/informes/", views.informe_recaudacion_list, name="informe_recaudacion_list"),
+    path("recaudacion/informes/<int:pk>/", views.informe_recaudacion_detail, name="informe_recaudacion_detail"),
     path("recaudacion/iniciar-dia-0/", views.iniciar_dia_0, name="iniciar_dia_0"),
 
     path("turnos/<int:turno_id>/control/", views.generar_control, name="generar_control"),
     path("turnos/<int:turno_id>/control/guardar/", views.guardar_control, name="guardar_control"),
     path("controles/", views.controles_list, name="controles_list"),
     path("controles/<int:pk>/", views.controles_detail, name="controles_detail"),
+    path("controles/linea/<int:linea_pk>/editar/<int:control_pk>/", views.lectura_edit_from_control, name="lectura_edit_from_control"),
 
     path("turnos/<int:turno_id>/cerrar-sin-cuadratura/", views.cerrar_turno_sin_cuadratura, name="cerrar_turno_sin_cuadratura"),
+    path("turnos/<int:turno_id>/cuadratura-zona/", views.cuadratura_zona_view, name="cuadratura_zona"),
+    path("turnos/<int:turno_id>/cuadratura-zona/<int:zona_id>/guardar/", views.guardar_cuadratura_zona, name="guardar_cuadratura_zona"),
 
     
 

@@ -1,41 +1,97 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block page_title %}Recaudación{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
 
-    <h2>Recaudación</h2>
-    <p class="text-muted">
-        Esta acción inicia un nuevo ciclo contable (Día 0).
-        Los contadores iniciales de las máquinas se actualizarán
-        con los últimos datos registrados.
-    </p>
+<div class="row g-4 justify-content-center">
+<div class="col-lg-8">
 
-    <div class="alert alert-warning">
-        <strong>Atención:</strong><br>
-        Esta acción afecta todos los cálculos posteriores
-        (caja, turnos, máquinas).
-        Úsela solo al inicio de una nueva cuadratura mensual.
+  <!-- ── CICLOS ACTIVOS ─────────────────────────────── -->
+  {% if ciclos %}
+  <div class="mb-4">
+    <h6 class="fw-bold text-muted text-uppercase mb-3" style="font-size:11px;letter-spacing:.5px;">Ciclos activos</h6>
+    {% for ciclo in ciclos %}
+    <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;border-left:4px solid #059669;">
+      <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div>
+            <div class="fw-bold">{{ ciclo.sucursal.nombre }}</div>
+            <div class="text-muted small">
+              Ciclo iniciado el <strong>{{ ciclo.inicio_ciclo|date:"d/m/Y" }}</strong>
+              &nbsp;·&nbsp; iniciado por {{ ciclo.creado_por.nombre|default:ciclo.creado_por|default:"—" }}
+            </div>
+          </div>
+          <form method="post" action="{% url 'control:cerrar_ciclo' %}"
+                onsubmit="return confirm('¿Cerrar el ciclo de {{ ciclo.sucursal.nombre }} y generar el informe de recaudación? Esta acción actualizará los contadores de las máquinas.')">
+            {% csrf_token %}
+            <input type="hidden" name="sucursal_id" value="{{ ciclo.sucursal.id }}">
+            <button type="submit" class="btn btn-success btn-sm px-3">
+              <i class="bi bi-check2-circle me-1"></i> Cerrar ciclo y generar informe
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 
-    <form method="post" action="{% url 'control:iniciar_dia_0' %}">
-    {% csrf_token %}
-
-    <div class="mb-3">
-        <label class="form-label fw-bold">Local</label>
-        <select name="sucursal_id" class="form-select" required>
-        <option value="">Selecciona</option>
-        {% for s in sucursales %}
-            <option value="{{ s.id }}">{{ s.nombre }}</option>
-        {% endfor %}
-        </select>
+  <!-- ── INICIAR NUEVO CICLO ────────────────────────── -->
+  <div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+    <div class="card-body">
+      <h6 class="fw-bold mb-1 d-flex align-items-center gap-2">
+        <i class="bi bi-play-circle text-danger"></i> Iniciar nuevo ciclo (Día 0)
+      </h6>
+      <p class="text-muted small mb-3">
+        Inicia un nuevo ciclo contable. Los contadores iniciales de las máquinas se actualizan con
+        los últimos datos y los cálculos de caja y numerales se reinician desde la fecha indicada.
+      </p>
+      <div class="alert alert-warning py-2 small mb-3">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Solo usar al inicio de una nueva cuadratura. Afecta todos los cálculos posteriores.
+      </div>
+      <form method="post" action="{% url 'control:iniciar_dia_0' %}"
+            onsubmit="return confirm('¿Confirmas iniciar el Día 0 para este local?')">
+        {% csrf_token %}
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label class="form-label small fw-semibold mb-1">Local</label>
+            <select name="sucursal_id" class="form-select form-select-sm" required>
+              <option value="">Seleccionar...</option>
+              {% for s in sucursales %}
+              <option value="{{ s.id }}">{{ s.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold mb-1">Fecha de inicio</label>
+            <input type="date" name="fecha_inicio" class="form-control form-control-sm"
+                   value="{{ hoy|date:'Y-m-d' }}" required>
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-danger btn-sm w-100">
+              <i class="bi bi-play-circle me-1"></i> Iniciar Día 0
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <button type="submit" class="btn btn-danger">
-        Iniciar Día 0
-    </button>
-    </form>
-
+  <!-- ── LINKS ────────────────────────────────────── -->
+  <div class="d-flex justify-content-center gap-3 flex-wrap">
+    <a href="{% url 'control:informe_recaudacion_list' %}" class="btn btn-outline-success px-4">
+      <i class="bi bi-receipt me-1"></i> Ver informes de recaudación
+    </a>
+    <a href="{% url 'control:programacion_recaudacion' %}" class="btn btn-outline-secondary px-4">
+      <i class="bi bi-clock-history me-1"></i> Programación automática
+      {% if tiene_programaciones %}<span class="badge bg-success ms-1">Activa</span>{% endif %}
+    </a>
+  </div>
 
 </div>
+</div>
+
 {% endblock %}

@@ -9,6 +9,29 @@
         <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Editar Lectura</h5>
     </div>
     <div class="card-body">
+
+        <!-- Info de referencia (solo lectura) -->
+        <div class="alert alert-info mb-4">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Maquina</small>
+                    <strong>{{ form.instance.zona.nombre }} / M{{ form.instance.numero_maquina|stringformat:"02d" }}</strong>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Entrada Anterior (base de calculo)</small>
+                    <strong class="text-secondary">{{ form.instance.entrada_anterior }}</strong>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Salida Anterior (base de calculo)</small>
+                    <strong class="text-secondary">{{ form.instance.salida_anterior }}</strong>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Fecha de Trabajo</small>
+                    <strong>{{ form.instance.fecha_trabajo|date:"d/m/Y" }}</strong>
+                </div>
+            </div>
+        </div>
+
         <form method="post">
             {% csrf_token %}
             {{ form.non_field_errors }}
@@ -34,20 +57,75 @@
                     {{ form.salida.errors }}
                 </div>
                 <div class="col-md-4">
-                    {{ form.total.label_tag }} {{ form.total }}
-                    {{ form.total.errors }}
+                    <label class="form-label">Total (calculado automaticamente)</label>
+                    <input type="number" id="preview_total" class="form-control form-control-lg" readonly>
+                    <small class="text-muted">= Entrada Parcial - Salida Parcial</small>
                 </div>
             </div>
 
-            <div class="mt-4">
+            <!-- Preview parciales en tiempo real -->
+            <div class="row g-2 mt-3 text-center">
+                <div class="col-md-4">
+                    <div class="p-2 bg-light rounded">
+                        <small class="text-muted d-block">Entrada Parcial del dia</small>
+                        <span id="preview_entrada_dia" class="fw-bold fs-5 text-primary">{{ form.instance.entrada_dia }}</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-2 bg-light rounded">
+                        <small class="text-muted d-block">Salida Parcial del dia</small>
+                        <span id="preview_salida_dia" class="fw-bold fs-5 text-primary">{{ form.instance.salida_dia }}</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-2 bg-light rounded">
+                        <small class="text-muted d-block">Total resultante</small>
+                        <span id="preview_total_display" class="fw-bold fs-5 text-success">{{ form.instance.total }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save"></i> Guardar Cambios
                 </button>
-                <a href="{% url 'control:tablas' %}" class="btn btn-secondary">
+                {% if desde_control and control %}
+                <a href="{% url 'control:controles_detail' control.pk %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left-circle"></i> Volver al Control
+                </a>
+                {% else %}
+                <a href="{% url 'control:controles_list' %}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left-circle"></i> Volver
                 </a>
+                {% endif %}
             </div>
         </form>
     </div>
 </div>
+
+<script>
+const entradaAnterior = {{ form.instance.entrada_anterior }};
+const salidaAnterior  = {{ form.instance.salida_anterior }};
+
+function recalcular() {
+    const entrada = parseInt(document.getElementById('id_entrada').value) || 0;
+    const salida  = parseInt(document.getElementById('id_salida').value)  || 0;
+
+    const entradaDia = entrada - entradaAnterior;
+    const salidaDia  = salida  - salidaAnterior;
+    const total      = entradaDia - salidaDia;
+
+    document.getElementById('preview_entrada_dia').textContent   = entradaDia;
+    document.getElementById('preview_salida_dia').textContent    = salidaDia;
+    document.getElementById('preview_total_display').textContent = total;
+    document.getElementById('preview_total').value               = total;
+
+    const totalEl = document.getElementById('preview_total_display');
+    totalEl.className = 'fw-bold fs-5 ' + (total >= 0 ? 'text-success' : 'text-danger');
+}
+
+recalcular();
+document.getElementById('id_entrada').addEventListener('input', recalcular);
+document.getElementById('id_salida').addEventListener('input', recalcular);
+</script>
 {% endblock %}

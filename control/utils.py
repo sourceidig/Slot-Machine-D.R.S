@@ -44,14 +44,25 @@ def calcular_numerales_caja(sucursal, fecha):
         fecha_trabajo=fecha
     ).first()
 
-    # Si hay lectura, usa total_general (conversión segura)
     numeral_dia = int(control.total_general or 0) if control else 0
 
-    # 2) Buscar última cuadratura anterior
-    anterior = CuadraturaCajaDiaria.objects.filter(
+    # 2) Determinar inicio del ciclo actual
+    inicio_ciclo = get_inicio_ciclo(sucursal)
+
+    # Si la fecha pedida ES el inicio del ciclo (primer día del nuevo ciclo),
+    # no hay acumulado previo: el numeral_acumulado es solo el del día.
+    if inicio_ciclo and fecha <= inicio_ciclo:
+        return numeral_dia, numeral_dia
+
+    # 3) Buscar la última cuadratura anterior DENTRO del ciclo
+    qs = CuadraturaCajaDiaria.objects.filter(
         sucursal=sucursal,
         fecha__lt=fecha
-    ).order_by("-fecha", "-id").first()
+    )
+    if inicio_ciclo:
+        qs = qs.filter(fecha__gte=inicio_ciclo)
+
+    anterior = qs.order_by("-fecha", "-id").first()
 
     numeral_acumulado = numeral_dia
     if anterior:

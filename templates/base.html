@@ -336,14 +336,11 @@
             </a>
             {% endif %}
 
+            </a>
+
             <a class="nav-link {% if request.resolver_match.url_name == 'registro' %}active{% endif %}"
                href="{% url 'control:registro' %}">
                 <i class="bi bi-clipboard-data"></i> Registro
-            </a>
-
-            <a class="nav-link {% if request.resolver_match.url_name == 'tablas' %}active{% endif %}"
-               href="{% url 'control:tablas' %}">
-                <i class="bi bi-table"></i> Tablas
             </a>
 
             {% if user.role == 'admin' %}
@@ -425,7 +422,29 @@
                 {% endfor %}
             {% endif %}
 
-            {% block content %}{% endblock %}
+            {% block content %}
+{% if request.session.notif_recaudacion_ids %}
+{% for inf_id in request.session.notif_recaudacion_ids %}
+<div class="alert alert-success alert-dismissible d-flex align-items-start gap-3 mb-0"
+     style="border-radius:0;border:none;border-bottom:1px solid #86efac;background:#f0fdf4;margin-bottom:0!important;">
+  <i class="bi bi-check-circle-fill fs-5 mt-1 flex-shrink-0" style="color:#16a34a;"></i>
+  <div class="flex-grow-1">
+    <strong>Se realizó una recaudación automática</strong>
+    <span class="text-muted small ms-2">
+      Un nuevo informe de recaudación fue generado para tu local.
+    </span>
+    <a href="{% url 'control:informe_recaudacion_list' %}" class="btn btn-sm btn-success ms-2 py-0 px-2" style="font-size:12px;">
+      Ver informe
+    </a>
+  </div>
+  <form method="post" action="{% url 'control:dismiss_notificacion' inf_id %}" class="d-inline">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.path }}">
+    <button type="submit" class="btn-close" aria-label="Cerrar"></button>
+  </form>
+</div>
+{% endfor %}
+{% endif %}{% endblock %}
         </main>
     </div>
 

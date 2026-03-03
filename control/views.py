@@ -15,7 +15,7 @@ from django.http import HttpResponse
 from datetime import datetime, timedelta, time
 from decimal import Decimal
 
-from control.utils import calcular_numerales_caja
+from control.utils import calcular_numerales_caja, get_inicio_ciclo
 from .models import CierreTurno, CierreTurnoZona, CierreTurnoMovimiento, CierreTurnoPago, CierreTurnoDenominacion, CicloRecaudacion
 from .forms import CierreTurnoForm, CierreTurnoZonaFormSet, CierreTurnoMovimientoFormSet, CierreTurnoPagoFormSet, CierreTurnoDenFormSet
 from .models import CuadraturaDetalle
@@ -39,7 +39,11 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 from .models import (
     Usuario, Sucursal, Zona, Maquina, Turno, LecturaMaquina,
-    CuadraturaCajaDiaria, EncuadreCajaAdmin
+    CuadraturaCajaDiaria, EncuadreCajaAdmin,
+    AsignacionTurnoZona, AsignacionTurnoSlot,
+    InformeRecaudacion, InformeRecaudacionLinea, InformeRecaudacionCaja,
+    ControlLecturas, ControlLecturasLinea,
+    ProgramacionRecaudacion,
 )
 
 from .forms import (
@@ -58,22 +62,35 @@ def iniciar_dia_0(request):
         return redirect("control:recaudacion")
 
     sucursal_id = request.POST.get("sucursal_id")
+    fecha_inicio_str = request.POST.get("fecha_inicio")
+
     if not sucursal_id:
         messages.error(request, "Debes seleccionar un local.")
         return redirect("control:recaudacion")
 
+    if not fecha_inicio_str:
+        messages.error(request, "Debes seleccionar una fecha de inicio del ciclo.")
+        return redirect("control:recaudacion")
+
+    try:
+        from datetime import date
+        fecha_inicio = date.fromisoformat(fecha_inicio_str)
+    except ValueError:
+        messages.error(request, "Fecha inválida.")
+        return redirect("control:recaudacion")
+
     sucursal = get_object_or_404(Sucursal, id=sucursal_id)
 
-    # 1) máquinas del local
+    # 1) Actualizar contadores iniciales con la última lectura antes de la fecha de inicio
     maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True)
-
     actualizadas = 0
     sin_historial = 0
 
     for m in maquinas:
-        # 2) buscar el ÚLTIMO registro de esa máquina
-        # Ajusta el modelo usado según tu sistema real:
-        ultimo = LecturaMaquina.objects.filter(maquina=m).order_by("-fecha_registro", "-id").first()
+        ultimo = (LecturaMaquina.objects
+                  .filter(maquina=m, fecha_trabajo__lte=fecha_inicio)
+                  .order_by("-fecha_trabajo", "-id")
+                  .first())
 
         if ultimo:
             m.contador_inicial_entrada = ultimo.entrada
@@ -83,24 +100,257 @@ def iniciar_dia_0(request):
         else:
             sin_historial += 1
 
-    # 3) guardar “marca” de ciclo (día 0) por local
+    # 2) Guardar el ciclo con la fecha elegida y quién lo inició
     CicloRecaudacion.objects.update_or_create(
         sucursal=sucursal,
-        defaults={"inicio_ciclo": timezone.localdate()},
+        defaults={
+            "inicio_ciclo": fecha_inicio,
+            "creado_por": request.user,
+        },
     )
 
     messages.success(
         request,
-        f"Día 0 iniciado para '{sucursal.nombre}'. Máquinas actualizadas: {actualizadas}. Sin historial: {sin_historial}."
+        f"Día 0 iniciado para '{sucursal.nombre}' desde el {fecha_inicio.strftime('%d/%m/%Y')}. "
+        f"Máquinas actualizadas: {actualizadas}. Sin historial: {sin_historial}."
     )
     return redirect("control:recaudacion")
 
 
 @login_required
+
+# ═══════════════════════════════════════════════════════════════
+# INFORME DE RECAUDACIÓN
+# ═══════════════════════════════════════════════════════════════
+
+@login_required
+def informe_recaudacion_list(request):
+    """Lista de todos los informes de recaudación."""
+    informes = (InformeRecaudacion.objects
+                .select_related("sucursal", "creado_por")
+                .all())
+    sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
+
+    sucursal_id = request.GET.get("sucursal")
+    if sucursal_id:
+        informes = informes.filter(sucursal_id=sucursal_id)
+
+    return render(request, "recaudacion/informe_list.html", {
+        "informes": informes,
+        "sucursales": sucursales,
+        "sucursal_sel": sucursal_id,
+    })
+
+
+@login_required
+def informe_recaudacion_detail(request, pk):
+    """Detalle completo del informe — el "Excel" digital."""
+    informe = get_object_or_404(
+        InformeRecaudacion.objects.select_related("sucursal", "creado_por"),
+        pk=pk
+    )
+    lineas = informe.lineas.select_related("zona").all()
+    caja   = getattr(informe, "resumen_caja", None)
+
+    # Agrupaciones para resúmenes
+    from collections import defaultdict
+    por_servidor = defaultdict(lambda: {"entrada": 0, "salida": 0, "total": 0, "cant": 0})
+    por_juego    = defaultdict(lambda: {"entrada": 0, "salida": 0, "total": 0, "cant": 0})
+    por_zona     = defaultdict(lambda: {"nombre": "", "entrada": 0, "salida": 0, "total": 0, "lineas": []})
+
+    for l in lineas:
+        s = l.servidor or "—"
+        por_servidor[s]["entrada"] += l.parcial_entrada
+        por_servidor[s]["salida"]  += l.parcial_salida
+        por_servidor[s]["total"]   += l.total
+        por_servidor[s]["cant"]    += 1
+
+        j = l.juego or "—"
+        por_juego[j]["entrada"] += l.parcial_entrada
+        por_juego[j]["salida"]  += l.parcial_salida
+        por_juego[j]["total"]   += l.total
+        por_juego[j]["cant"]    += 1
+
+        zn = l.zona_nombre or "Sin zona"
+        por_zona[zn]["nombre"]  = zn
+        por_zona[zn]["entrada"] += l.parcial_entrada
+        por_zona[zn]["salida"]  += l.parcial_salida
+        por_zona[zn]["total"]   += l.total
+        por_zona[zn]["lineas"].append(l)
+
+    # RTP para agrupaciones
+    for d in por_servidor.values():
+        d["rtp"] = round(d["salida"] / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
+    for d in por_juego.values():
+        d["rtp"] = round(d["salida"] / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
+    for d in por_zona.values():
+        d["rtp"] = round(d["salida"] / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
+
+    return render(request, "recaudacion/informe_detail.html", {
+        "informe": informe,
+        "lineas": lineas,
+        "caja": caja,
+        "por_servidor": dict(sorted(por_servidor.items())),
+        "por_juego":    dict(sorted(por_juego.items())),
+        "por_zona":     dict(sorted(por_zona.items())),
+    })
+
+
+@login_required
+def cerrar_ciclo_y_generar_informe(request):
+    """
+    Cierra el ciclo actual de una sucursal:
+    1. Genera el InformeRecaudacion con snapshot de datos
+    2. Actualiza contadores iniciales de las máquinas
+    3. Actualiza CicloRecaudacion.inicio_ciclo a hoy
+    """
+    if request.method != "POST":
+        return redirect("control:recaudacion")
+
+    sucursal_id = request.POST.get("sucursal_id")
+    sucursal    = get_object_or_404(Sucursal, pk=sucursal_id)
+
+    ciclo = getattr(sucursal, "ciclo_recaudacion", None)
+    if not ciclo:
+        messages.error(request, "Esta sucursal no tiene un ciclo iniciado.")
+        return redirect("control:recaudacion")
+
+    fecha_inicio = ciclo.inicio_ciclo
+    fecha_cierre = timezone.localdate()
+
+    with transaction.atomic():
+        # ── 1. Crear informe base ───────────────────────────────────────────
+        informe = InformeRecaudacion.objects.create(
+            sucursal=sucursal,
+            fecha_inicio=fecha_inicio,
+            fecha_cierre=fecha_cierre,
+            creado_por=request.user,
+        )
+
+        # ── 2. Líneas por máquina ───────────────────────────────────────────
+        maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True).select_related("zona")
+        bulk_lineas = []
+        total_entrada = 0
+        total_salida  = 0
+
+        for maq in maquinas:
+            # Último control del ciclo para esta máquina
+            ultima_linea = (ControlLecturasLinea.objects
+                .filter(
+                    control__sucursal=sucursal,
+                    control__fecha_trabajo__gte=fecha_inicio,
+                    control__fecha_trabajo__lte=fecha_cierre,
+                    maquina=maq,
+                )
+                .order_by("-control__fecha_trabajo", "-id")
+                .first())
+
+            if not ultima_linea:
+                continue  # máquina sin lecturas en el ciclo
+
+            hist_e_inicio = int(maq.contador_inicial_entrada or 0)
+            hist_s_inicio = int(maq.contador_inicial_salida  or 0)
+            hist_e_cierre = int(ultima_linea.entrada_historica or 0)
+            hist_s_cierre = int(ultima_linea.salida_historica  or 0)
+
+            parcial_e = hist_e_cierre - hist_e_inicio
+            parcial_s = hist_s_cierre - hist_s_inicio
+            total_maq = parcial_e - parcial_s
+
+            total_entrada += parcial_e
+            total_salida  += parcial_s
+
+            bulk_lineas.append(InformeRecaudacionLinea(
+                informe=informe,
+                zona=maq.zona,
+                zona_nombre=maq.zona.nombre if maq.zona else "",
+                numero_maquina=maq.numero_maquina,
+                codigo_interno=maq.codigo_interno or "",
+                servidor=maq.servidor or "",
+                juego=maq.nombre_juego or "",
+                hist_entrada_inicio=hist_e_inicio,
+                hist_salida_inicio=hist_s_inicio,
+                hist_entrada_cierre=hist_e_cierre,
+                hist_salida_cierre=hist_s_cierre,
+                parcial_entrada=parcial_e,
+                parcial_salida=parcial_s,
+                total=total_maq,
+            ))
+
+        InformeRecaudacionLinea.objects.bulk_create(bulk_lineas)
+
+        # ── 3. Resumen caja (acumulados del ciclo) ─────────────────────────
+        # Tomamos los campos _acum del ÚLTIMO día del ciclo (ya son acumulativos)
+        ultima_cuad = (CuadraturaCajaDiaria.objects
+            .filter(sucursal=sucursal, fecha__gte=fecha_inicio, fecha__lte=fecha_cierre)
+            .order_by("-fecha", "-creado_el")
+            .first())
+
+        # Sumar retiro_diario de todos los días del ciclo
+        retiros_total = (CuadraturaCajaDiaria.objects
+            .filter(sucursal=sucursal, fecha__gte=fecha_inicio, fecha__lte=fecha_cierre)
+            .aggregate(s=Sum("retiro_diario"))["s"] or 0)
+
+        if ultima_cuad:
+            InformeRecaudacionCaja.objects.create(
+                informe=informe,
+                numeral=int(ultima_cuad.numeral_acumulado or 0),
+                prestamos=int(ultima_cuad.prestamos_acum or 0),
+                retiros=int(retiros_total),
+                redbank=int(ultima_cuad.redbank_acum or 0),
+                transferencias=int(ultima_cuad.transfer_acum or 0),
+                sueldo_extra=int(ultima_cuad.sueldo_b_acum or 0),
+                sorteos=int(ultima_cuad.sorteos_acum or 0),
+                gastos=int(ultima_cuad.gastos_acum or 0),
+                regalos=int(ultima_cuad.regalos_acum or 0),
+                jugados=int(ultima_cuad.jugados_acum or 0),
+                otros=int((ultima_cuad.otros_1_acum or 0) + (ultima_cuad.otros_2_acum or 0)),
+                billetes_malos=int(ultima_cuad.ef_billetes_malos or 0),
+                descuadre=int(ultima_cuad.descuadre_acum or 0),
+                total_caja=int(ultima_cuad.total_efectivo or 0),
+            )
+        else:
+            InformeRecaudacionCaja.objects.create(informe=informe)
+
+        # ── 4. Actualizar totales en el informe ────────────────────────────
+        informe.total_numeral = int(ultima_cuad.numeral_acumulado or 0) if ultima_cuad else 0
+        informe.total_entrada = total_entrada
+        informe.total_salida  = total_salida
+        informe.save(update_fields=["total_numeral", "total_entrada", "total_salida"])
+
+        # ── 5. Actualizar contadores iniciales de máquinas ─────────────────
+        for linea in bulk_lineas:
+            Maquina.objects.filter(
+                sucursal=sucursal,
+                numero_maquina=linea.numero_maquina,
+                zona=linea.zona,
+            ).update(
+                contador_inicial_entrada=linea.hist_entrada_cierre,
+                contador_inicial_salida=linea.hist_salida_cierre,
+            )
+
+        # ── 6. Actualizar inicio_ciclo a hoy ───────────────────────────────
+        CicloRecaudacion.objects.filter(sucursal=sucursal).update(
+            inicio_ciclo=fecha_cierre,
+            creado_por=request.user,
+        )
+
+    messages.success(request, f"Ciclo cerrado. Informe de recaudación generado para {sucursal.nombre}.")
+    return redirect("control:informe_recaudacion_detail", pk=informe.pk)
+
+
 def recaudacion_view(request):
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
     hoy = timezone.localdate()
-    return render(request, "recaudacion/recaudacion.html", {"sucursales": sucursales, "hoy": hoy})
+    ciclos = (CicloRecaudacion.objects
+              .select_related("sucursal", "creado_por")
+              .order_by("sucursal__nombre"))
+    return render(request, "recaudacion/recaudacion.html", {
+        "sucursales": sucursales,
+        "hoy": hoy,
+        "ciclos": ciclos,
+        "tiene_programaciones": ProgramacionRecaudacion.objects.filter(activa=True).exists(),
+    })
 
 
 
@@ -121,6 +371,224 @@ def is_usuario(user):
 # AUTH
 # ==========================
 
+# ═══════════════════════════════════════════════════════════════
+# PROGRAMACIÓN AUTOMÁTICA DE RECAUDACIÓN
+# ═══════════════════════════════════════════════════════════════
+
+def _ejecutar_recaudacion_programada(sucursal, user):
+    """
+    Genera el informe de recaudación automáticamente si corresponde.
+    Igual que cerrar_ciclo_y_generar_informe pero sin request.
+    """
+    ciclo = getattr(sucursal, "ciclo_recaudacion", None)
+    if not ciclo:
+        return None
+
+    fecha_inicio = ciclo.inicio_ciclo
+    fecha_cierre = timezone.localdate()
+
+    # No cerrar si ya existe un informe para este cierre
+    if InformeRecaudacion.objects.filter(sucursal=sucursal, fecha_cierre=fecha_cierre).exists():
+        return None
+
+    with transaction.atomic():
+        informe = InformeRecaudacion.objects.create(
+            sucursal=sucursal,
+            fecha_inicio=fecha_inicio,
+            fecha_cierre=fecha_cierre,
+            creado_por=user,
+        )
+
+        maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True).select_related("zona")
+        bulk_lineas = []
+        total_entrada = total_salida = 0
+
+        for maq in maquinas:
+            ultima_linea = (ControlLecturasLinea.objects
+                .filter(
+                    control__sucursal=sucursal,
+                    control__fecha_trabajo__gte=fecha_inicio,
+                    control__fecha_trabajo__lte=fecha_cierre,
+                    maquina=maq,
+                )
+                .order_by("-control__fecha_trabajo", "-id")
+                .first())
+            if not ultima_linea:
+                continue
+
+            hist_e_inicio = int(maq.contador_inicial_entrada or 0)
+            hist_s_inicio = int(maq.contador_inicial_salida  or 0)
+            hist_e_cierre = int(ultima_linea.entrada_historica or 0)
+            hist_s_cierre = int(ultima_linea.salida_historica  or 0)
+            parcial_e = hist_e_cierre - hist_e_inicio
+            parcial_s = hist_s_cierre - hist_s_inicio
+            total_maq = parcial_e - parcial_s
+            total_entrada += parcial_e
+            total_salida  += parcial_s
+
+            bulk_lineas.append(InformeRecaudacionLinea(
+                informe=informe,
+                zona=maq.zona,
+                zona_nombre=maq.zona.nombre if maq.zona else "",
+                numero_maquina=maq.numero_maquina,
+                codigo_interno=maq.codigo_interno or "",
+                servidor=maq.servidor or "",
+                juego=maq.nombre_juego or "",
+                hist_entrada_inicio=hist_e_inicio,
+                hist_salida_inicio=hist_s_inicio,
+                hist_entrada_cierre=hist_e_cierre,
+                hist_salida_cierre=hist_s_cierre,
+                parcial_entrada=parcial_e,
+                parcial_salida=parcial_s,
+                total=total_maq,
+            ))
+
+        InformeRecaudacionLinea.objects.bulk_create(bulk_lineas)
+
+        ultima_cuad = (CuadraturaCajaDiaria.objects
+            .filter(sucursal=sucursal, fecha__gte=fecha_inicio, fecha__lte=fecha_cierre)
+            .order_by("-fecha", "-creado_el").first())
+        retiros_total = (CuadraturaCajaDiaria.objects
+            .filter(sucursal=sucursal, fecha__gte=fecha_inicio, fecha__lte=fecha_cierre)
+            .aggregate(s=Sum("retiro_diario"))["s"] or 0)
+
+        if ultima_cuad:
+            InformeRecaudacionCaja.objects.create(
+                informe=informe,
+                numeral=int(ultima_cuad.numeral_acumulado or 0),
+                prestamos=int(ultima_cuad.prestamos_acum or 0),
+                retiros=int(retiros_total),
+                redbank=int(ultima_cuad.redbank_acum or 0),
+                transferencias=int(ultima_cuad.transfer_acum or 0),
+                sueldo_extra=int(ultima_cuad.sueldo_b_acum or 0),
+                sorteos=int(ultima_cuad.sorteos_acum or 0),
+                gastos=int(ultima_cuad.gastos_acum or 0),
+                regalos=int(ultima_cuad.regalos_acum or 0),
+                jugados=int(ultima_cuad.jugados_acum or 0),
+                otros=int((ultima_cuad.otros_1_acum or 0) + (ultima_cuad.otros_2_acum or 0)),
+                billetes_malos=int(ultima_cuad.ef_billetes_malos or 0),
+                descuadre=int(ultima_cuad.descuadre_acum or 0),
+                total_caja=int(ultima_cuad.total_efectivo or 0),
+            )
+        else:
+            InformeRecaudacionCaja.objects.create(informe=informe)
+
+        informe.total_numeral = int(ultima_cuad.numeral_acumulado or 0) if ultima_cuad else 0
+        informe.total_entrada = total_entrada
+        informe.total_salida  = total_salida
+        informe.save(update_fields=["total_numeral", "total_entrada", "total_salida"])
+
+        for linea in bulk_lineas:
+            Maquina.objects.filter(
+                sucursal=sucursal,
+                numero_maquina=linea.numero_maquina,
+                zona=linea.zona,
+            ).update(
+                contador_inicial_entrada=linea.hist_entrada_cierre,
+                contador_inicial_salida=linea.hist_salida_cierre,
+            )
+
+        CicloRecaudacion.objects.filter(sucursal=sucursal).update(
+            inicio_ciclo=fecha_cierre,
+            creado_por=user,
+        )
+
+    return informe
+
+
+def _chequear_programaciones(user):
+    """
+    Llamado en el login. Para cada sucursal con programación activa,
+    verifica si hoy es el día del mes configurado y ya pasó la hora → ejecuta cierre.
+    Devuelve lista de informes recién generados (para mostrar notificación).
+    """
+    ahora      = timezone.localtime(timezone.now())
+    hoy        = ahora.date()
+    hora_ahora = ahora.time()
+    dia_hoy    = hoy.day  # 1-31
+
+    nuevos = []
+    for prog in ProgramacionRecaudacion.objects.filter(activa=True).select_related("sucursal"):
+        # Ajuste para meses cortos: si dia_del_mes=31 y el mes tiene 28, ejecutar el último día
+        import calendar
+        ultimo_dia = calendar.monthrange(hoy.year, hoy.month)[1]
+        dia_efectivo = min(prog.dia_del_mes, ultimo_dia)
+
+        if dia_efectivo != dia_hoy:
+            continue
+        if hora_ahora < prog.hora:
+            continue
+        informe = _ejecutar_recaudacion_programada(prog.sucursal, user)
+        if informe:
+            nuevos.append(informe)
+
+    return nuevos
+
+
+@login_required
+def dismiss_notificacion_recaudacion(request, pk):
+    """El primer usuario que la ve la marca como consumida."""
+    if request.method == "POST":
+        InformeRecaudacion.objects.filter(pk=pk, notificacion_consumida=False).update(
+            notificacion_consumida=True
+        )
+        # Limpiar sesión
+        ids = request.session.get("notif_recaudacion_ids", [])
+        ids = [i for i in ids if i != pk]
+        if ids:
+            request.session["notif_recaudacion_ids"] = ids
+        else:
+            request.session.pop("notif_recaudacion_ids", None)
+        request.session.modified = True
+    next_url = request.POST.get("next", "/")
+    return redirect(next_url)
+
+
+@login_required
+def programacion_recaudacion_view(request):
+    """Configurar programación automática por sucursal."""
+    sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
+
+    if request.method == "POST":
+        sucursal_id = request.POST.get("sucursal_id")
+        sucursal    = get_object_or_404(Sucursal, pk=sucursal_id)
+        activa      = request.POST.get("activa") == "1"
+        dia         = int(request.POST.get("dia_del_mes", 1))
+        dia         = max(1, min(31, dia))  # clamp 1-31
+        hora_str    = request.POST.get("hora", "23:00")
+
+        from datetime import time as dtime
+        h, mi = map(int, hora_str.split(":"))
+
+        ProgramacionRecaudacion.objects.update_or_create(
+            sucursal=sucursal,
+            defaults={
+                "activa": activa,
+                "dia_del_mes": dia,
+                "hora": dtime(h, mi),
+                "creado_por": request.user,
+            }
+        )
+        messages.success(request, f"Programación guardada para {sucursal.nombre}.")
+        return redirect("control:programacion_recaudacion")
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        sucursales = sucursales.filter(nombre__icontains=q)
+
+    programaciones = {p.sucursal_id: p for p in ProgramacionRecaudacion.objects.all()}
+
+    sucursales_config = [
+        {"sucursal": s, "prog": programaciones.get(s.id)}
+        for s in sucursales
+    ]
+
+    return render(request, "recaudacion/programacion.html", {
+        "sucursales_config": sucursales_config,
+        "q": q,
+    })
+
+
 def login_view(request):
     if request.user.is_authenticated:
         if request.user.role == "admin":
@@ -134,6 +602,17 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            # Chequear programaciones automáticas
+            nuevos_informes = _chequear_programaciones(user)
+            # Guardar en sesión los IDs de informes no consumidos (solo el primero los ve)
+            pendientes = list(
+                InformeRecaudacion.objects
+                .filter(notificacion_consumida=False)
+                .values_list("id", flat=True)
+                .order_by("-creado_en")[:10]
+            )
+            if pendientes:
+                request.session["notif_recaudacion_ids"] = pendientes
             if user.role == "admin":
                 return redirect("control:dashboard")
             return redirect("control:turno")
@@ -294,17 +773,8 @@ def _recalcular_totales(cuadratura):
     cuadratura.numeral_dia = numeral_dia
     cuadratura.numeral_acumulado = numeral_acum
 
-    # 2) Caja anterior = última caja registrada antes de esta fecha, SIN filtro de ciclo
-    # (el efectivo físico no depende del ciclo de recaudación)
-    prev = CuadraturaCajaDiaria.objects.filter(
-        sucursal=cuadratura.sucursal,
-        fecha__lt=cuadratura.fecha
-    ).order_by("-fecha", "-creado_el").first()
-
-    if prev is None:
-        base_anterior = (cuadratura.sucursal.caja_inicial or 0)
-    else:
-        base_anterior = int(prev.total_efectivo or 0)
+    # 2) Caja anterior dentro del ciclo (si es primer día del ciclo → caja_inicial)
+    base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
 
     # (si quieres guardar caja anterior en el modelo, aquí NO tienes campo.
     #  Solo lo usamos para cálculo)
@@ -335,10 +805,8 @@ def _recalcular_totales(cuadratura):
 
     # 7) Prestamos acumulados = prestamos de dias anteriores + dia actual
     prestamos_dia = int(cuadratura.prestamos or 0)
-    if prev:
-        prestamos_acum = int(prev.prestamos_acum or 0) + prestamos_dia
-    else:
-        prestamos_acum = prestamos_dia
+    _, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
+    prestamos_acum = prestamos_acum_ant + prestamos_dia
     cuadratura.prestamos_acum = prestamos_acum
 
     # 8) Ganancia = desglose efectivo - caja inicial - prestamos acumulados
@@ -434,12 +902,8 @@ def cuadratura_diaria_create(request):
         fecha_post = request.POST.get("fecha") or timezone.now().date()
         try:
             sucursal_obj = Sucursal.objects.get(pk=sucursal_id)
-            prev = CuadraturaCajaDiaria.objects.filter(
-                sucursal=sucursal_obj, fecha__lt=fecha_post
-            ).order_by("-fecha", "-creado_el").first()
-            caja_anterior = int(prev.total_efectivo or 0) if prev else int(sucursal_obj.caja_inicial or 0)
+            caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal_obj, fecha_post if hasattr(fecha_post, 'year') else timezone.datetime.fromisoformat(str(fecha_post)).date())
             caja_inicial = int(sucursal_obj.caja_inicial or 0)
-            prestamos_acum_ant = int(prev.prestamos_acum or 0) if prev else 0
         except (Sucursal.DoesNotExist, ValueError, TypeError):
             sucursal_obj = None
             caja_anterior = 0
@@ -455,16 +919,30 @@ def cuadratura_diaria_create(request):
 
         if primera_sucursal:
             fecha = timezone.now().date()
-            prev = CuadraturaCajaDiaria.objects.filter(
-                sucursal=primera_sucursal, fecha__lt=fecha
-            ).order_by("-fecha", "-creado_el").first()
-            caja_anterior = int(prev.total_efectivo or 0) if prev else int(primera_sucursal.caja_inicial or 0)
+            caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(primera_sucursal, fecha)
             caja_inicial = int(primera_sucursal.caja_inicial or 0)
-            prestamos_acum_ant = int(prev.prestamos_acum or 0) if prev else 0
         else:
             caja_anterior = 0
             caja_inicial = 0
             prestamos_acum_ant = 0
+
+    # Verificar si todas las zonas del turno activo tienen líneas en el control
+    fecha_hoy = timezone.localdate()
+    zonas_faltantes = []
+    turno_activo_caja = None
+    for suc in Sucursal.objects.filter(is_active=True):
+        turno_hoy = Turno.objects.filter(sucursal=suc, fecha=fecha_hoy, estado="Abierto").first()
+        if turno_hoy:
+            turno_activo_caja = turno_hoy
+            control_hoy = ControlLecturas.objects.filter(sucursal=suc, fecha_trabajo=fecha_hoy).first()
+            zonas_con_lineas = set()
+            if control_hoy:
+                zonas_con_lineas = set(
+                    control_hoy.lineas.values_list("zona_id", flat=True).distinct()
+                )
+            for az in AsignacionTurnoZona.objects.filter(turno=turno_hoy).select_related("zona"):
+                if az.zona_id not in zonas_con_lineas:
+                    zonas_faltantes.append(az.zona.nombre)
 
     return render(request, "cuadratura_diaria/create.html", {
         "form": form,
@@ -473,6 +951,8 @@ def cuadratura_diaria_create(request):
         "caja_anterior": caja_anterior,
         "caja_inicial": caja_inicial,
         "prestamos_acum_ant": prestamos_acum_ant,
+        "zonas_faltantes": zonas_faltantes,
+        "control_completo": len(zonas_faltantes) == 0,
     })
 @login_required
 def cuadratura_diaria_list(request):
@@ -511,12 +991,7 @@ def cuadratura_diaria_list(request):
 def cuadratura_diaria_detail(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
     # Última caja guardada antes de esta (mismo día más antigua, o días anteriores)
-    caja_anterior_obj = CuadraturaCajaDiaria.objects.filter(
-        sucursal=cuadratura.sucursal
-    ).exclude(pk=cuadratura.pk if cuadratura.pk else 0).filter(
-        fecha__lte=cuadratura.fecha
-    ).order_by("-fecha", "-creado_el").first()
-    caja_anterior = int(caja_anterior_obj.total_efectivo or 0) if caja_anterior_obj else int(cuadratura.sucursal.caja_inicial or 0)
+    caja_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
     return render(request, "cuadratura_diaria/detail.html", {
         "cuadratura": cuadratura,
         "caja_anterior": caja_anterior,
@@ -574,12 +1049,7 @@ def cuadratura_diaria_edit(request, pk):
         form = CuadraturaCajaDiariaForm(instance=cuadratura)
 
     # Última caja guardada antes de esta (mismo día más antigua, o días anteriores)
-    caja_anterior_obj = CuadraturaCajaDiaria.objects.filter(
-        sucursal=cuadratura.sucursal
-    ).exclude(pk=cuadratura.pk if cuadratura.pk else 0).filter(
-        fecha__lte=cuadratura.fecha
-    ).order_by("-fecha", "-creado_el").first()
-    caja_anterior = int(caja_anterior_obj.total_efectivo or 0) if caja_anterior_obj else int(cuadratura.sucursal.caja_inicial or 0)
+    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
 
     return render(request, "cuadratura_diaria/create.html", {
@@ -587,7 +1057,7 @@ def cuadratura_diaria_edit(request, pk):
         "cuadratura": cuadratura,
         "caja_anterior": caja_anterior,
         "caja_inicial": int(cuadratura.sucursal.caja_inicial or 0),
-        "prestamos_acum_ant": int(caja_anterior_obj.prestamos_acum or 0) if caja_anterior_obj else 0,
+        "prestamos_acum_ant": prestamos_acum_ant or 0,
         "mes_default": timezone.localdate().strftime("%Y-%m"),
         "sucursales": sucursales,
         "editar": True,
@@ -931,16 +1401,13 @@ def turno_view(request):
 
     if request.method == "POST":
         if not turno_abierto:
-            # El usuario es enviado al POST
             form = TurnoForm(request.POST, user=request.user)
             if form.is_valid():
                 turno = form.save(commit=False)
                 turno.usuario = request.user
                 turno.estado = "Abierto"
-                # Se fuerza la sucursal si es atendedora
                 if request.user.role == "usuario" and request.user.sucursal:
                     turno.sucursal = request.user.sucursal
-
                 try:
                     turno.full_clean()
                     turno.save()
@@ -951,21 +1418,241 @@ def turno_view(request):
         else:
             messages.warning(request, "Ya tiene un turno abierto.")
     else:
-        # Le pasamos el usuario al formulario cuando se carga la página
-        form = TurnoForm(user=request.user) if not turno_abierto else None
+        # Para admin: form con fecha de hoy pre-cargada pero editable
+        # Para usuario: form normal (sucursal bloqueada si tiene asignada)
+        initial = {}
+        if request.user.role == "admin":
+            from datetime import date
+            initial["fecha"] = date.today()
+        form = TurnoForm(user=request.user, initial=initial) if not turno_abierto else None
 
     cantidad_lecturas = 0
+    zonas = []
+    asig_zonas = {}
+    asig_slots = {}
+    usuarios_sucursal = []
+    cant_redbank = 0
+    cant_servicios = 0
+
     if turno_abierto:
         cantidad_lecturas = LecturaMaquina.objects.filter(turno=turno_abierto).count()
+        zonas = list(Zona.objects.filter(sucursal=turno_abierto.sucursal, is_active=True).order_by("orden", "nombre"))
+        usuarios_sucursal = list(Usuario.objects.filter(is_active=True).exclude(role="admin").order_by("nombre"))
+
+        for az in AsignacionTurnoZona.objects.filter(turno=turno_abierto).select_related("usuario", "zona"):
+            asig_zonas[az.zona_id] = az
+
+        slots = list(AsignacionTurnoSlot.objects.filter(turno=turno_abierto).select_related("usuario"))
+        redbank_slots = [s for s in slots if s.tipo == "redbank"]
+        servicio_slots = [s for s in slots if s.tipo == "servicio"]
+        if redbank_slots:
+            cant_redbank = max(s.numero for s in redbank_slots)
+        if servicio_slots:
+            cant_servicios = max(s.numero for s in servicio_slots)
+        for s in slots:
+            asig_slots[(s.tipo, s.numero)] = s
 
     context = {
         "turno_abierto": turno_abierto,
         "cantidad_lecturas": cantidad_lecturas,
         "form": form,
         "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
+        "zonas": zonas,
+        "usuarios_sucursal": usuarios_sucursal,
+        "asig_zonas": asig_zonas,
+        "asig_slots": asig_slots,
+        "cant_redbank": cant_redbank,
+        "cant_servicios": cant_servicios,
+        "cant_redbank_range": list(range(1, cant_redbank + 1)),
+        "cant_servicios_range": list(range(1, cant_servicios + 1)),
     }
 
     return render(request, "turno.html", context)
+
+
+@login_required
+@transaction.atomic
+def guardar_asignaciones(request, turno_id):
+    if request.method != "POST":
+        return redirect("control:turno")
+
+    turno = get_object_or_404(Turno, id=turno_id, estado="Abierto")
+    if request.user.role != "admin" and turno.usuario_id != request.user.id:
+        messages.error(request, "No autorizado.")
+        return redirect("control:turno")
+
+    post = request.POST
+
+    # Zonas
+    zonas = Zona.objects.filter(sucursal=turno.sucursal, is_active=True)
+    for zona in zonas:
+        uid_str  = post.get("zona_%d_usuario" % zona.id, "")
+        banano   = int(post.get("zona_%d_banano"   % zona.id, 0) or 0)
+        prestamo = int(post.get("zona_%d_prestamo" % zona.id, 0) or 0)
+        retiros  = int(post.get("zona_%d_retiros"  % zona.id, 0) or 0)
+        uid = int(uid_str) if uid_str.isdigit() else None
+        AsignacionTurnoZona.objects.update_or_create(
+            turno=turno, zona=zona,
+            defaults={"usuario_id": uid, "banano": banano, "prestamo": prestamo, "retiros": retiros}
+        )
+
+    # Redbank
+    cant_redbank = int(post.get("cant_redbank", 0) or 0)
+    AsignacionTurnoSlot.objects.filter(turno=turno, tipo="redbank", numero__gt=cant_redbank).delete()
+    for i in range(1, cant_redbank + 1):
+        uid_str = post.get("redbank_%d_usuario" % i, "")
+        uid = int(uid_str) if uid_str.isdigit() else None
+        AsignacionTurnoSlot.objects.update_or_create(
+            turno=turno, tipo="redbank", numero=i,
+            defaults={"usuario_id": uid}
+        )
+
+    # Servicios
+    cant_servicios = int(post.get("cant_servicios", 0) or 0)
+    AsignacionTurnoSlot.objects.filter(turno=turno, tipo="servicio", numero__gt=cant_servicios).delete()
+    for i in range(1, cant_servicios + 1):
+        uid_str = post.get("servicio_%d_usuario" % i, "")
+        uid = int(uid_str) if uid_str.isdigit() else None
+        AsignacionTurnoSlot.objects.update_or_create(
+            turno=turno, tipo="servicio", numero=i,
+            defaults={"usuario_id": uid}
+        )
+
+    messages.success(request, "Asignaciones guardadas correctamente.")
+    return redirect("control:turno")
+
+
+# ============================================
+# CUADRATURA ZONA
+# ============================================
+
+DENOMINACIONES_ZONA = [
+    {"key": "20000", "label": "20.000", "valor": 20000},
+    {"key": "10000", "label": "10.000", "valor": 10000},
+    {"key": "5000",  "label": "5.000",  "valor": 5000},
+    {"key": "2000",  "label": "2.000",  "valor": 2000},
+    {"key": "1000",  "label": "1.000",  "valor": 1000},
+]
+
+
+@login_required
+def cuadratura_zona_view(request, turno_id):
+    try:
+        from .models import CuadraturaZona
+    except ImportError:
+        CuadraturaZona = None
+    turno = get_object_or_404(Turno, id=turno_id)
+
+    zonas = Zona.objects.filter(
+        sucursal=turno.sucursal, is_active=True
+    ).order_by("orden", "nombre")
+
+    asig_zonas = {
+        az.zona_id: az
+        for az in AsignacionTurnoZona.objects.filter(turno=turno).select_related("usuario", "zona")
+    }
+
+    cz_map = {}
+    if CuadraturaZona is not None:
+        cz_map = {
+            cz.zona_id: cz
+            for cz in CuadraturaZona.objects.filter(turno=turno)
+        }
+
+    lecturas_raw = (
+        LecturaMaquina.objects
+        .filter(turno=turno)
+        .select_related("zona", "maquina")
+        .order_by("zona__orden", "zona__nombre", "numero_maquina")
+    )
+    lecturas_por_zona = {}
+    for lec in lecturas_raw:
+        lecturas_por_zona.setdefault(lec.zona_id, []).append(lec)
+
+    zonas_data = []
+    for zona in zonas:
+        lecs = lecturas_por_zona.get(zona.id, [])
+        total_lecs = sum(l.total for l in lecs)
+        zonas_data.append({
+            "zona": zona,
+            "asignacion": asig_zonas.get(zona.id),
+            "cz": cz_map.get(zona.id),
+            "lecturas": lecs,
+            "total_lecturas": total_lecs,
+        })
+
+    slots = list(
+        AsignacionTurnoSlot.objects
+        .filter(turno=turno)
+        .select_related("usuario")
+        .order_by("tipo", "numero")
+    )
+    redbank_data  = [{"numero": s.numero, "usuario": s.usuario} for s in slots if s.tipo == "redbank"]
+    servicio_data = [{"numero": s.numero, "usuario": s.usuario} for s in slots if s.tipo == "servicio"]
+
+    return render(request, "cuadratura_zona/cuadratura_zona.html", {
+        "turno": turno,
+        "zonas_data": zonas_data,
+        "redbank_data": redbank_data,
+        "servicio_data": servicio_data,
+        "denominaciones": DENOMINACIONES_ZONA,
+    })
+
+
+@login_required
+@transaction.atomic
+def guardar_cuadratura_zona(request, turno_id, zona_id):
+    try:
+        from .models import CuadraturaZona
+    except ImportError:
+        CuadraturaZona = None
+    if request.method != "POST":
+        return redirect("control:cuadratura_zona", turno_id=turno_id)
+
+    turno = get_object_or_404(Turno, id=turno_id)
+    zona  = get_object_or_404(Zona, id=zona_id)
+    post  = request.POST
+
+    banano   = int(post.get("banano",   0) or 0)
+    prestamo = int(post.get("prestamo", 0) or 0)
+    retiros  = int(post.get("retiros",  0) or 0)
+
+    ef_20000 = int(post.get("ef_20000", 0) or 0)
+    ef_10000 = int(post.get("ef_10000", 0) or 0)
+    ef_5000  = int(post.get("ef_5000",  0) or 0)
+    ef_2000  = int(post.get("ef_2000",  0) or 0)
+    ef_1000  = int(post.get("ef_1000",  0) or 0)
+    monedas  = int(post.get("ef_monedas", 0) or 0)
+    total_ef = ef_20000 + ef_10000 + ef_5000 + ef_2000 + ef_1000 + monedas
+
+    notas    = post.get("notas", "").strip()
+    descuadre = 0  # logica aritmetica se define en siguiente iteracion
+
+    if CuadraturaZona is not None:
+        CuadraturaZona.objects.update_or_create(
+            turno=turno, zona=zona,
+            defaults={
+                "banano":   banano,
+                "prestamo": prestamo,
+                "retiros":  retiros,
+                "ef_20000":  ef_20000,
+                "ef_10000":  ef_10000,
+                "ef_5000":   ef_5000,
+                "ef_2000":   ef_2000,
+                "ef_1000":   ef_1000,
+                "monedas_monto": monedas,
+                "detalle_entregado_total": total_ef,
+                "notas":     notas,
+                "descuadre": descuadre,
+            }
+        )
+
+    AsignacionTurnoZona.objects.filter(turno=turno, zona=zona).update(
+        banano=banano, prestamo=prestamo, retiros=retiros
+    )
+
+    messages.success(request, f"Cuadratura de {zona.nombre} guardada.")
+    return redirect("control:cuadratura_zona", turno_id=turno_id)
 
 
 @login_required
@@ -1102,16 +1789,8 @@ def registro_view(request):
 # ============================================
 @login_required
 def _get_caja_anterior(sucursal: Sucursal, fecha):
-    # última cuadratura anterior a esa fecha
-    ultima = (CuadraturaCajaDiaria.objects
-              .filter(sucursal=sucursal, fecha__lt=fecha)
-              .order_by("-fecha")
-              .first())
-    if ultima:
-        # caja del día anterior = lo que quedó como efectivo / caja para el siguiente día
-        return int(ultima.total_efectivo or 0)
-    # si no hay anterior, base = caja inicial del local
-    return int(sucursal.caja_inicial or 0)
+    caja_ant, _ = _caja_anterior_en_ciclo(sucursal, fecha)
+    return caja_ant
 
 def ajax_cuadratura_detalles(request):
     sucursal_id = request.GET.get("sucursal_id")
@@ -1150,6 +1829,31 @@ def ajax_cuadratura_detalles(request):
         "gastos_dia": cuadratura.gastos_dia,
         "sueldo_b_dia": cuadratura.sueldo_b_dia,
     })
+
+def _caja_anterior_en_ciclo(sucursal, fecha):
+    """
+    Retorna (caja_anterior, prestamos_acum_ant).
+    - Si fecha es el inicio del ciclo o anterior: devuelve (caja_inicial, 0).
+    - Si no: busca la última CuadraturaCajaDiaria dentro del ciclo antes de fecha.
+    """
+    inicio_ciclo = get_inicio_ciclo(sucursal)
+
+    # Primer día del nuevo ciclo → resetear todo
+    if inicio_ciclo and fecha <= inicio_ciclo:
+        return int(sucursal.caja_inicial or 0), 0
+
+    qs = CuadraturaCajaDiaria.objects.filter(
+        sucursal=sucursal,
+        fecha__lt=fecha,
+    )
+    if inicio_ciclo:
+        qs = qs.filter(fecha__gte=inicio_ciclo)
+
+    prev = qs.order_by("-fecha", "-creado_el").first()
+    if prev:
+        return int(prev.total_efectivo or 0), int(prev.prestamos_acum or 0)
+    return int(sucursal.caja_inicial or 0), 0
+
 @login_required
 def ajax_cuadratura_diaria_numerales(request):
     sucursal_id = request.GET.get("sucursal_id")
@@ -1170,21 +1874,7 @@ def ajax_cuadratura_diaria_numerales(request):
     # === Cálculo principal ===
     numeral_dia, numeral_acumulado = calcular_numerales_caja(sucursal, fecha)
 
-    # Caja anterior = última caja registrada antes de esta fecha, SIN filtro de ciclo
-    # (el efectivo físico no depende del ciclo de recaudación)
-    caja_anterior_obj = CuadraturaCajaDiaria.objects.filter(
-        sucursal=sucursal,
-        fecha__lt=fecha
-    ).order_by("-fecha", "-creado_el").first()
-
-    if caja_anterior_obj:
-        caja_anterior = int(caja_anterior_obj.total_efectivo or 0)
-    else:
-        caja_anterior = int(sucursal.caja_inicial or 0)
-    
-
-    # Prestamos acumulados del día anterior
-    prestamos_acum_ant = int(caja_anterior_obj.prestamos_acum or 0) if caja_anterior_obj else 0
+    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha)
 
     return JsonResponse({
         "ok": True,
@@ -1448,6 +2138,8 @@ def tablas_view(request):
         fecha_desde = request.GET.get("fecha_desde")
         fecha_hasta = request.GET.get("fecha_hasta")
 
+        hay_filtros = any([sucursal_id, zona_id, maquina_id, usuario_id, fecha_desde, fecha_hasta])
+
         if sucursal_id:
             lecturas = lecturas.filter(sucursal_id=sucursal_id)
         if zona_id:
@@ -1460,6 +2152,11 @@ def tablas_view(request):
             lecturas = lecturas.filter(fecha_trabajo__gte=fecha_desde)
         if fecha_hasta:
             lecturas = lecturas.filter(fecha_trabajo__lte=fecha_hasta)
+
+        # Si no hay ningún filtro activo, mostrar solo los registros de HOY por defecto
+        if not hay_filtros:
+            hoy = timezone.now().date()
+            lecturas = lecturas.filter(fecha_trabajo=hoy)
 
     fecha = request.GET.get("fecha")
     if fecha and request.user.role == "usuario":
@@ -1487,13 +2184,47 @@ class LecturaEditView(UpdateView):
     model = LecturaMaquina
     form_class = LecturaMaquinaForm
     template_name = "control/lectura_edit.html"
-    success_url = reverse_lazy("control:tablas")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        turno = getattr(self.request.user, "turno_activo", None)
-        kwargs["turno"] = turno
+        lectura = self.get_object()
+        kwargs["turno"] = lectura.turno
         return kwargs
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        lectura = self.object
+
+        # Sincronizar la línea en ControlLecturas si existe
+        control = ControlLecturas.objects.filter(
+            sucursal=lectura.sucursal,
+            fecha_trabajo=lectura.fecha_trabajo,
+        ).first()
+        if control:
+            ControlLecturasLinea.objects.filter(
+                control=control, maquina=lectura.maquina
+            ).update(
+                entrada_historica=int(lectura.entrada or 0),
+                salida_historica=int(lectura.salida or 0),
+                entrada_parcial=int(lectura.entrada_dia or 0),
+                salida_parcial=int(lectura.salida_dia or 0),
+                total=int(lectura.total or 0),
+            )
+            total_general = control.lineas.aggregate(s=Sum("total"))["s"] or 0
+            control.total_general = total_general
+            control.save(update_fields=["total_general"])
+
+        return response
+
+    def get_success_url(self):
+        lectura = self.object
+        control = ControlLecturas.objects.filter(
+            sucursal=lectura.sucursal,
+            fecha_trabajo=lectura.fecha_trabajo,
+        ).first()
+        if control:
+            return reverse_lazy("control:controles_detail", kwargs={"pk": control.pk})
+        return reverse_lazy("control:controles_list")
 @login_required
 def export_excel(request):
     lecturas = LecturaMaquina.objects.all()
@@ -2381,14 +3112,46 @@ def _ensure_billetes(cierre):
 
 
 @login_required
+@transaction.atomic
 def generar_control(request, turno_id):
     turno = get_object_or_404(Turno, pk=turno_id)
 
-    # seguridad: atendedora del turno o admin
-    if request.user.role == "usuario" and turno.usuario_id != request.user.id:
+    # seguridad: dueño del turno, admin, o asistente asignado a una zona
+    es_dueno_gen = (turno.usuario == request.user or request.user.role == "admin")
+    es_asignado_gen = AsignacionTurnoZona.objects.filter(turno=turno, usuario=request.user).exists()
+    if not es_dueno_gen and not es_asignado_gen:
         return HttpResponse("No autorizado", status=403)
 
-    lecturas = (LecturaMaquina.objects
+    lecturas = (
+        LecturaMaquina.objects
+        .filter(turno=turno)
+        .select_related("maquina", "zona")
+        .order_by("zona__orden", "zona__nombre", "numero_maquina")
+    )
+
+    # Resync: recalcular campos derivados de cualquier lectura que haya sido
+    # editada con el modelo viejo (entrada_dia/salida_dia/total desactualizados).
+    # Usamos update() directo a la BD para no disparar el save() del modelo
+    # (que recalcularía entrada_anterior, lo cual NO queremos cambiar).
+    from django.db.models import F
+    for lec in lecturas:
+        entrada_dia_correcto = int(lec.entrada or 0) - int(lec.entrada_anterior or 0)
+        salida_dia_correcto  = int(lec.salida  or 0) - int(lec.salida_anterior  or 0)
+        total_correcto       = entrada_dia_correcto - salida_dia_correcto
+
+        # Solo actualizar si hay diferencia (evitar writes innecesarios)
+        if (lec.entrada_dia != entrada_dia_correcto or
+            lec.salida_dia  != salida_dia_correcto  or
+            lec.total       != total_correcto):
+            LecturaMaquina.objects.filter(pk=lec.pk).update(
+                entrada_dia=entrada_dia_correcto,
+                salida_dia=salida_dia_correcto,
+                total=total_correcto,
+            )
+
+    # Refrescar queryset con valores actualizados
+    lecturas = (
+        LecturaMaquina.objects
         .filter(turno=turno)
         .select_related("maquina", "zona")
         .order_by("zona__orden", "zona__nombre", "numero_maquina")
@@ -2439,26 +3202,44 @@ def guardar_control(request, turno_id):
 
     turno = get_object_or_404(Turno, id=turno_id)
 
-    # OJO: ajusta si tu turno tiene estado/usuario
-    if turno.usuario != request.user:
+    # Permitir: dueño del turno (admin/encargado) O asistente asignado a una zona del turno
+    es_dueno = (turno.usuario == request.user or request.user.role == "admin")
+    es_asignado = AsignacionTurnoZona.objects.filter(turno=turno, usuario=request.user).exists()
+    if not es_dueno and not es_asignado:
         messages.error(request, "No autorizado.")
         return redirect("control:dashboard")
 
-    fecha = turno.fecha
+    fecha    = turno.fecha
     sucursal = turno.sucursal
 
-    lecturas = (
-        LecturaMaquina.objects
-        .filter(turno=turno)
-        .select_related("maquina", "zona")
-        .order_by("zona__nombre", "numero_maquina", "id")
-    )
+    # Determinar qué zonas le corresponden al usuario actual
+    # - Admin/dueño del turno: todas las zonas con lecturas
+    # - Asistente: solo las zonas que tiene asignadas en este turno
+    if es_dueno:
+        lecturas = (
+            LecturaMaquina.objects
+            .filter(turno=turno)
+            .select_related("maquina", "zona")
+            .order_by("zona__nombre", "numero_maquina", "id")
+        )
+        zonas_del_usuario = None  # todas
+    else:
+        zonas_asignadas = AsignacionTurnoZona.objects.filter(
+            turno=turno, usuario=request.user
+        ).values_list("zona_id", flat=True)
+        lecturas = (
+            LecturaMaquina.objects
+            .filter(turno=turno, zona_id__in=zonas_asignadas)
+            .select_related("maquina", "zona")
+            .order_by("zona__nombre", "numero_maquina", "id")
+        )
+        zonas_del_usuario = list(zonas_asignadas)
 
     if not lecturas.exists():
         messages.error(request, "No hay lecturas para guardar control.")
         return redirect("control:generar_control", turno_id=turno_id)
 
-    # upsert (si ya existe control del mismo día, lo reescribimos)
+    # Crear el control si no existe (el primero que guarda lo crea)
     control, created = ControlLecturas.objects.update_or_create(
         sucursal=sucursal,
         fecha_trabajo=fecha,
@@ -2468,16 +3249,15 @@ def guardar_control(request, turno_id):
         }
     )
 
-    # borrar lineas anteriores (si era update)
-    control.lineas.all().delete()
+    # Borrar SOLO las líneas de las zonas del usuario actual, no tocar las demás
+    if zonas_del_usuario is not None:
+        control.lineas.filter(zona_id__in=zonas_del_usuario).delete()
+    else:
+        control.lineas.all().delete()
 
     bulk = []
     for lec in lecturas:
-        servidor = ""
-        if lec.maquina_id:
-            # si agregaste servidor en Maquina
-            servidor = getattr(lec.maquina, "servidor", "") or ""
-
+        servidor = getattr(lec.maquina, "servidor", "") or "" if lec.maquina_id else ""
         bulk.append(ControlLecturasLinea(
             control=control,
             zona=lec.zona,
@@ -2494,12 +3274,58 @@ def guardar_control(request, turno_id):
 
     ControlLecturasLinea.objects.bulk_create(bulk)
 
+    # Recalcular total_general sumando TODAS las líneas (de todas las zonas)
     total_general = control.lineas.aggregate(s=Sum("total"))["s"] or 0
     control.total_general = total_general
     control.save(update_fields=["total_general"])
 
     messages.success(request, "Control guardado correctamente.")
     return redirect("control:controles_detail", pk=control.pk)
+
+
+@login_required
+def lectura_edit_from_control(request, linea_pk, control_pk):
+    """Editar una LecturaMaquina accediendo desde el detalle del control."""
+    from django.shortcuts import get_object_or_404
+    linea   = get_object_or_404(ControlLecturasLinea, pk=linea_pk)
+    control = get_object_or_404(ControlLecturas, pk=control_pk)
+
+    # Buscar la LecturaMaquina correspondiente
+    lectura = LecturaMaquina.objects.filter(
+        maquina=linea.maquina,
+        fecha_trabajo=control.fecha_trabajo,
+        sucursal=control.sucursal,
+    ).first()
+
+    if not lectura:
+        messages.error(request, "No se encontró la lectura original para editar.")
+        return redirect("control:controles_detail", pk=control_pk)
+
+    from .forms import LecturaMaquinaForm as _Form
+    if request.method == "POST":
+        form = _Form(request.POST, instance=lectura, turno=lectura.turno)
+        if form.is_valid():
+            form.save()
+            # Sync control line
+            linea.entrada_historica = int(lectura.entrada or 0)
+            linea.salida_historica  = int(lectura.salida or 0)
+            linea.entrada_parcial   = int(lectura.entrada_dia or 0)
+            linea.salida_parcial    = int(lectura.salida_dia or 0)
+            linea.total             = int(lectura.total or 0)
+            linea.save()
+            total_general = control.lineas.aggregate(s=Sum("total"))["s"] or 0
+            control.total_general = total_general
+            control.save(update_fields=["total_general"])
+            messages.success(request, f"Lectura de máquina {lectura.numero_maquina} actualizada.")
+            return redirect("control:controles_detail", pk=control_pk)
+    else:
+        form = _Form(instance=lectura, turno=lectura.turno)
+
+    return render(request, "control/lectura_edit.html", {
+        "form": form,
+        "control": control,
+        "desde_control": True,
+    })
 
 @login_required
 def controles_list(request):
@@ -2530,9 +3356,18 @@ def controles_list(request):
 def controles_detail(request, pk):
     control = (
         ControlLecturas.objects
-        .select_related("sucursal", "turno")
+        .select_related("sucursal", "turno", "creado_por")
         .prefetch_related("lineas")
         .get(pk=pk)
     )
-    lineas = control.lineas.select_related("zona", "maquina").all()
-    return render(request, "controles/detail.html", {"control": control, "lineas": lineas})
+    lineas = list(control.lineas.select_related("zona", "maquina").order_by("zona__orden", "zona__nombre", "numero_maquina"))
+
+    total_entrada_parcial = sum(l.entrada_parcial or 0 for l in lineas)
+    total_salida_parcial  = sum(l.salida_parcial  or 0 for l in lineas)
+
+    return render(request, "controles/detail.html", {
+        "control": control,
+        "lineas": lineas,
+        "total_entrada_parcial": total_entrada_parcial,
+        "total_salida_parcial":  total_salida_parcial,
+    })
