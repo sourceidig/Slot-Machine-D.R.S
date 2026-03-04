@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Listado de Cuadraturas de Zona{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul"></i> Listado de Cuadraturas de Zona
+        </h5>
+    </div>
+
+    <div class="card-body">
+        <!-- FILTROS -->
+        <form method="get" class="row g-3 mb-4 p-3 bg-light rounded">
+            <div class="col-md-2">
+                <label class="form-label">Fecha Desde</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ request.GET.fecha_desde }}">
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Fecha Hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Sucursal</label>
+                <select name="sucursal" class="form-select">
+                    <option value="">Todas</option>
+                    {% for suc in sucursales %}
+                        <option value="{{ suc.id }}" {% if request.GET.sucursal == suc.id|stringformat:"s" %}selected{% endif %}>
+                            {{ suc.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Zona</label>
+                <select name="zona" class="form-select">
+                    <option value="">Todas</option>
+                    {% for z in zonas %}
+                        <option value="{{ z.id }}" {% if request.GET.zona == z.id|stringformat:"s" %}selected{% endif %}>
+                            {{ z.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+                <a href="{% url 'control:cuadratura_zona_list' %}" class="btn btn-secondary w-100">
+                    <i class="bi bi-x-circle"></i> Limpiar
+                </a>
+            </div>
+        </form>
+
+        <!-- TABLA -->
+        {% if cuadraturas %}
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Sucursal</th>
+                        <th>Zona</th>
+                        <th>Usuario</th>
+                        <th class="text-end">Banano</th>
+                        <th class="text-end">Préstamo</th>
+                        <th class="text-end">Retiros</th>
+                        <th class="text-end">Det. Entregado</th>
+                        <th class="text-end">Descuadre</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cz in cuadraturas %}
+                    <tr>
+                        <td>{{ cz.turno.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ cz.turno.sucursal.nombre }}</td>
+                        <td>{{ cz.zona.nombre }}</td>
+                        <td>{{ cz.turno.usuario.nombre|default:cz.turno.usuario.username }}</td>
+
+                        <td class="text-end">${{ cz.banano|floatformat:0 }}</td>
+                        <td class="text-end">${{ cz.prestamo|floatformat:0 }}</td>
+                        <td class="text-end">${{ cz.retiros|floatformat:0 }}</td>
+                        <td class="text-end">${{ cz.detalle_entregado_total|floatformat:0 }}</td>
+
+                        <td class="text-end {% if cz.descuadre > 0 %}text-success{% elif cz.descuadre < 0 %}text-danger{% endif %}">
+                            ${{ cz.descuadre|floatformat:0 }}
+                        </td>
+
+                        <td>
+                            <a href="{% url 'control:cuadratura_zona' cz.turno.id %}"
+                               class="btn btn-sm btn-info" title="Ver / Editar">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No se encontraron cuadraturas con los filtros aplicados.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

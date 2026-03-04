@@ -44,6 +44,7 @@ from .models import (
     InformeRecaudacion, InformeRecaudacionLinea, InformeRecaudacionCaja,
     ControlLecturas, ControlLecturasLinea,
     ProgramacionRecaudacion,
+    CuadraturaZona,
 )
 
 from .forms import (
@@ -1631,7 +1632,14 @@ def guardar_cuadratura_zona(request, turno_id, zona_id):
     total_ef = ef_20000 + ef_10000 + ef_5000 + ef_2000 + ef_1000 + monedas
 
     notas    = post.get("notas", "").strip()
-    descuadre = 0  # logica aritmetica se define en siguiente iteracion
+
+    # numeral_dia = suma de lecturas de maquinas de esa zona en ese turno
+    numeral_dia = LecturaMaquina.objects.filter(turno=turno, zona=zona).aggregate(
+        total=Sum("total")
+    )["total"] or 0
+
+    # descuadre = banano + numeral_dia + prestamos - retiros - efectivo
+    descuadre = banano + numeral_dia + prestamo - retiros - total_ef
 
     if CuadraturaZona is not None:
         CuadraturaZona.objects.update_or_create(
@@ -1694,7 +1702,7 @@ def registro_view(request):
             )
             return redirect("control:turno")
 
-        form = LecturaMaquinaForm(request.POST, turno=turno_abierto)
+        form = LecturaMaquinaForm(request.POST, turno=turno_abierto, usuario=request.user)
 
         if form.is_valid():
             lectura = form.save(commit=False)
@@ -1775,15 +1783,35 @@ def registro_view(request):
                 initial["zona"] = zona_guardada_id
             if siguiente_maquina_id:
                 initial["maquina"] = siguiente_maquina_id
-            form = LecturaMaquinaForm(turno=turno_abierto, initial=initial if initial else None)
+            # Verificar si el usuario tiene zona asignada en este turno
+            zonas_asignadas = AsignacionTurnoZona.objects.filter(
+                turno=turno_abierto, usuario=request.user
+            ).select_related("zona")
+            tiene_asignacion = zonas_asignadas.exists()
+
+            # Auto-preseleccionar zona si solo tiene una asignada
+            if not initial.get("zona") and tiene_asignacion and zonas_asignadas.count() == 1:
+                initial["zona"] = zonas_asignadas.first().zona_id
+
+            form = LecturaMaquinaForm(turno=turno_abierto, usuario=request.user, initial=initial if initial else None)
         else:
             form = None
         siguiente_maquina_id = None  # ya fue consumida
+
+    # Info de asignación de zona para mostrar aviso en template
+    zonas_asignadas_usuario = []
+    if turno_abierto:
+        zonas_asignadas_usuario = list(
+            AsignacionTurnoZona.objects.filter(turno=turno_abierto, usuario=request.user)
+            .select_related("zona").values_list("zona__nombre", flat=True)
+        )
 
     context = {
         "turno_abierto": turno_abierto,
         "form": form,
         "zona_guardada": zona_guardada_id,
+        "zonas_asignadas_usuario": zonas_asignadas_usuario,
+        "tiene_asignacion": bool(zonas_asignadas_usuario),
     }
 
     return render(request, "registro.html", context)
@@ -2914,6 +2942,37 @@ def cierre_turno_list(request):
 
 
 @login_required
+def cuadratura_zona_list(request):
+    qs = CuadraturaZona.objects.select_related("turno", "turno__sucursal", "turno__usuario", "zona")
+
+    sucursal_id = request.GET.get("sucursal")
+    zona_id     = request.GET.get("zona")
+    fecha_desde = request.GET.get("fecha_desde")
+    fecha_hasta = request.GET.get("fecha_hasta")
+
+    if sucursal_id:
+        qs = qs.filter(turno__sucursal_id=sucursal_id)
+    if zona_id:
+        qs = qs.filter(zona_id=zona_id)
+    if fecha_desde:
+        qs = qs.filter(turno__fecha__gte=fecha_desde)
+    if fecha_hasta:
+        qs = qs.filter(turno__fecha__lte=fecha_hasta)
+
+    qs = qs.order_by("-turno__fecha", "-id")
+
+    return render(
+        request,
+        "cuadratura_zona/list.html",
+        {
+            "cuadraturas": qs,
+            "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
+            "zonas": Zona.objects.filter(is_active=True).order_by("nombre"),
+        },
+    )
+
+
+@login_required
 def cierre_turno_detail(request, pk):
     cierre = get_object_or_404(CierreTurno, pk=pk)
 
@@ -3370,9 +3429,27 @@ def controles_detail(request, pk):
     total_entrada_parcial = sum(l.entrada_parcial or 0 for l in lineas)
     total_salida_parcial  = sum(l.salida_parcial  or 0 for l in lineas)
 
+    # Agrupar por zona para mostrar tabs
+    zonas_dict = {}
+    for linea in lineas:
+        zona_nombre = linea.zona.nombre if linea.zona else "Sin Zona"
+        zona_id     = linea.zona.id     if linea.zona else 0
+        if zona_id not in zonas_dict:
+            zonas_dict[zona_id] = {
+                "zona_nombre": zona_nombre,
+                "zona_id": zona_id,
+                "lineas": [],
+                "total": 0,
+            }
+        zonas_dict[zona_id]["lineas"].append(linea)
+        zonas_dict[zona_id]["total"] += linea.total or 0
+
+    zonas_agrupadas = list(zonas_dict.values())
+
     return render(request, "controles/detail.html", {
         "control": control,
         "lineas": lineas,
+        "zonas_agrupadas": zonas_agrupadas,
         "total_entrada_parcial": total_entrada_parcial,
         "total_salida_parcial":  total_salida_parcial,
     })

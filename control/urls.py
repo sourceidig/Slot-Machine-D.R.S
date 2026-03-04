@@ -54,6 +54,11 @@ urlpatterns = [
     path("cierre-turno/export-excel/", views.cierre_turno_export_excel, name="cierre_turno_export_excel"),
 
     # -------------------------
+    # Cuadratura Zona (LISTADO)
+    # -------------------------
+    path("cuadratura-zona/", views.cuadratura_zona_list, name="cuadratura_zona_list"),
+
+    # -------------------------
     # Encuadre Caja Admin (SOLO ADMIN / GERENTE)
     # -------------------------
     path("encuadre/", views.encuadre_list, name="encuadre_list"),

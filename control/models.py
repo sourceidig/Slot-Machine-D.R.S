@@ -577,6 +577,32 @@ class AsignacionTurnoZona(models.Model):
         return f"Zona {self.zona} turno {self.turno_id}"
 
 
+class CuadraturaZona(models.Model):
+    turno   = models.ForeignKey("Turno", on_delete=models.CASCADE, related_name="cuadraturas_zona")
+    zona    = models.ForeignKey("Zona",  on_delete=models.CASCADE, related_name="cuadraturas")
+    banano                  = models.IntegerField(default=0)
+    prestamo                = models.IntegerField(default=0)
+    retiros                 = models.IntegerField(default=0)
+    ef_20000                = models.IntegerField(default=0)
+    ef_10000                = models.IntegerField(default=0)
+    ef_5000                 = models.IntegerField(default=0)
+    ef_2000                 = models.IntegerField(default=0)
+    ef_1000                 = models.IntegerField(default=0)
+    monedas_monto           = models.IntegerField(default=0)
+    detalle_entregado_total = models.IntegerField(default=0)
+    notas                   = models.TextField(blank=True, default="")
+    descuadre               = models.IntegerField(default=0)
+    creado_el               = models.DateTimeField(auto_now_add=True)
+    actualizado_el          = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-creado_el"]
+        unique_together = [("turno", "zona")]
+
+    def __str__(self):
+        return f"CuadraturaZona {self.zona} – turno {self.turno_id}"
+
+
 class AsignacionTurnoSlot(models.Model):
     TIPO_CHOICES = [("redbank", "Redbank"), ("servicio", "Servicio")]
     turno   = models.ForeignKey(

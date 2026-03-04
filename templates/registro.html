@@ -15,6 +15,26 @@
                 Debe iniciar un turno en la pestaña <a href="{% url 'control:turno' %}" class="alert-link">"Turno"</a> antes de registrar lecturas.
             </div>
         {% else %}
+            {% if not tiene_asignacion %}
+            <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+              <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+              <div>
+                <strong>Sin zona asignada.</strong>
+                No estás asignado a ninguna zona en este turno. Ve a
+                <a href="{% url 'control:turno' %}" class="alert-link fw-bold">Gestión de Turno</a>
+                y presiona <strong>"Asignarme"</strong> en tu zona antes de registrar lecturas.
+              </div>
+            </div>
+            {% else %}
+            <div class="alert alert-success d-flex align-items-center gap-2 mb-3 py-2" role="alert">
+              <i class="bi bi-person-check-fill"></i>
+              <div class="small">
+                Asignado a: <strong>{{ zonas_asignadas_usuario|join:", " }}</strong>
+                — Solo verás máquinas de tu zona.
+              </div>
+            </div>
+            {% endif %}
+
             <!-- Información del Contexto -->
             <div class="card mb-3">
                 <div class="card-header bg-dark text-white">
@@ -45,7 +65,7 @@
                     <h5 class="mb-0"><i class="bi bi-clipboard-data"></i> Registrar Lectura de Máquina</h5>
                 </div>
                 <div class="card-body">
-                    <form method="post" id="lecturaForm">
+                    <form method="post" id="lecturaForm" {% if not tiene_asignacion %}style="pointer-events:none;opacity:0.5;" aria-disabled="true"{% endif %}>
                         {% csrf_token %}
                         
                         <!-- Sección: Selección de Zona y Máquina -->

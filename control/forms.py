@@ -195,21 +195,38 @@ class LecturaMaquinaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         turno = kwargs.pop("turno", None)
+        usuario = kwargs.pop("usuario", None)
         super().__init__(*args, **kwargs)
 
         if turno:
-            self.fields["zona"].queryset = Zona.objects.filter(
+            # Si el usuario tiene zonas asignadas en este turno, filtrar solo esas
+            from .models import AsignacionTurnoZona
+            zonas_qs = Zona.objects.filter(
                 sucursal=turno.sucursal,
                 is_active=True,
                 sucursal__is_active=True,
             ).order_by("orden", "nombre")
 
-            self.fields["maquina"].queryset = Maquina.objects.filter(
+            if usuario:
+                zonas_asignadas_ids = AsignacionTurnoZona.objects.filter(
+                    turno=turno,
+                    usuario=usuario,
+                ).values_list("zona_id", flat=True)
+                if zonas_asignadas_ids:
+                    zonas_qs = zonas_qs.filter(id__in=zonas_asignadas_ids)
+
+            self.fields["zona"].queryset = zonas_qs
+
+            maquinas_qs = Maquina.objects.filter(
                 sucursal=turno.sucursal,
                 zona__is_active=True,
                 sucursal__is_active=True,
                 estado="Operativa",
-            ).order_by("numero_maquina")
+            )
+            if usuario and zonas_asignadas_ids:
+                maquinas_qs = maquinas_qs.filter(zona_id__in=zonas_asignadas_ids)
+
+            self.fields["maquina"].queryset = maquinas_qs.order_by("numero_maquina")
         else:
             self.fields["zona"].queryset = Zona.objects.filter(is_active=True)
             self.fields["maquina"].queryset = Maquina.objects.filter(estado="Operativa")
