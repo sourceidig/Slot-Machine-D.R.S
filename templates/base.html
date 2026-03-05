@@ -309,10 +309,12 @@
 
             <div class="nav-section-label">Operaciones</div>
 
+            {% if user.role == 'encargado' or user.role == 'admin' or user.role == 'asistente' %}
             <a class="nav-link {% if request.resolver_match.url_name == 'turno' %}active{% endif %}"
                href="{% url 'control:turno' %}">
                 <i class="bi bi-clock-history"></i> Turno
             </a>
+            {% endif %}
 
             <a class="nav-link {% if request.resolver_match.url_name == 'cuadratura_zona_list' %}active{% endif %}"
                href="{% url 'control:cuadratura_zona_list' %}">

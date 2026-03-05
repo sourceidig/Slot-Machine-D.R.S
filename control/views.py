@@ -53,6 +53,12 @@ from .forms import (
     CuadraturaCajaDiariaForm, EncuadreCajaAdminForm
 )
 
+from .decorators import (role_required)
+from django.shortcuts import render
+
+def error_403(request, exception=None):
+    return render(request, "errors/403.html", status=403)
+
 #===========================
 #Recaudación/Dia 0
 #===========================
@@ -1312,7 +1318,7 @@ def encuadre_detail(request, pk):
 # ============================================
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(["admin", "gerente"])
 def dashboard_view(request):
     hoy = timezone.now().date()
 
@@ -2605,6 +2611,7 @@ def usuario_create(request):
             usuario = form.save(commit=False)
             usuario.set_password(form.cleaned_data["password"])
             usuario.save()
+            form.save_m2m()
             messages.success(request, "Usuario creado exitosamente.")
             return redirect("control:usuarios_list")
     else:
@@ -2624,6 +2631,7 @@ def usuario_edit(request, pk):
             if password:
                 usuario.set_password(password)
             usuario.save()
+            form.save_m2m()
             messages.success(request, "Usuario actualizado exitosamente.")
             return redirect("control:usuarios_list")
     else:

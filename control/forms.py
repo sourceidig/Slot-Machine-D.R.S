@@ -346,30 +346,44 @@ class MaquinaForm(forms.ModelForm):
 
 
 class UsuarioForm(forms.ModelForm):
-    password = forms.CharField(widget=forms.PasswordInput(attrs={"class": "form-control"}), label="Contraseña")
-    password_confirm = forms.CharField(widget=forms.PasswordInput(attrs={"class": "form-control"}), label="Confirmar Contraseña")
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={"class": "form-control"}),
+        label="Contraseña"
+    )
+    password_confirm = forms.CharField(
+        widget=forms.PasswordInput(attrs={"class": "form-control"}),
+        label="Confirmar Contraseña"
+    )
 
     class Meta:
         model = Usuario
-        fields = ["username", "nombre", "email", "role", "sucursal" ,"is_active"]
+        fields = ["username", "nombre", "email", "role", "sucursales", "is_active"]
         widgets = {
-            "username": forms.TextInput(attrs={"class": "form-control"}),
-            "nombre": forms.TextInput(attrs={"class": "form-control"}),
-            "email": forms.EmailInput(attrs={"class": "form-control"}),
-            "role": forms.Select(attrs={"class": "form-control"}),
-            "sucursal": forms.Select(attrs={"class": "form-select"}),
-            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "username":   forms.TextInput(attrs={"class": "form-control"}),
+            "nombre":     forms.TextInput(attrs={"class": "form-control"}),
+            "email":      forms.EmailInput(attrs={"class": "form-control"}),
+            "role":       forms.Select(attrs={"class": "form-control"}),
+            "sucursales": forms.SelectMultiple(attrs={"class": "form-select", "id": "id_sucursales"}),
+            "is_active":  forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Solo mostra sucursales activas 
-        self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
+        self.fields["sucursales"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
+        self.fields["sucursales"].required = False
+        self.fields["role"].choices = [("", "— Seleccionar rol —")] + list(Usuario.ROLE_CHOICES)
+        self.fields["role"].widget.attrs["required"] = True
+        if not self.instance.pk:
+            self.initial["role"] = ""
 
     def clean(self):
         cleaned = super().clean()
+        if not cleaned.get("role"):
+            raise forms.ValidationError({"role": "Debes seleccionar un rol."})
         if cleaned.get("password") != cleaned.get("password_confirm"):
             raise forms.ValidationError("Las contraseñas no coinciden.")
+        if cleaned.get("role") in Usuario.ROLES_CON_SUCURSAL and not cleaned.get("sucursales"):
+            raise forms.ValidationError({"sucursales": "Este rol debe tener al menos una sucursal asignada."})
         return cleaned
 
 
@@ -387,20 +401,20 @@ class UsuarioEditForm(forms.ModelForm):
 
     class Meta:
         model = Usuario
-        fields = ["username", "nombre", "email", "role", "sucursal" ,"is_active"]
+        fields = ["username", "nombre", "email", "role", "sucursales", "is_active"]
         widgets = {
-            "username": forms.TextInput(attrs={"class": "form-control"}),
-            "nombre": forms.TextInput(attrs={"class": "form-control"}),
-            "email": forms.EmailInput(attrs={"class": "form-control"}),
-            "role": forms.Select(attrs={"class": "form-control"}),
-            "sucursal": forms.Select(attrs={"class": "form-select"}),
-            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "username":   forms.TextInput(attrs={"class": "form-control"}),
+            "nombre":     forms.TextInput(attrs={"class": "form-control"}),
+            "email":      forms.EmailInput(attrs={"class": "form-control"}),
+            "role":       forms.Select(attrs={"class": "form-control"}),
+            "sucursales": forms.SelectMultiple(attrs={"class": "form-select", "id": "id_sucursales"}),
+            "is_active":  forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Solo mostra sucursales activas 
-        self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
+        self.fields["sucursales"].queryset = Sucursal.objects.filter(is_active=True).order_by("nombre")
+        self.fields["sucursales"].required = False
 
     def clean(self):
         cleaned = super().clean()
@@ -409,6 +423,8 @@ class UsuarioEditForm(forms.ModelForm):
         if p1 or p2:
             if p1 != p2:
                 raise forms.ValidationError("Las contraseñas no coinciden.")
+        if cleaned.get("role") in Usuario.ROLES_CON_SUCURSAL and not cleaned.get("sucursales"):
+            raise forms.ValidationError({"sucursales": "Este rol debe tener al menos una sucursal asignada."})
         return cleaned
 
 
