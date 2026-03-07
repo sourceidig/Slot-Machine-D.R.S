@@ -11,6 +11,8 @@ urlpatterns = [
     path('', include('control.urls')),
 ]
 
+handler403 = "control.views.error_403"
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

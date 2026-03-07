@@ -16,18 +16,30 @@ class Usuario(AbstractUser):
     objects = UserManager()
 
     ROLE_CHOICES = [
-        ("admin", "Administrador"),
-        ("usuario", "Usuario/Atendedora"),
+        ("admin",      "Administrador"),
+        ("gerente",    "Gerente"),
+        ("supervisor", "Supervisor"),
+        ("tecnico",    "Técnico"),
+        ("encargado",  "Encargado"),
+        ("asistente",  "Asistente"),
     ]
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="usuario", verbose_name="Rol")
+
+    # Roles que requieren al menos una sucursal asignada (M2M)
+    ROLES_CON_SUCURSAL = {"gerente", "supervisor", "asistente"}
+    # Roles sin sucursal (visión global o técnica)
+    ROLES_SIN_SUCURSAL = {"admin", "tecnico", "encargado"}
+
+    role = models.CharField(
+        max_length=20, choices=ROLE_CHOICES, default="asistente", verbose_name="Rol"
+    )
     nombre = models.CharField(max_length=150, verbose_name="Nombre Completo")
-    
-    #Si es Usuario/Atendedor se le debera asignar una sucursal
-    sucursal = models.ForeignKey('Sucursal', on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+
+    # Gerente / Supervisor / Asistente → una o más sucursales (M2M)
+    sucursales = models.ManyToManyField(
+        'Sucursal',
+        blank=True,
         related_name="usuarios_asignados",
-        verbose_name="Sucursal Asignada"
+        verbose_name="Sucursales Asignadas",
     )
 
     class Meta:
@@ -38,16 +50,10 @@ class Usuario(AbstractUser):
         return f"{self.nombre} ({self.get_role_display()})"
 
     def clean(self):
-        super().clean()  
-        # Si el rol es "usuario", la sucursal es OBLIGATORIA
-        if self.role == "usuario" and not self.sucursal:
-            raise ValidationError({
-                "sucursal": "Los usuarios/atendedoras deben tener una sucursal asignada obligatoriamente."
-            })
-        
-        # Si es admin, no debería estar atado a una sucursal específica
-        if self.role == "admin" and self.sucursal:
-            self.sucursal = None
+        super().clean()
+        # La validación M2M (sucursales) no se puede hacer aquí porque
+        # M2M no está disponible antes del primer save().
+        # Se valida en el formulario (UsuarioForm / UsuarioEditForm).
 
 
 # ==========================
