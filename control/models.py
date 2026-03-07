@@ -115,6 +115,12 @@ class Maquina(models.Model):
 
     modelo = models.CharField(max_length=80, blank=True, verbose_name="Modelo")
     numero_serie = models.CharField(max_length=120, blank=True, verbose_name="Número de Serie")
+    rtp_objetivo = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True,
+        verbose_name="RTP Objetivo (%)",
+        help_text="Porcentaje de retorno al jugador configurado en la máquina (ej: 92.5)"
+    )
 
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default="Operativa", verbose_name="Estado")
     ubicacion_detalle = models.CharField(max_length=150, blank=True, verbose_name="Detalle de Ubicación")

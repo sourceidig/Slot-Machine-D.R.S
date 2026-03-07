@@ -75,6 +75,7 @@
             <th>Sucursal</th>
             <th>Zona</th>
             <th>Modelo</th>
+            <th class="text-center">RTP Obj.</th>
             <th style="min-width: 260px;">Estado</th>
             <th width="150">Acciones</th>
           
@@ -88,6 +89,13 @@
               <td>{{ maquina.sucursal.nombre }}</td>
               <td>{{ maquina.zona.nombre }}</td>
               <td>{{ maquina.modelo|default:"-" }}</td>
+              <td class="text-center">
+                {% if maquina.rtp_objetivo %}
+                  <span class="badge bg-info-subtle text-info fw-semibold">{{ maquina.rtp_objetivo }}%</span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
 
               <!-- Estado editable desde la tabla -->
               <td>
@@ -117,7 +125,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="7" class="text-center text-muted">No hay máquinas registradas</td>
+              <td colspan="8" class="text-center text-muted">No hay máquinas registradas</td>
             </tr>
           {% endfor %}
         </tbody>

@@ -299,7 +299,7 @@ class MaquinaForm(forms.ModelForm):
         model = Maquina
         fields = [
             "sucursal", "zona", "numero_maquina", "codigo_interno",
-            "nombre_juego", "modelo", "numero_serie", "ubicacion_detalle","contador_inicial_entrada","contador_inicial_salida","servidor"
+            "nombre_juego", "modelo", "numero_serie", "rtp_objetivo", "ubicacion_detalle","contador_inicial_entrada","contador_inicial_salida","servidor"
         ]
         widgets = {
             "servidor": forms.TextInput(attrs={"class": "form-control"}),
@@ -312,6 +312,7 @@ class MaquinaForm(forms.ModelForm):
             "nombre_juego": forms.TextInput(attrs={"class": "form-control"}),
             "modelo": forms.TextInput(attrs={"class": "form-control"}),
             "numero_serie": forms.TextInput(attrs={"class": "form-control"}),
+            "rtp_objetivo": forms.NumberInput(attrs={"class": "form-control", "min": "0", "max": "100", "step": "0.01", "placeholder": "ej: 92.50"}),
             "ubicacion_detalle": forms.TextInput(attrs={"class": "form-control"}),
         }
 
