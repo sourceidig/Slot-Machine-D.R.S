@@ -6,9 +6,13 @@
   <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
     <h5 class="mb-0"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Cuadraturas Caja</h5>
     <div class="d-flex gap-2">
-      <a href="{% url 'control:cuadratura_diaria_create' %}" class="btn btn-light btn-sm">
-        <i class="bi bi-plus-circle"></i> Nueva Cuadratura
-      </a>
+
+      {% if user.role == 'admin' or user.role == 'encargado'%}
+        <a href="{% url 'control:cuadratura_diaria_create' %}" class="btn btn-light btn-sm">
+          <i class="bi bi-plus-circle"></i> Nueva Cuadratura
+        </a>
+      {% endif %}
+
       <a href="{% url 'control:cuadratura_diaria_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
         <i class="bi bi-file-earmark-excel"></i> Exportar
       </a>

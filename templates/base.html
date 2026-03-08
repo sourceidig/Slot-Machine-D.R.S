@@ -296,81 +296,28 @@
                 </div>
             </a>
         </div>
-
+<!--                                                                     -->
         <nav class="sidebar-nav">
 
-            {% if user.role == 'admin' %}
-            <div class="nav-section-label">Principal</div>
-            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
-               href="{% url 'control:dashboard' %}">
-                <i class="bi bi-speedometer2"></i> Dashboard
-            </a>
-            {% endif %}
+            {% for section in sidebar_menu %}
 
-            <div class="nav-section-label">Operaciones</div>
+            <div class="nav-section-label">{{ section.section }}</div>
 
-            {% if user.role == 'encargado' or user.role == 'admin' or user.role == 'asistente' %}
-            <a class="nav-link {% if request.resolver_match.url_name == 'turno' %}active{% endif %}"
-               href="{% url 'control:turno' %}">
-                <i class="bi bi-clock-history"></i> Turno
-            </a>
-            {% endif %}
+            {% for item in section.items %}
 
-            <a class="nav-link {% if request.resolver_match.url_name == 'cuadratura_zona_list' %}active{% endif %}"
-               href="{% url 'control:cuadratura_zona_list' %}">
-                <i class="bi bi-grid-1x2"></i> Cuadratura Zonas
-            </a>
+            <a class="nav-link {% if request.resolver_match.url_name == item.url_name %}active{% endif %}"
+            href="{% url item.url %}">
 
-            <a class="nav-link {% if request.resolver_match.url_name == 'cuadratura_diaria_list' %}active{% endif %}"
-               href="{% url 'control:cuadratura_diaria_list' %}">
-                <i class="bi bi-calendar2-week"></i> Caja
-            </a>
-
-            {% if user.role == 'admin' %}
-            <a class="nav-link {% if request.resolver_match.url_name == 'recaudacion' %}active{% endif %}"
-               href="{% url 'control:recaudacion' %}">
-                <i class="bi bi-bar-chart-steps"></i> Recaudación
-            </a>
-
-            <a class="nav-link {% if request.resolver_match.url_name == 'controles_list' %}active{% endif %}"
-               href="{% url 'control:controles_list' %}">
-                <i class="bi bi-archive"></i> Controles
-            </a>
-            {% endif %}
+                <i class="bi {{ item.icon }}"></i>
+                {{ item.label }}
 
             </a>
 
-            <a class="nav-link {% if request.resolver_match.url_name == 'registro' %}active{% endif %}"
-               href="{% url 'control:registro' %}">
-                <i class="bi bi-clipboard-data"></i> Registro
-            </a>
+            {% endfor %}
 
-            {% if user.role == 'admin' %}
-            <div class="sidebar-divider"></div>
-            <div class="nav-section-label">Configuración</div>
+            {% endfor %}
 
-            <a class="nav-link {% if request.resolver_match.url_name == 'maquinas_list' %}active{% endif %}"
-               href="{% url 'control:maquinas_list' %}">
-                <i class="bi bi-cpu"></i> Máquinas
-            </a>
-
-            <a class="nav-link {% if request.resolver_match.url_name == 'zonas_list' %}active{% endif %}"
-               href="{% url 'control:zonas_list' %}">
-                <i class="bi bi-grid-3x3"></i> Zonas
-            </a>
-
-            <a class="nav-link {% if request.resolver_match.url_name == 'sucursales_list' %}active{% endif %}"
-               href="{% url 'control:sucursales_list' %}">
-                <i class="bi bi-building"></i> Sucursales
-            </a>
-
-            <a class="nav-link {% if request.resolver_match.url_name == 'usuarios_list' %}active{% endif %}"
-               href="{% url 'control:usuarios_list' %}">
-                <i class="bi bi-people"></i> Usuarios
-            </a>
-            {% endif %}
-
-        </nav>
+            </nav>
 
         <div class="sidebar-footer">
             <div class="user-avatar">

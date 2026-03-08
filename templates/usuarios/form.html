@@ -13,55 +13,82 @@
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
-                    
+
                     <div class="mb-3">
                         <label for="id_nombre" class="form-label">Nombre Completo *</label>
                         {{ form.nombre }}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_username" class="form-label">Usuario *</label>
-                        {{ form.username }}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_email" class="form-label">Email</label>
-                        {{ form.email }}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_role" class="form-label">Rol *</label>
-                        {{ form.role }}
-                    </div>
-                    
-                    <div class="mb-3" id="contenedor_sucursal">
-                        <label for="id_sucursal" class="form-label">Sucursal Asignada *</label>
-                        {{ form.sucursal }}
+                        {% if form.nombre.errors %}<div class="text-danger small mt-1">{{ form.nombre.errors.0 }}</div>{% endif %}
                     </div>
 
                     <div class="mb-3">
-                        <label for="id_password" class="form-label">Contraseña *</label>
-                        {{ form.password }}
+                        <label for="id_username" class="form-label">Usuario *</label>
+                        {{ form.username }}
+                        {% if form.username.errors %}<div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>{% endif %}
                     </div>
-                    
+
                     <div class="mb-3">
-                        <label for="id_password_confirm" class="form-label">Confirmar Contraseña *</label>
-                        {{ form.password_confirm }}
+                        <label for="id_email" class="form-label">Email</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>{% endif %}
                     </div>
-                    
+
+                    <div class="mb-3">
+                        <label for="id_role" class="form-label">Rol *</label>
+                        {{ form.role }}
+                        {% if form.role.errors %}<div class="text-danger small mt-1">{{ form.role.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <!-- Gerente / Supervisor / Asistente: una o más sucursales -->
+                    <div class="mb-3" id="contenedor_sucursales" style="display:none;">
+                        <label class="form-label">Sucursales Asignadas *</label>
+
+                        {# <select multiple> oculto — Django lo usa para recibir los valores #}
+                        <div style="display:none;">{{ form.sucursales }}</div>
+
+                        <div class="border rounded p-2" style="max-height:220px; overflow-y:auto;">
+                            {% for sucursal in form.sucursales.field.queryset %}
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input sucursal-check"
+                                    type="checkbox"
+                                    value="{{ sucursal.pk }}"
+                                    id="suc_check_{{ sucursal.pk }}"
+                                >
+                                <label class="form-check-label" for="suc_check_{{ sucursal.pk }}">
+                                    {{ sucursal.nombre }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        {% if form.sucursales.errors %}<div class="text-danger small mt-1">{{ form.sucursales.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label">{{ form.password.label }}{% if not form.instance.pk %} *{% endif %}</label>
+                        {{ form.password }}
+                        {% if form.password.errors %}<div class="text-danger small mt-1">{{ form.password.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_password_confirm" class="form-label">{{ form.password_confirm.label }}{% if not form.instance.pk %} *{% endif %}</label>
+                        {{ form.password_confirm }}
+                        {% if form.password_confirm.errors %}<div class="text-danger small mt-1">{{ form.password_confirm.errors.0 }}</div>{% endif %}
+                    </div>
+
                     <div class="mb-4 form-check">
                         {{ form.is_active }}
-                        <label class="form-check-label" for="id_is_active">
-                            Usuario activo
-                        </label>
+                        <label class="form-check-label" for="id_is_active">Usuario activo</label>
                     </div>
-                    
-                    {% if form.errors %}
-                        <div class="alert alert-danger">
-                            {{ form.errors }}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger py-2">
+                            {% for error in form.non_field_errors %}
+                                <div><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                            {% endfor %}
                         </div>
                     {% endif %}
-                    
+
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-save"></i> Guardar
@@ -76,31 +103,64 @@
     </div>
 </div>
 
-<!-- Script que permite Seleccionar Sucursal-->
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const roleSelect = document.getElementById("id_role");
-        const sucursalInput = document.getElementById("id_sucursal");
-        
-        //ID directo del contenedor 
-        const sucursalContainer = document.getElementById("contenedor_sucursal");
+document.addEventListener("DOMContentLoaded", function () {
+    // Roles que muestran el selector de sucursales
+    const ROLES_CON_SUCURSAL = new Set(["encargado", "supervisor", "asistente"]);
 
-        if (!sucursalInput || !sucursalContainer) return;
+    const roleSelect       = document.getElementById("id_role");
+    const contSucursales   = document.getElementById("contenedor_sucursales");
+    const selectSucursales = document.getElementById("id_sucursales");
+    const checks           = document.querySelectorAll(".sucursal-check");
 
-        function toggleSucursal() {
-            if (roleSelect.value === "usuario") {
-                // Mostra si es usuario o atendedora
-                sucursalContainer.style.display = "block";
-            } else {
-                // Ocultar si es admin y limpia el valor
-                sucursalContainer.style.display = "none";
-                sucursalInput.value = ""; 
+    if (!roleSelect) return;
+
+    // ── Sync checkboxes → <select multiple> oculto ─────────────────
+    function syncChecksToSelect() {
+        if (!selectSucursales) return;
+        const seleccionados = new Set(
+            Array.from(checks).filter(c => c.checked).map(c => c.value)
+        );
+        Array.from(selectSucursales.options).forEach(opt => {
+            opt.selected = seleccionados.has(opt.value);
+        });
+    }
+
+    checks.forEach(c => c.addEventListener("change", syncChecksToSelect));
+
+    // ── Precargar checks desde el select oculto (modo edición) ─────
+    function precargarChecks() {
+        if (!selectSucursales) return;
+        const yaSeleccionados = new Set(
+            Array.from(selectSucursales.options)
+                .filter(o => o.selected)
+                .map(o => o.value)
+        );
+        checks.forEach(c => { c.checked = yaSeleccionados.has(c.value); });
+    }
+
+    // ── Mostrar/ocultar bloque de sucursales ───────────────────────
+    function actualizarBloques(limpiar) {
+        const rol = roleSelect.value;
+
+        if (ROLES_CON_SUCURSAL.has(rol)) {
+            contSucursales.style.display = "block";
+        } else {
+            contSucursales.style.display = "none";
+            if (limpiar) {
+                checks.forEach(c => c.checked = false);
+                syncChecksToSelect();
             }
         }
-        roleSelect.addEventListener("change", toggleSucursal);
-        // Ejecutam al cargar
-        toggleSucursal();
-    });
+    }
+
+    // Al cambiar el rol manualmente: limpiar checks si se oculta el bloque
+    roleSelect.addEventListener("change", () => actualizarBloques(true));
+
+    // Al cargar: mostrar bloque correcto sin limpiar, luego precargar checks
+    actualizarBloques(false);
+    precargarChecks();
+});
 </script>
 
 {% endblock %}

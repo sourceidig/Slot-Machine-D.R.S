@@ -5,25 +5,20 @@
 
 {% block content %}
 <form method="get" class="mb-3">
-    <input
-        type="text"
-        name="q"
-        value="{{ query }}"
-        class="form-control"
-        placeholder="Buscar sucursal por nombre..."
-    >
+    <input type="text" name="q" value="{{ query }}" class="form-control"
+           placeholder="Buscar sucursal por nombre...">
 </form>
 
 <div class="card">
     <div class="card-header">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-building"></i> Sucursales</h5>
+            {% if puede_editar %}
             <a href="{% url 'control:sucursal_create' %}" class="btn btn-primary">
                 <i class="bi bi-plus-circle"></i> Nueva Sucursal
             </a>
+            {% endif %}
         </div>
-    
-        
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -34,7 +29,7 @@
                         <th>Dirección</th>
                         <th>Teléfono</th>
                         <th>Fecha Creación</th>
-                        <th width="150">Acciones</th>
+                        {% if puede_editar %}<th width="120">Acciones</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -44,6 +39,7 @@
                             <td>{{ sucursal.direccion|default:"-" }}</td>
                             <td>{{ sucursal.telefono|default:"-" }}</td>
                             <td>{{ sucursal.created_at|date:"d/m/Y" }}</td>
+                            {% if user.role == 'admin' or user.role == 'tecnico'%}
                             <td>
                                 <a href="{% url 'control:sucursal_edit' sucursal.pk %}" class="btn btn-sm btn-warning">
                                     <i class="bi bi-pencil"></i>
@@ -52,10 +48,11 @@
                                     <i class="bi bi-trash"></i>
                                 </a>
                             </td>
+                            {% endif %}
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted">No hay sucursales registradas</td>
+                            <td colspan="{% if puede_editar %}5{% else %}4{% endif %}" class="text-center text-muted">No hay sucursales registradas</td>
                         </tr>
                     {% endfor %}
                 </tbody>

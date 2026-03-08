@@ -25,9 +25,9 @@ class Usuario(AbstractUser):
     ]
 
     # Roles que requieren al menos una sucursal asignada (M2M)
-    ROLES_CON_SUCURSAL = {"gerente", "supervisor", "asistente"}
+    ROLES_CON_SUCURSAL = {"encargado", "supervisor", "asistente"}
     # Roles sin sucursal (visión global o técnica)
-    ROLES_SIN_SUCURSAL = {"admin", "tecnico", "encargado"}
+    ROLES_SIN_SUCURSAL = {"admin", "tecnico", "gerente"}
 
     role = models.CharField(
         max_length=20, choices=ROLE_CHOICES, default="asistente", verbose_name="Rol"

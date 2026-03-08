@@ -52,6 +52,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'control.middleware.SucursalEncargadoMiddleware',
 ]
 
 ROOT_URLCONF = 'slot_machine_drs.urls'
@@ -67,6 +69,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                
+                'control.context_processors.sidebar_menu',
             ],
         },
     },
@@ -148,3 +152,6 @@ AUTH_USER_MODEL = 'control.Usuario'
 LOGIN_URL = 'control:login'
 LOGIN_REDIRECT_URL = 'control:dashboard'
 LOGOUT_REDIRECT_URL = 'control:login'
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+

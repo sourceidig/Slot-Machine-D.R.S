@@ -19,9 +19,11 @@
     <div class="card-header">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-grid-3x3"></i> Zonas</h5>
+            {% if puede_editar %}
             <a href="{% url 'control:zona_create' %}" class="btn btn-primary">
                 <i class="bi bi-plus-circle"></i> Nueva Zona
             </a>
+            {% endif %}
         </div>
     </div>
     <div class="card-body">
@@ -33,7 +35,7 @@
                         <th>Nombre</th>
                         <th>Orden</th>
                         <th>Fecha Creación</th>
-                        <th width="150">Acciones</th>
+                        {% if puede_editar %}<th width="120">Acciones</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -43,6 +45,7 @@
                             <td><strong>{{ zona.nombre }}</strong></td>
                             <td>{{ zona.orden }}</td>
                             <td>{{ zona.created_at|date:"d/m/Y" }}</td>
+                            {% if puede_editar %}
                             <td>
                                 <a href="{% url 'control:zona_edit' zona.pk %}" class="btn btn-sm btn-warning">
                                     <i class="bi bi-pencil"></i>
@@ -51,10 +54,11 @@
                                     <i class="bi bi-trash"></i>
                                 </a>
                             </td>
+                            {% endif %}
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted">No hay zonas registradas</td>
+                            <td colspan="{% if puede_editar %}5{% else %}4{% endif %}" class="text-center text-muted">No hay zonas registradas</td>
                         </tr>
                     {% endfor %}
                 </tbody>

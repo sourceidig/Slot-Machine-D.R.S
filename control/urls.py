@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .views import LecturaEditView
+
 app_name = "control"
 
 urlpatterns = [
@@ -132,7 +133,7 @@ urlpatterns = [
     path("turnos/<int:turno_id>/cuadratura-zona/", views.cuadratura_zona_view, name="cuadratura_zona"),
     path("turnos/<int:turno_id>/cuadratura-zona/<int:zona_id>/guardar/", views.guardar_cuadratura_zona, name="guardar_cuadratura_zona"),
 
-    
+    path('seleccionar-sucursal/', views.seleccionar_sucursal_view, name='seleccionar_sucursal')
 
 
 ]

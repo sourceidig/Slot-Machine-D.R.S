@@ -8,24 +8,28 @@
     <div class="card-header">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-people"></i> Usuarios</h5>
-            <a href="{% url 'control:usuario_create' %}" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Nuevo Usuario
-            </a>
+            {% if user.role == 'admin'%}
+                <a href="{% url 'control:usuario_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Nuevo Usuario
+                </a>
+            {% endif %}
         </div>
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped table-hover">
+            <table class="table table-striped table-hover align-middle">
                 <thead class="table-dark">
                     <tr>
                         <th>Nombre</th>
                         <th>Usuario</th>
                         <th>Email</th>
                         <th>Rol</th>
-                        <th>Sucursal</th>
+                        <th>Sucursal(es)</th>
                         <th>Estado</th>
-                        <th>Fecha Registro</th>
-                        <th width="150">Acciones</th>
+                        <th>Fecha Registro</th>                       
+                        {% if user.role == 'admin'%}
+                            <th>Acciones</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -36,12 +40,36 @@
                             <td>{{ usuario.email|default:"-" }}</td>
                             <td>
                                 {% if usuario.role == 'admin' %}
-                                    <span class="badge bg-primary">{{ usuario.get_role_display }}</span>
+                                    <span class="badge" style="background:#6f42c1;">{{ usuario.get_role_display }}</span>
+                                {% elif usuario.role == 'gerente' %}
+                                    <span class="badge" style="background:#0d6efd;">{{ usuario.get_role_display }}</span>
+                                {% elif usuario.role == 'supervisor' %}
+                                    <span class="badge" style="background:#0dcaf0;color:#000;">{{ usuario.get_role_display }}</span>
+                                {% elif usuario.role == 'tecnico' %}
+                                    <span class="badge" style="background:#fd7e14;">{{ usuario.get_role_display }}</span>
+                                {% elif usuario.role == 'encargado' %}
+                                    <span class="badge" style="background:#198754;">{{ usuario.get_role_display }}</span>
+                                {% elif usuario.role == 'asistente' %}
+                                    <span class="badge bg-secondary">{{ usuario.get_role_display }}</span>
                                 {% else %}
                                     <span class="badge bg-secondary">{{ usuario.get_role_display }}</span>
                                 {% endif %}
                             </td>
-                            <td>{{ usuario.sucursal|default:"-" }}</td>
+                            <td>
+                                {% if usuario.role in 'encargado supervisor asistente' %}
+                                    {% with suc=usuario.sucursales.all %}
+                                        {% if suc %}
+                                            {% for s in suc %}
+                                                <span class="badge bg-light text-dark border me-1">{{ s.nombre }}</span>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="text-muted fst-italic">Sin asignar</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if usuario.is_active %}
                                     <span class="badge bg-success">Activo</span>
@@ -50,18 +78,20 @@
                                 {% endif %}
                             </td>
                             <td>{{ usuario.date_joined|date:"d/m/Y" }}</td>
-                            <td>
-                                <a href="{% url 'control:usuario_edit' usuario.pk %}" class="btn btn-sm btn-warning">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <a href="{% url 'control:usuario_delete' usuario.pk %}" class="btn btn-sm btn-danger">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </td>
+                            {% if user.role == 'admin'%}
+                                <td>
+                                    <a href="{% url 'control:usuario_edit' usuario.pk %}" class="btn btn-sm btn-warning" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'control:usuario_delete' usuario.pk %}" class="btn btn-sm btn-danger" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            {% endif %}
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted">No hay usuarios registrados</td>
+                            <td colspan="8" class="text-center text-muted">No hay usuarios registrados</td>
                         </tr>
                     {% endfor %}
                 </tbody>
