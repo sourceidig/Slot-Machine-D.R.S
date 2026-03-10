@@ -6,9 +6,8 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('control', '0045_cuadraturazona'),
+        ('control', '0003_asignacionturnoslot_asignacionturnozona_and_more'),
     ]
-
     operations = [
         migrations.AddField(
             model_name='maquina',
