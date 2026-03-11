@@ -298,8 +298,8 @@ class MaquinaForm(forms.ModelForm):
     class Meta:
         model = Maquina
         fields = [
-            "sucursal", "zona", "numero_maquina", "codigo_interno",
-            "nombre_juego", "modelo", "numero_serie", "rtp_objetivo", "ubicacion_detalle","contador_inicial_entrada","contador_inicial_salida","servidor"
+            "nombre_juego", "modelo", "numero_serie", "rtp_objetivo", 
+            "ubicacion_detalle","contador_inicial_entrada","contador_inicial_salida","servidor"
         ]
         widgets = {
             "servidor": forms.TextInput(attrs={"class": "form-control"}),

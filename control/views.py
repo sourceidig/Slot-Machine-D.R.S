@@ -53,7 +53,10 @@ from .forms import (
     CuadraturaCajaDiariaForm, EncuadreCajaAdminForm
 )
 
-from .decorators import (role_required)
+from .decorators import (role_required, readonly_for,
+    ROLES_DASHBOARD, ROLES_TURNO, ROLES_OPERACIONES, ROLES_REGISTRO,
+    ROLES_RECAUDACION, ROLES_CONTROLES, ROLES_CONFIG_VER, ROLES_CONFIG_EDIT,
+    ROLES_USUARIOS,ROLES_VER_USUARIOS ,ROLES_READONLY, ROLES_CUADRATURA, ROLES_CUADRATURA_DIARIA, ROLES_CUADRATURA_ZONA)
 from django.shortcuts import render
 
 def error_403(request, exception=None):
@@ -346,6 +349,8 @@ def cerrar_ciclo_y_generar_informe(request):
     return redirect("control:informe_recaudacion_detail", pk=informe.pk)
 
 
+@login_required
+@role_required(*ROLES_RECAUDACION)
 def recaudacion_view(request):
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
     hoy = timezone.localdate()
@@ -596,11 +601,38 @@ def programacion_recaudacion_view(request):
     })
 
 
+def _get_tipo_turno_por_hora():
+    """
+    Devuelve el tipo de turno según la hora actual:
+      Mañana: 08:00 - 11:59
+      Tarde:  12:00 - 19:59
+      Noche:  20:00 - 07:59 (cruza medianoche)
+    """
+    from datetime import datetime
+    hora = datetime.now().hour
+    if 8 <= hora <= 11:
+        return "Mañana"
+    elif 12 <= hora <= 19:
+        return "Tarde"
+    else:
+        return "Noche"
+
+
+def _redirect_por_rol(role):
+    """Retorna la URL de redirección según el rol del usuario."""
+    if role in ('admin',):
+        return redirect("control:dashboard")
+    if role == 'gerente' or role == 'supervisor':
+        return redirect("control:maquinas_list")
+    if role == 'tecnico':
+        return redirect("control:maquinas_list")
+    # encargado, asistente
+    return redirect("control:turno")
+
+
 def login_view(request):
     if request.user.is_authenticated:
-        if request.user.role == "admin":
-            return redirect("control:dashboard")
-        return redirect("control:turno")
+        return _redirect_por_rol(request.user.role)
 
     if request.method == "POST":
         username = request.POST.get("username")
@@ -620,17 +652,152 @@ def login_view(request):
             )
             if pendientes:
                 request.session["notif_recaudacion_ids"] = pendientes
-            if user.role == "admin":
-                return redirect("control:dashboard")
-            return redirect("control:turno")
+            redir = _manejar_sucursal_post_login(request, user)
+            if redir:
+                return redir
+            return _redirect_por_rol(user.role)
         else:
             messages.error(request, "Usuario o contraseña incorrectos.")
 
     return render(request, "login.html")
 
 
+def _manejar_sucursal_post_login(request, user):
+    """
+    Para encargado/asistente/supervisor:
+    - 1 sucursal  → asigna en sesión (y si es encargado inicia turno automáticamente)
+    - 2+ sucursales → redirige a pantalla de selección
+    - 0 sucursales  → entra igual sin restricción
+    Otros roles → retorna None (sin efecto).
+    """
+    ROLES_CON_SELECCION = ('encargado', 'asistente')
+    if user.role not in ROLES_CON_SELECCION:
+        return None
+
+    sucursales = list(user.sucursales.filter(is_active=True))
+
+    if len(sucursales) == 1:
+        request.session['sucursal_activa_id'] = sucursales[0].pk
+        if user.role == 'encargado':
+            _auto_iniciar_turno(request, user, sucursales[0])
+        return None  # continúa con redirect normal
+    elif len(sucursales) > 1:
+        return redirect("control:seleccionar_sucursal")
+
+    return None  # 0 sucursales → entra igual
+
+
+@login_required
+def seleccionar_sucursal_view(request):
+    """
+    Pantalla de selección de sucursal para encargado/asistente/supervisor
+    con más de una sucursal asignada.
+    Solo el encargado inicia turno automáticamente al seleccionar.
+    """
+    ROLES_CON_SELECCION = ('encargado', 'asistente', 'supervisor')
+    user = request.user
+
+    if user.role not in ROLES_CON_SELECCION:
+        return _redirect_por_rol(user.role)
+
+    sucursales = user.sucursales.filter(is_active=True).order_by('nombre')
+
+    # Si solo tiene 1, asignar automáticamente y continuar
+    if sucursales.count() == 1:
+        sucursal = sucursales.first()
+        request.session['sucursal_activa_id'] = sucursal.pk
+        if user.role == 'encargado':
+            _auto_iniciar_turno(request, user, sucursal)
+        return _redirect_por_rol(user.role)
+
+    if request.method == 'POST':
+        sucursal_id = request.POST.get('sucursal_id')
+        if sucursal_id and sucursales.filter(pk=sucursal_id).exists():
+            sucursal = sucursales.get(pk=sucursal_id)
+            request.session['sucursal_activa_id'] = int(sucursal_id)
+            if user.role == 'encargado':
+                _auto_iniciar_turno(request, user, sucursal)
+            return _redirect_por_rol(user.role)
+        else:
+            messages.error(request, 'Debes seleccionar una sucursal válida.')
+
+    return render(request, 'seleccionar_sucursal.html', {'sucursales': sucursales})
+
+
+def _auto_iniciar_turno(request, user, sucursal):
+    """
+    Crea el turno automáticamente para el encargado según la hora actual.
+    Si ya tiene un turno abierto, no crea uno nuevo.
+    """
+    from datetime import date as date_today, datetime, timedelta
+
+    if Turno.objects.filter(usuario=user, estado="Abierto").first():
+        return  # Ya tiene turno abierto, no crear otro
+
+    tipo_turno = _get_tipo_turno_por_hora()
+    hoy = date_today.today()
+
+    # Turno noche que cruza medianoche (00:00-07:59) → fecha del día anterior
+    hora = datetime.now().hour
+    if tipo_turno == "Noche" and 0 <= hora <= 7:
+        hoy = hoy - timedelta(days=1)
+
+    turno = Turno(
+        sucursal=sucursal,
+        usuario=user,
+        fecha=hoy,
+        tipo_turno=tipo_turno,
+        estado="Abierto",
+    )
+    try:
+        turno.full_clean()
+        turno.save()
+        messages.success(
+            request,
+            f"Turno {tipo_turno} iniciado automáticamente en {sucursal.nombre}."
+        )
+    except Exception as e:
+        messages.warning(request, f"No se pudo iniciar el turno: {e}")
+
+
 @login_required
 def logout_view(request):
+    user = request.user
+
+    # Solo el encargado pasa por la pantalla de advertencia/confirmación
+    if user.role == 'encargado':
+        turno_abierto = Turno.objects.filter(usuario=user, estado="Abierto").first()
+
+        if not request.GET.get("confirmar"):
+            # Siempre mostrar pantalla de confirmación al encargado
+            maquinas_total = 0
+            lecturas_registradas = 0
+            maquinas_sin_lectura = 0
+
+            if turno_abierto:
+                maquinas_total = Maquina.objects.filter(
+                    sucursal=turno_abierto.sucursal, is_active=True, zona__is_active=True
+                ).count()
+                lecturas_registradas = LecturaMaquina.objects.filter(turno=turno_abierto).count()
+                maquinas_sin_lectura = maquinas_total - lecturas_registradas
+
+            return render(request, "logout_advertencia.html", {
+                "turno": turno_abierto,
+                "maquinas_sin_lectura": maquinas_sin_lectura,
+                "maquinas_total": maquinas_total,
+                "lecturas_registradas": lecturas_registradas,
+                "completo": maquinas_sin_lectura == 0,
+            })
+
+        # Confirmó → cerrar turno si está abierto
+        if turno_abierto:
+            total = LecturaMaquina.objects.filter(turno=turno_abierto).aggregate(
+                total_sum=Sum("total")
+            )["total_sum"] or 0
+            turno_abierto.estado = "Cerrado"
+            turno_abierto.total_cierre = Decimal(str(total))
+            turno_abierto.save()
+
     logout(request)
     return redirect("control:login")
 
@@ -826,6 +993,7 @@ def _recalcular_totales(cuadratura):
     return cuadratura
 
 @login_required
+@role_required(*ROLES_CUADRATURA_DIARIA)
 def cuadratura_diaria_create(request):
     if request.method == "POST":
         form = CuadraturaCajaDiariaForm(request.POST)
@@ -962,6 +1130,7 @@ def cuadratura_diaria_create(request):
         "control_completo": len(zonas_faltantes) == 0,
     })
 @login_required
+@role_required(*ROLES_CUADRATURA)
 def cuadratura_diaria_list(request):
     cuadraturas = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario")
 
@@ -1318,7 +1487,7 @@ def encuadre_detail(request, pk):
 # ============================================
 
 @login_required
-@role_required(["admin", "gerente"])
+@role_required(*ROLES_DASHBOARD)
 def dashboard_view(request):
     hoy = timezone.now().date()
 
@@ -1403,6 +1572,7 @@ def dashboard_view(request):
 # ============================================
 
 @login_required
+@role_required(*ROLES_TURNO)
 def turno_view(request):
     turno_abierto = Turno.objects.filter(usuario=request.user, estado="Abierto").first()
 
@@ -1696,6 +1866,8 @@ def cerrar_turno(request, turno_id):
     return redirect("control:cierre_turno", turno_id=turno.id)
 
 @login_required
+@role_required(*ROLES_REGISTRO)
+@readonly_for(*ROLES_READONLY)
 def registro_view(request):
     turno_abierto = Turno.objects.filter(usuario=request.user, estado__iexact="abierto").first()
     zona_guardada_id = request.session.get("ultima_zona")
@@ -2359,18 +2531,28 @@ def export_excel(request):
 # ============================================
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_VER)
 def sucursales_list(request):
-    query = request.GET.get("q")
+    query  = request.GET.get("q")
+    role   = request.user.role
+
     sucursales = Sucursal.objects.filter(is_active=True)
+
+    if role in ('supervisor', 'encargado'):
+        sucursales = request.user.sucursales.filter(is_active=True)
+
     if query:
         sucursales = sucursales.filter(nombre__icontains=query)
 
-    return render(request, "sucursales/list.html", {"sucursales": sucursales, "query": query})
+    return render(request, "sucursales/list.html", {
+        "sucursales":   sucursales,
+        "query":        query,
+        "puede_editar": role in ('admin', 'tecnico'),
+    })
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def sucursal_create(request):
     if request.method == "POST":
         form = SucursalForm(request.POST)
@@ -2388,7 +2570,7 @@ def sucursal_create(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def sucursal_edit(request, pk):
     sucursal = get_object_or_404(Sucursal, pk=pk)
     if request.method == "POST":
@@ -2404,8 +2586,7 @@ def sucursal_edit(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin)
-@login_required
+@role_required(*ROLES_CONFIG_EDIT)
 def sucursal_delete(request, pk):
     sucursal = get_object_or_404(Sucursal, pk=pk)
 
@@ -2425,27 +2606,32 @@ def sucursal_delete(request, pk):
 # ============================================
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_VER)
 def zonas_list(request):
-    sucursal_id = request.GET.get("sucursal")
+    sucursal_id   = request.GET.get("sucursal")
+    role          = request.user.role
 
-    zonas = Zona.objects.filter(is_active=True, sucursal__is_active=True)
+    zonas         = Zona.objects.filter(is_active=True, sucursal__is_active=True)
+    sucursales_qs = Sucursal.objects.filter(is_active=True)
+
+    if role in ('supervisor', 'encargado'):
+        mis_suc       = request.user.sucursales.filter(is_active=True)
+        zonas         = zonas.filter(sucursal__in=mis_suc)
+        sucursales_qs = mis_suc
+
     if sucursal_id:
         zonas = zonas.filter(sucursal_id=sucursal_id)
 
-    return render(
-        request,
-        "zonas/list.html",
-        {
-            "zonas": zonas,
-            "sucursales": Sucursal.objects.filter(is_active=True),
-            "sucursal_id": sucursal_id,
-        },
-    )
+    return render(request, "zonas/list.html", {
+        "zonas":        zonas,
+        "sucursales":   sucursales_qs,
+        "sucursal_id":  sucursal_id,
+        "puede_editar": role in ('admin', 'tecnico'),
+    })
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def zona_create(request):
     if request.method == "POST":
         form = ZonaForm(request.POST)
@@ -2463,7 +2649,7 @@ def zona_create(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def zona_edit(request, pk):
     zona = get_object_or_404(Zona, pk=pk)
     if request.method == "POST":
@@ -2479,7 +2665,7 @@ def zona_edit(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def zona_delete(request, pk):
     zona = get_object_or_404(Zona, pk=pk)
 
@@ -2499,33 +2685,37 @@ def zona_delete(request, pk):
 # ============================================
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_VER)
 def maquinas_list(request):
     sucursal_id = request.GET.get("sucursal")
-    zona_id = request.GET.get("zona")
+    zona_id     = request.GET.get("zona")
+    role        = request.user.role
 
-    maquinas = Maquina.objects.filter(sucursal__is_active=True, zona__is_active=True)
+    maquinas      = Maquina.objects.filter(sucursal__is_active=True, zona__is_active=True)
+    sucursales_qs = Sucursal.objects.filter(is_active=True)
+
+    if role in ('supervisor', 'encargado'):
+        mis_suc       = request.user.sucursales.filter(is_active=True)
+        maquinas      = maquinas.filter(sucursal__in=mis_suc)
+        sucursales_qs = mis_suc
 
     if sucursal_id:
         maquinas = maquinas.filter(sucursal_id=sucursal_id)
     if zona_id:
         maquinas = maquinas.filter(zona_id=zona_id)
 
-    return render(
-        request,
-        "maquinas/list.html",
-        {
-            "maquinas": maquinas,
-            "sucursales": Sucursal.objects.filter(is_active=True),
-            "zonas": Zona.objects.filter(is_active=True),
-            "sucursal_id": sucursal_id,
-            "zona_id": zona_id,
-        },
-    )
+    return render(request, "maquinas/list.html", {
+        "maquinas":     maquinas,
+        "sucursales":   sucursales_qs,
+        "zonas":        Zona.objects.filter(is_active=True, sucursal__in=sucursales_qs),
+        "sucursal_id":  sucursal_id,
+        "zona_id":      zona_id,
+        "puede_editar": role in ('admin', 'tecnico'),
+    })
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def maquina_create(request):
     if request.method == "POST":
         form = MaquinaForm(request.POST)
@@ -2543,7 +2733,7 @@ def maquina_create(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def maquina_edit(request, pk):
     maquina = get_object_or_404(Maquina, pk=pk)
     if request.method == "POST":
@@ -2559,7 +2749,7 @@ def maquina_edit(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def maquina_delete(request, pk):
     maquina = get_object_or_404(Maquina, pk=pk)
     if request.method == "POST":
@@ -2570,7 +2760,7 @@ def maquina_delete(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_CONFIG_EDIT)
 def maquina_update_estado(request, pk):
     if request.method != "POST":
         return redirect("control:maquinas_list")
@@ -2596,14 +2786,14 @@ def maquina_update_estado(request, pk):
 # ============================================
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_VER_USUARIOS)
 def usuarios_list(request):
     usuarios = Usuario.objects.all()
     return render(request, "usuarios/list.html", {"usuarios": usuarios})
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_USUARIOS)
 def usuario_create(request):
     if request.method == "POST":
         form = UsuarioForm(request.POST)
@@ -2620,7 +2810,7 @@ def usuario_create(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_USUARIOS)
 def usuario_edit(request, pk):
     usuario = get_object_or_404(Usuario, pk=pk)
     if request.method == "POST":
@@ -2640,7 +2830,7 @@ def usuario_edit(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(*ROLES_USUARIOS)
 def usuario_delete(request, pk):
     usuario = get_object_or_404(Usuario, pk=pk)
     if request.method == "POST":
@@ -2950,6 +3140,7 @@ def cierre_turno_list(request):
 
 
 @login_required
+@role_required(*ROLES_OPERACIONES)
 def cuadratura_zona_list(request):
     qs = CuadraturaZona.objects.select_related("turno", "turno__sucursal", "turno__usuario", "zona")
 
@@ -3400,6 +3591,7 @@ def lectura_edit_from_control(request, linea_pk, control_pk):
     })
 
 @login_required
+@role_required(*ROLES_CONTROLES)
 def controles_list(request):
     qs = (
         ControlLecturas.objects

@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}Cerrar Sesión — Plaza Games{% endblock %}
+{% block page_title %}Cerrar Sesión{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-lg-5 col-md-7 col-sm-10">
+    <div style="background:#0f1117;border:1px solid rgba(201,168,76,.15);border-radius:16px;
+                overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.4);">
+
+      {% if turno %}
+
+        {% if completo %}
+        <!-- ══ CASO 1: Todas las lecturas completas ══ -->
+        <div style="padding:24px 28px 20px;border-bottom:1px solid rgba(201,168,76,.1);">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:42px;height:42px;flex-shrink:0;
+                        background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);
+                        border-radius:11px;display:flex;align-items:center;justify-content:center;">
+              <i class="bi bi-check-circle-fill" style="color:#4ade80;font-size:19px;"></i>
+            </div>
+            <div>
+              <div style="color:#f0ece4;font-size:15px;font-weight:700;">¿Cerrar sesión?</div>
+              <div style="color:#7a7570;font-size:12px;margin-top:2px;">
+                {{ turno.sucursal.nombre }} — {{ turno.get_tipo_turno_display }} {{ turno.fecha|date:"d/m/Y" }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:24px 28px 28px;">
+          <!-- Resumen lecturas -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px;">
+            <div style="background:#080a0f;border:1px solid rgba(201,168,76,.1);
+                        border-radius:10px;padding:14px;text-align:center;">
+              <div style="font-size:22px;font-weight:700;color:#f0ece4;">{{ maquinas_total }}</div>
+              <div style="font-size:11px;color:#7a7570;text-transform:uppercase;letter-spacing:.5px;margin-top:3px;">Total máquinas</div>
+            </div>
+            <div style="background:#080a0f;border:1px solid rgba(34,197,94,.2);
+                        border-radius:10px;padding:14px;text-align:center;">
+              <div style="font-size:22px;font-weight:700;color:#4ade80;">{{ lecturas_registradas }}</div>
+              <div style="font-size:11px;color:#7a7570;text-transform:uppercase;letter-spacing:.5px;margin-top:3px;">Con lectura</div>
+            </div>
+          </div>
+
+          <p style="color:#a09890;font-size:14px;line-height:1.6;margin-bottom:22px;">
+            Todas las lecturas del turno están registradas. Al cerrar sesión el turno quedará
+            <strong style="color:#4ade80;">cerrado correctamente</strong>.
+          </p>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <a href="{% url 'control:logout' %}?confirmar=1"
+               style="display:flex;align-items:center;justify-content:center;gap:8px;
+                      height:44px;border-radius:9px;font-size:14px;font-weight:600;
+                      background:linear-gradient(135deg,#c9a84c,#a07830);color:#0f1117;
+                      text-decoration:none;box-shadow:0 4px 16px rgba(201,168,76,.3);">
+              <i class="bi bi-box-arrow-right"></i> Sí, cerrar sesión
+            </a>
+            <a href="{% url 'control:turno' %}"
+               style="display:flex;align-items:center;justify-content:center;gap:8px;
+                      height:44px;border-radius:9px;font-size:14px;font-weight:500;
+                      border:1.5px solid rgba(201,168,76,.15);background:transparent;
+                      color:#7a7570;text-decoration:none;">
+              <i class="bi bi-arrow-left"></i> Volver al turno
+            </a>
+          </div>
+        </div>
+
+        {% else %}
+        <!-- ══ CASO 2: Lecturas incompletas ══ -->
+        <div style="padding:24px 28px 20px;border-bottom:1px solid rgba(201,168,76,.1);">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:42px;height:42px;flex-shrink:0;
+                        background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.28);
+                        border-radius:11px;display:flex;align-items:center;justify-content:center;">
+              <i class="bi bi-exclamation-triangle-fill" style="color:#fb923c;font-size:19px;"></i>
+            </div>
+            <div>
+              <div style="color:#f0ece4;font-size:15px;font-weight:700;">Lecturas pendientes</div>
+              <div style="color:#7a7570;font-size:12px;margin-top:2px;">
+                {{ turno.sucursal.nombre }} — {{ turno.get_tipo_turno_display }} {{ turno.fecha|date:"d/m/Y" }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:24px 28px 28px;">
+          <!-- Resumen lecturas -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:22px;">
+            <div style="background:#080a0f;border:1px solid rgba(201,168,76,.1);
+                        border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:#f0ece4;">{{ maquinas_total }}</div>
+              <div style="font-size:10px;color:#7a7570;text-transform:uppercase;letter-spacing:.4px;margin-top:3px;">Total</div>
+            </div>
+            <div style="background:#080a0f;border:1px solid rgba(34,197,94,.2);
+                        border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:#4ade80;">{{ lecturas_registradas }}</div>
+              <div style="font-size:10px;color:#7a7570;text-transform:uppercase;letter-spacing:.4px;margin-top:3px;">Con lectura</div>
+            </div>
+            <div style="background:#080a0f;border:1px solid rgba(251,146,60,.25);
+                        border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:#fb923c;">{{ maquinas_sin_lectura }}</div>
+              <div style="font-size:10px;color:#7a7570;text-transform:uppercase;letter-spacing:.4px;margin-top:3px;">Sin lectura</div>
+            </div>
+          </div>
+
+          <p style="color:#a09890;font-size:14px;line-height:1.6;margin-bottom:22px;">
+            Tienes <strong style="color:#fb923c;">{{ maquinas_sin_lectura }}
+            máquina{{ maquinas_sin_lectura|pluralize:"s" }}</strong> sin lectura.
+            Si cierras sesión ahora, el turno se cerrará con los datos actuales y
+            <strong style="color:#f0ece4;">no podrás retomarlo</strong>.
+          </p>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <a href="{% url 'control:turno' %}"
+               style="display:flex;align-items:center;justify-content:center;gap:8px;
+                      height:44px;border-radius:9px;font-size:14px;font-weight:600;
+                      background:linear-gradient(135deg,#c9a84c,#a07830);color:#0f1117;
+                      text-decoration:none;box-shadow:0 4px 16px rgba(201,168,76,.3);">
+              <i class="bi bi-arrow-left-circle"></i> Volver y completar lecturas
+            </a>
+            <a href="{% url 'control:logout' %}?confirmar=1"
+               style="display:flex;align-items:center;justify-content:center;gap:8px;
+                      height:44px;border-radius:9px;font-size:14px;font-weight:500;
+                      background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);
+                      color:#fca5a5;text-decoration:none;">
+              <i class="bi bi-box-arrow-right"></i> Cerrar sesión de todas formas
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
+      {% else %}
+      <!-- ══ CASO 3: Sin turno abierto ══ -->
+      <div style="padding:24px 28px 20px;border-bottom:1px solid rgba(201,168,76,.1);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:42px;height:42px;flex-shrink:0;
+                      background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.2);
+                      border-radius:11px;display:flex;align-items:center;justify-content:center;">
+            <i class="bi bi-box-arrow-right" style="color:#c9a84c;font-size:19px;"></i>
+          </div>
+          <div>
+            <div style="color:#f0ece4;font-size:15px;font-weight:700;">¿Cerrar sesión?</div>
+            <div style="color:#7a7570;font-size:12px;margin-top:2px;">No tienes ningún turno abierto</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:24px 28px 28px;display:flex;flex-direction:column;gap:10px;">
+        <a href="{% url 'control:logout' %}?confirmar=1"
+           style="display:flex;align-items:center;justify-content:center;gap:8px;
+                  height:44px;border-radius:9px;font-size:14px;font-weight:600;
+                  background:linear-gradient(135deg,#c9a84c,#a07830);color:#0f1117;
+                  text-decoration:none;box-shadow:0 4px 16px rgba(201,168,76,.3);">
+          <i class="bi bi-box-arrow-right"></i> Sí, cerrar sesión
+        </a>
+        <a href="javascript:history.back()"
+           style="display:flex;align-items:center;justify-content:center;gap:8px;
+                  height:44px;border-radius:9px;font-size:14px;
+                  border:1.5px solid rgba(201,168,76,.15);background:transparent;
+                  color:#7a7570;text-decoration:none;">
+          <i class="bi bi-arrow-left"></i> Cancelar
+        </a>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

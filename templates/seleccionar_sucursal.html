@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% block title %}Seleccionar Sucursal — Plaza Games{% endblock %}
+{% block page_title %}Seleccionar Sucursal{% endblock %}
+
+{% block content %}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+  .suc-option {
+    display: flex; align-items: center; gap: 14px;
+    background: #080a0f;
+    border: 1.5px solid rgba(201,168,76,.12);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color .18s, background .18s;
+  }
+  .suc-option:hover { border-color: rgba(201,168,76,.4); background: #0d0f15; }
+  .suc-option.selected { border-color: #c9a84c; background: rgba(201,168,76,.06); }
+  .suc-option input[type="radio"] { display: none; }
+
+  .suc-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    background: rgba(201,168,76,.1); border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: #c9a84c; font-size: 16px;
+  }
+  .suc-name { color: #f0ece4; font-size: 14px; font-weight: 600; }
+  .suc-check {
+    margin-left: auto; width: 18px; height: 18px;
+    border: 1.5px solid rgba(201,168,76,.3); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #c9a84c; font-size: 11px; flex-shrink: 0;
+  }
+  .suc-option.selected .suc-check { background: #c9a84c; border-color: #c9a84c; color: #0f1117; }
+
+  .suc-label {
+    display: block; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: #7a7570; margin-bottom: 14px;
+  }
+
+  .btn-ingresar {
+    width: 100%; height: 44px;
+    background: linear-gradient(135deg, #c9a84c, #a07830);
+    border: none; border-radius: 9px;
+    color: #0f1117; font-size: 14px; font-weight: 700;
+    font-family: 'Outfit', sans-serif; letter-spacing: .3px;
+    cursor: pointer; margin-top: 18px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: opacity .15s, transform .1s;
+    box-shadow: 0 4px 16px rgba(201,168,76,.3);
+  }
+  .btn-ingresar:hover { opacity: .9; transform: translateY(-1px); }
+  .btn-ingresar:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+</style>
+
+<div class="row justify-content-center mt-4">
+  <div class="col-lg-5 col-md-7 col-sm-10">
+
+    <!-- Card principal -->
+    <div style="background:#0f1117;border:1px solid rgba(201,168,76,.15);border-radius:16px;overflow:hidden;
+                box-shadow:0 8px 32px rgba(0,0,0,.4);">
+
+      <!-- Header -->
+      <div style="padding:24px 28px 20px;border-bottom:1px solid rgba(201,168,76,.1);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;background:linear-gradient(135deg,#c9a84c,#8a5e20);
+                      border-radius:10px;display:flex;align-items:center;justify-content:center;
+                      font-size:18px;color:#0f1117;flex-shrink:0;
+                      box-shadow:0 4px 14px rgba(201,168,76,.35);">
+            <i class="bi bi-building"></i>
+          </div>
+          <div>
+            <div style="color:#f0ece4;font-size:15px;font-weight:700;">¿En qué sucursal trabajas hoy?</div>
+            <div style="color:#7a7570;font-size:12px;margin-top:2px;">Hola, {{ request.user.nombre }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:24px 28px 28px;">
+
+        {% if messages %}
+          {% for message in messages %}
+          <div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);
+                      border-radius:8px;color:#fca5a5;font-size:13px;padding:10px 14px;
+                      margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+            <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>{{ message }}
+          </div>
+          {% endfor %}
+        {% endif %}
+
+        <span class="suc-label">Sucursales disponibles</span>
+
+        <form method="post" id="suc-form">
+          {% csrf_token %}
+
+          {% for sucursal in sucursales %}
+          <label class="suc-option" id="opt-{{ sucursal.pk }}">
+            <input type="radio" name="sucursal_id" value="{{ sucursal.pk }}"
+                   onchange="selectSuc({{ sucursal.pk }}, '{{ sucursal.nombre }}')">
+            <div class="suc-icon"><i class="bi bi-building"></i></div>
+            <span class="suc-name">{{ sucursal.nombre }}</span>
+            <div class="suc-check" id="chk-{{ sucursal.pk }}">
+              <i class="bi bi-check"></i>
+            </div>
+          </label>
+          {% endfor %}
+
+          <button type="button" class="btn-ingresar" id="btn-ingresar" disabled
+                  onclick="abrirConfirmacion()">
+            <i class="bi bi-box-arrow-in-right"></i> Ingresar
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal de confirmación -->
+<div id="modal-overlay" style="
+  display:none;position:fixed;inset:0;z-index:999;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;">
+  <div style="
+    width:100%;max-width:360px;margin:20px;
+    background:#0f1117;border:1px solid rgba(201,168,76,.2);
+    border-radius:16px;overflow:hidden;
+    box-shadow:0 32px 80px rgba(0,0,0,.6);">
+
+    <div style="padding:24px 24px 18px;border-bottom:1px solid rgba(201,168,76,.1);text-align:center;">
+      <div style="width:44px;height:44px;margin:0 auto 12px;
+                  background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.25);
+                  border-radius:11px;display:flex;align-items:center;justify-content:center;">
+        <i class="bi bi-building-check" style="color:#c9a84c;font-size:18px;"></i>
+      </div>
+      <div style="color:#f0ece4;font-size:15px;font-weight:700;">¿Confirmar sucursal?</div>
+      <div style="color:#7a7570;font-size:12px;margin-top:5px;">Iniciarás sesión en:</div>
+      <div id="modal-nombre-sucursal"
+           style="color:#c9a84c;font-size:16px;font-weight:700;margin-top:8px;
+                  padding:8px 16px;background:rgba(201,168,76,.08);
+                  border-radius:8px;display:inline-block;"></div>
+    </div>
+
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:10px;">
+      <button onclick="confirmarIngreso()"
+              style="height:42px;border:none;border-radius:9px;cursor:pointer;
+                     background:linear-gradient(135deg,#c9a84c,#a07830);
+                     color:#0f1117;font-size:14px;font-weight:700;
+                     font-family:'Outfit',sans-serif;
+                     display:flex;align-items:center;justify-content:center;gap:8px;
+                     box-shadow:0 4px 16px rgba(201,168,76,.3);">
+        <i class="bi bi-check-circle"></i> Sí, ingresar aquí
+      </button>
+      <button onclick="cerrarModal()"
+              style="height:42px;border:1.5px solid rgba(201,168,76,.15);border-radius:9px;
+                     cursor:pointer;background:transparent;
+                     color:#7a7570;font-size:14px;font-family:'Outfit',sans-serif;
+                     display:flex;align-items:center;justify-content:center;gap:8px;">
+        <i class="bi bi-arrow-left"></i> Elegir otra
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sucursalSeleccionadaId     = null;
+let sucursalSeleccionadaNombre = null;
+
+function selectSuc(id, nombre) {
+  document.querySelectorAll('.suc-option').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + id).classList.add('selected');
+  document.getElementById('btn-ingresar').disabled = false;
+  sucursalSeleccionadaId     = id;
+  sucursalSeleccionadaNombre = nombre;
+}
+
+function abrirConfirmacion() {
+  if (!sucursalSeleccionadaId) return;
+  document.getElementById('modal-nombre-sucursal').textContent = sucursalSeleccionadaNombre;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+function cerrarModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+
+function confirmarIngreso() {
+  document.getElementById('suc-form').submit();
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) cerrarModal();
+});
+</script>
+{% endblock %}

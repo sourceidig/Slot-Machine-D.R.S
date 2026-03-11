@@ -8,9 +8,11 @@
   <div class="card-header">
     <div class="d-flex justify-content-between align-items-center">
       <h5 class="mb-0"><i class="bi bi-cpu"></i> Máquinas</h5>
-      <a href="{% url 'control:maquina_create' %}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Nueva Máquina
-      </a>
+      {% if puede_editar %}
+        <a href="{% url 'control:maquina_create' %}" class="btn btn-primary">
+          <i class="bi bi-plus-circle"></i> Nueva Máquina
+        </a>
+      {% endif %}
     </div>
   </div>
 
@@ -23,8 +25,7 @@
         <select name="sucursal" class="form-select" onchange="this.form.submit()">
           <option value="">Todas</option>
           {% for s in sucursales %}
-            <option value="{{ s.id }}"
-              {% if s.id|stringformat:"s" == sucursal_id %}selected{% endif %}>
+            <option value="{{ s.id }}" {% if s.id|stringformat:"s" == sucursal_id %}selected{% endif %}>
               {{ s.nombre }}
             </option>
           {% endfor %}
@@ -35,22 +36,17 @@
         <label class="form-label mb-1">Zona</label>
         <select name="zona" class="form-select" onchange="this.form.submit()">
           <option value="">Todas</option>
-
-          {# Si hay sucursal seleccionada, mostrar zonas de esa sucursal #}
           {% if sucursal_id %}
             {% for z in zonas %}
               {% if z.sucursal_id|stringformat:"s" == sucursal_id %}
-                <option value="{{ z.id }}"
-                  {% if z.id|stringformat:"s" == zona_id %}selected{% endif %}>
+                <option value="{{ z.id }}" {% if z.id|stringformat:"s" == zona_id %}selected{% endif %}>
                   {{ z.nombre }}
                 </option>
               {% endif %}
             {% endfor %}
           {% else %}
-            {# Si no hay sucursal seleccionada, mostrar todas las zonas activas #}
             {% for z in zonas %}
-              <option value="{{ z.id }}"
-                {% if z.id|stringformat:"s" == zona_id %}selected{% endif %}>
+              <option value="{{ z.id }}" {% if z.id|stringformat:"s" == zona_id %}selected{% endif %}>
                 {{ z.sucursal.nombre }} - {{ z.nombre }}
               </option>
             {% endfor %}
@@ -75,10 +71,10 @@
             <th>Sucursal</th>
             <th>Zona</th>
             <th>Modelo</th>
-            <th class="text-center">RTP Obj.</th>
-            <th style="min-width: 260px;">Estado</th>
-            <th width="150">Acciones</th>
-          
+            <th>Estado</th>
+            {% if user.role == 'admin' or user.role == 'tecnico'%}
+              <th>Acciones</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
@@ -89,43 +85,41 @@
               <td>{{ maquina.sucursal.nombre }}</td>
               <td>{{ maquina.zona.nombre }}</td>
               <td>{{ maquina.modelo|default:"-" }}</td>
-              <td class="text-center">
-                {% if maquina.rtp_objetivo %}
-                  <span class="badge bg-info-subtle text-info fw-semibold">{{ maquina.rtp_objetivo }}%</span>
+              <td>
+                {% if puede_editar %}
+                  <form method="post" action="{% url 'control:maquina_estado' maquina.id %}" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <select name="estado" class="form-select form-select-sm" style="max-width:190px;">
+                      {% for val, label in maquina.ESTADO_CHOICES %}
+                        <option value="{{ val }}" {% if maquina.estado == val %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                    <button class="btn btn-sm btn-primary" type="submit">Guardar</button>
+                  </form>
                 {% else %}
-                  <span class="text-muted">—</span>
+                  {% if maquina.estado == 'Operativa' %}
+                    <span class="badge bg-success">{{ maquina.estado }}</span>
+                  {% elif maquina.estado == 'Mantenimiento' %}
+                    <span class="badge bg-warning text-dark">{{ maquina.estado }}</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ maquina.estado }}</span>
+                  {% endif %}
                 {% endif %}
               </td>
-
-              <!-- Estado editable desde la tabla -->
-              <td>
-                <form method="post"
-                      action="{% url 'control:maquina_estado' maquina.id %}"
-                      class="d-flex gap-2">
-                  {% csrf_token %}
-                  <select name="estado" class="form-select form-select-sm" style="max-width: 190px;">
-                    {% for val, label in maquina.ESTADO_CHOICES %}
-                      <option value="{{ val }}" {% if maquina.estado == val %}selected{% endif %}>
-                        {{ label }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                  <button class="btn btn-sm btn-primary" type="submit">Guardar</button>
-                </form>
-              </td>
-
-              <td>
-                <a href="{% url 'control:maquina_edit' maquina.pk %}" class="btn btn-sm btn-warning" title="Editar">
-                  <i class="bi bi-pencil"></i>
-                </a>
-                <a href="{% url 'control:maquina_delete' maquina.pk %}" class="btn btn-sm btn-danger" title="Eliminar">
-                  <i class="bi bi-trash"></i>
-                </a>
-              </td>
+              {% if user.role == 'admin' or user.role == 'tecnico'%}
+                <td>
+                  <a href="{% url 'control:maquina_edit' maquina.pk %}" class="btn btn-sm btn-warning" title="Editar">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                  <a href="{% url 'control:maquina_delete' maquina.pk %}" class="btn btn-sm btn-danger" title="Eliminar">
+                    <i class="bi bi-trash"></i>
+                  </a>
+                </td>
+              {% endif %}
             </tr>
           {% empty %}
             <tr>
-              <td colspan="8" class="text-center text-muted">No hay máquinas registradas</td>
+              <td colspan="{% if puede_editar %}7{% else %}6{% endif %}" class="text-center text-muted">No hay máquinas registradas</td>
             </tr>
           {% endfor %}
         </tbody>
