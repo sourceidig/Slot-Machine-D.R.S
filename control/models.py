@@ -771,7 +771,6 @@ class RegistroSesion(models.Model):
         "Turno", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="sesiones"
     )
-    ip_cliente   = models.GenericIPAddressField(null=True, blank=True)
     fecha        = models.DateField(auto_now_add=True)
     hora_inicio  = models.DateTimeField(auto_now_add=True)
     hora_cierre  = models.DateTimeField(null=True, blank=True)
