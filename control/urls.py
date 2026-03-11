@@ -21,6 +21,7 @@ urlpatterns = [
     # Turno
     # -------------------------
     path("turno/", views.turno_view, name="turno"),
+    path('turno/asistente/', views.turno_asistente_redirect, name='turno_asistente_redirect'),
     path("turno/cerrar/<int:turno_id>/", views.cerrar_turno, name="cerrar_turno"),
     path("turno/<int:turno_id>/asignaciones/", views.guardar_asignaciones, name="guardar_asignaciones"),
 

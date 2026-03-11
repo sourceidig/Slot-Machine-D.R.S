@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %}Mi Turno{% endblock %}
+
+{% block content %}
+
+{% if turno_abierto %}
+
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;">
+  <div class="card-body py-3 px-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+
+      <!-- Info del turno -->
+      <div class="d-flex align-items-center gap-4 flex-wrap">
+        <span class="badge bg-success d-flex align-items-center gap-1 px-3 py-2">
+          <i class="bi bi-circle-fill" style="font-size:8px;"></i> Turno Abierto
+        </span>
+        <div>
+          <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Sucursal</div>
+          <div class="fw-bold">{{ turno_abierto.sucursal.nombre }}</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Fecha</div>
+          <div class="fw-bold">{{ turno_abierto.fecha|date:"d/m/Y" }}</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Tipo</div>
+          <div class="fw-bold">{{ turno_abierto.tipo_turno }}</div>
+        </div>
+      </div>
+
+      <!-- Solo botón Cuadratura -->
+      <div>
+        <a href="{% url 'control:cuadratura_zona' turno_abierto.id %}"
+           class="btn btn-primary">
+          <i class="bi bi-calculator me-1"></i> Cuadratura
+        </a>
+        <a href="{% url 'control:cerrar_turno_sin_cuadratura' turno_abierto.id %}"
+           class="btn btn-outline-danger btn-sm"
+           onclick="return confirm('¿Cerrar el turno sin cuadratura?')">
+          <i class="bi bi-x-circle me-1"></i> Cerrar turno
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Mis zonas asignadas -->
+{% if asig_zonas %}
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+  <div class="card-header bg-white border-bottom py-3 px-4" style="border-radius:14px 14px 0 0;">
+    <h6 class="mb-0 fw-bold">
+      <i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Mis Zonas Asignadas
+    </h6>
+  </div>
+  <div class="card-body px-4 py-3">
+    <div class="row g-3">
+      {% for zona_id, az in asig_zonas.items %}
+        {% if az.usuario_id == request.user.id %}
+        <div class="col-md-4">
+          <div class="p-3 rounded-3 border" style="background:#f8fafc;">
+            <div class="fw-bold mb-1">
+              <i class="bi bi-grid me-1 text-primary"></i>{{ az.zona.nombre }}
+            </div>
+            <div class="d-flex gap-3 text-muted small mt-2">
+              <span><strong>Banano:</strong> ${{ az.banano|default:0 }}</span>
+              <span><strong>Préstamo:</strong> ${{ az.prestamo|default:0 }}</span>
+              <span><strong>Retiros:</strong> ${{ az.retiros|default:0 }}</span>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Mis slots asignados (redbank / servicio) -->
+{% if asig_slots %}
+<div class="card border-0 shadow-sm" style="border-radius:14px;">
+  <div class="card-header bg-white border-bottom py-3 px-4" style="border-radius:14px 14px 0 0;">
+    <h6 class="mb-0 fw-bold">
+      <i class="bi bi-person-badge me-2 text-warning"></i>Mis Asignaciones
+    </h6>
+  </div>
+  <div class="card-body px-4 py-3">
+    <div class="row g-3">
+      {% for key, slot in asig_slots.items %}
+        {% if slot.usuario_id == request.user.id %}
+        <div class="col-md-4">
+          <div class="p-3 rounded-3 border" style="background:#fffbeb;">
+            <div class="fw-bold">
+              {% if slot.tipo == "redbank" %}
+                <i class="bi bi-bank me-1 text-warning"></i>Redbank {{ slot.numero }}
+              {% else %}
+                <i class="bi bi-headset me-1 text-info"></i>Servicio {{ slot.numero }}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+
+<!-- Sin turno abierto -->
+<div class="card border-0 shadow-sm" style="border-radius:14px;">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-clock-history text-muted mb-3" style="font-size:3rem;"></i>
+    <h5 class="text-muted">No tienes un turno activo</h5>
+    <p class="text-muted small">Tu turno se inicia automáticamente al ingresar al sistema.<br>
+    Si no ves un turno activo, consulta con el encargado.</p>
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
