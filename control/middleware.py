@@ -1,5 +1,6 @@
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.core.cache import cache
 
 
 # URLs que el encargado puede visitar SIN haber seleccionado sucursal
@@ -12,9 +13,8 @@ URLS_LIBRES = {
 
 class SucursalEncargadoMiddleware:
     """
-    Si el usuario es encargado/asistente/supervisor y tiene más de una sucursal,
+    Si el usuario es encargado/asistente y tiene más de una sucursal,
     obliga a pasar por la pantalla de selección de sucursal antes de continuar.
-    La sucursal elegida se guarda en request.session['sucursal_activa_id'].
     """
 
     ROLES_CON_SELECCION = ('encargado', 'asistente')
@@ -29,23 +29,60 @@ class SucursalEncargadoMiddleware:
 
     def _debe_seleccionar(self, request):
         user = request.user
-
-        # Solo usuarios autenticados con rol que requiere selección
         if not user.is_authenticated:
             return False
         if user.role not in self.ROLES_CON_SELECCION:
             return False
-
-        # Si ya seleccionó sucursal, no interrumpir
         if request.session.get('sucursal_activa_id'):
             return False
-
-        # Si ya está en la pantalla de selección o en login/logout, no interrumpir
         seleccion_url = reverse('control:seleccionar_sucursal')
         login_url     = reverse('control:login')
         logout_url    = reverse('control:logout')
         if request.path in (seleccion_url, login_url, logout_url):
             return False
-
-        # Si tiene más de una sucursal → obligar selección
         return user.sucursales.filter(is_active=True).count() > 1
+
+
+class AlertaSesionCerradaMiddleware:
+    """
+    Intercepta el redirect 302 al login cuando un asistente fue desconectado
+    forzosamente por quedarse sin asignaciones. Añade ?uid=<pk> a la URL
+    para que login_view pueda mostrar la alerta correspondiente.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        # Solo interceptar redirects al login
+        if response.status_code != 302:
+            return response
+
+        try:
+            login_url = reverse("control:login")
+        except Exception:
+            return response
+
+        location = response.get("Location", "")
+        if not location.startswith(login_url):
+            return response
+
+        # Ya tiene uid → no modificar
+        if "uid=" in location:
+            return response
+
+        # Buscar en caché si hay algún asistente con flag de cierre forzado
+        try:
+            from control.models import Usuario
+            asistentes = Usuario.objects.filter(role="asistente").values_list("id", flat=True)
+            for uid in asistentes:
+                if cache.get(f"forzado_sin_asig_{uid}"):
+                    sep = "&" if "?" in location else "?"
+                    response["Location"] = f"{location}{sep}uid={uid}"
+                    break
+        except Exception:
+            pass
+
+        return response

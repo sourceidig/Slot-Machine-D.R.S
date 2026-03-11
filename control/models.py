@@ -748,3 +748,52 @@ class ProgramacionRecaudacion(models.Model):
 
     def __str__(self):
         return f"Prog. recaudación {self.sucursal} — día {self.dia_del_mes} a las {self.hora:%H:%M}"
+
+class RegistroSesion(models.Model):
+    TIPO_CHOICES = [
+        ('encargado',  'Encargado'),
+        ('asistente',  'Asistente'),
+        ('admin',      'Admin'),
+        ('gerente',    'Gerente'),
+        ('supervisor', 'Supervisor'),
+        ('tecnico',    'Técnico'),
+    ]
+    usuario      = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="sesiones"
+    )
+    tipo_usuario = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    sucursal     = models.ForeignKey(
+        "Sucursal", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="sesiones"
+    )
+    turno        = models.ForeignKey(
+        "Turno", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="sesiones"
+    )
+    ip_cliente   = models.GenericIPAddressField(null=True, blank=True)
+    fecha        = models.DateField(auto_now_add=True)
+    hora_inicio  = models.DateTimeField(auto_now_add=True)
+    hora_cierre  = models.DateTimeField(null=True, blank=True)
+    motivo_cierre = models.CharField(
+        max_length=50, null=True, blank=True,
+        help_text="sin_asignacion | manual | timeout"
+    )
+
+    class Meta:
+        ordering = ["-hora_inicio"]
+        verbose_name = "Registro de Sesión"
+        verbose_name_plural = "Registros de Sesión"
+
+    def __str__(self):
+        cierre = self.hora_cierre.strftime("%H:%M:%S") if self.hora_cierre else "Activa"
+        return f"{self.usuario.username} | {self.fecha} | {self.hora_inicio.strftime('%H:%M:%S')} → {cierre}"
+
+    @property
+    def duracion(self):
+        if self.hora_cierre:
+            delta = self.hora_cierre - self.hora_inicio
+            h, rem = divmod(int(delta.total_seconds()), 3600)
+            m, s   = divmod(rem, 60)
+            return f"{h:02d}:{m:02d}:{s:02d}"
+        return "—"

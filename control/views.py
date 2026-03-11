@@ -45,6 +45,7 @@ from .models import (
     ControlLecturas, ControlLecturasLinea,
     ProgramacionRecaudacion,
     CuadraturaZona,
+    RegistroSesion,
 )
 
 from .forms import (
@@ -618,21 +619,26 @@ def _get_tipo_turno_por_hora():
         return "Noche"
 
 
-def _redirect_por_rol(role):
+def _redirect_por_rol(role, user):
     """Retorna la URL de redirección según el rol del usuario."""
-    if role in ('admin',):
+    if user.role in ('admin',):
         return redirect("control:dashboard")
-    if role == 'gerente' or role == 'supervisor':
+    if user.role == 'gerente' or role == 'supervisor':
         return redirect("control:maquinas_list")
-    if role == 'tecnico':
+    if user.role == 'tecnico':
         return redirect("control:maquinas_list")
+    if user.role == 'asistente':
+        turno = Turno.objects.filter(usuario=user, estado="Abierto").first()
+        if turno:
+            return redirect("control:cuadratura_zona", turno_id=turno.id)
+        return redirect("control:turno")
     # encargado, asistente
     return redirect("control:turno")
 
 
 def login_view(request):
     if request.user.is_authenticated:
-        return _redirect_por_rol(request.user.role)
+        return _redirect_por_rol(request.user.role, request.user)
 
     if request.method == "POST":
         username = request.POST.get("username")
@@ -652,72 +658,155 @@ def login_view(request):
             )
             if pendientes:
                 request.session["notif_recaudacion_ids"] = pendientes
+            # Crear registro de sesión (sucursal/turno se actualizan después)
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
+            if ip and ',' in ip:
+                ip = ip.split(',')[0].strip()
+            registro = RegistroSesion.objects.create(
+                usuario=user,
+                tipo_usuario=user.role,
+                ip_cliente=ip or None,
+            )
+            request.session['registro_sesion_id'] = registro.pk
+
             redir = _manejar_sucursal_post_login(request, user)
-            if redir:
-                return redir
-            return _redirect_por_rol(user.role)
+
+            # Si no hubo redirección, actualizar sucursal y turno ahora
+            if not redir:
+                sucursal_id = request.session.get('sucursal_activa_id')
+                turno_obj = Turno.objects.filter(usuario=user, estado="Abierto").first()
+                RegistroSesion.objects.filter(pk=registro.pk).update(
+                    sucursal_id=sucursal_id or None,
+                    turno=turno_obj,
+                )
+                return _redirect_por_rol(user.role, user)
+            return redir
         else:
             messages.error(request, "Usuario o contraseña incorrectos.")
 
-    return render(request, "login.html")
+    # Detectar si el usuario fue desconectado forzosamente (sin_asignacion)
+    alerta_sesion = ""
+    # Detectar cierre forzado: cuando llega al login con ?next= (redirigido por Django)
+    # y hay un flag en caché con su uid (seteado al eliminar la sesión)
+    from django.core.cache import cache as _cache
+    uid_alerta = request.GET.get("uid", "")
+    if uid_alerta and _cache.get(f"forzado_sin_asig_{uid_alerta}"):
+        alerta_sesion = "Tu sesión fue cerrada porque ya no tienes ninguna asignación activa en el turno."
+        _cache.delete(f"forzado_sin_asig_{uid_alerta}")
+        try:
+            RegistroSesion.objects.filter(
+                usuario_id=int(uid_alerta), motivo_cierre="sin_asignacion"
+            ).update(motivo_cierre=None)
+        except Exception:
+            pass
+    return render(request, "login.html", {"alerta_sesion": alerta_sesion})
+
+
+def _verificar_asignacion_asistente(user, sucursal):
+    """
+    Verifica si el asistente tiene al menos una asignación activa
+    (zona, redbank o servicio) en el turno abierto del encargado de la sucursal.
+    """
+    turno = Turno.objects.filter(sucursal=sucursal, estado="Abierto", usuario__role="encargado").first()
+    if not turno:
+        return False
+    tiene_zona = AsignacionTurnoZona.objects.filter(turno=turno, usuario=user).exists()
+    tiene_slot = AsignacionTurnoSlot.objects.filter(turno=turno, usuario=user).exists()
+    return tiene_zona or tiene_slot
 
 
 def _manejar_sucursal_post_login(request, user):
     """
-    Para encargado/asistente/supervisor:
-    - 1 sucursal  → asigna en sesión (y si es encargado inicia turno automáticamente)
-    - 2+ sucursales → redirige a pantalla de selección
-    - 0 sucursales  → entra igual sin restricción
+    Para encargado/asistente:
+    - Encargado: 1 suc → entra directo | 2+ → pantalla selección
+    - Asistente: verifica asignación activa en turno del encargado de cada sucursal
+        · ninguna con asignación → error + logout
+        · solo una con asignación → entra directo
+        · varias con asignación  → pantalla selección solo con esas
     Otros roles → retorna None (sin efecto).
     """
+    from django.contrib.auth import logout as auth_logout
+
     ROLES_CON_SELECCION = ('encargado', 'asistente')
     if user.role not in ROLES_CON_SELECCION:
         return None
 
     sucursales = list(user.sucursales.filter(is_active=True))
 
-    if len(sucursales) == 1:
-        request.session['sucursal_activa_id'] = sucursales[0].pk
-        if user.role == 'encargado':
-            _auto_iniciar_turno(request, user, sucursales[0])
-        return None  # continúa con redirect normal
-    elif len(sucursales) > 1:
+    if not sucursales:
+        return None
+
+    if user.role == 'asistente':
+        sucursales_con_asignacion = [s for s in sucursales if _verificar_asignacion_asistente(user, s)]
+
+        if not sucursales_con_asignacion:
+            auth_logout(request)
+            messages.error(
+                request,
+                "No puedes iniciar sesión porque no tienes ninguna asignación "
+                "(zona, redbank o servicio) en ningún turno activo."
+            )
+            return redirect("control:login")
+
+        if len(sucursales_con_asignacion) == 1:
+            sucursal = sucursales_con_asignacion[0]
+            request.session['sucursal_activa_id'] = sucursal.pk
+            _auto_iniciar_turno(request, user, sucursal)
+            return None
+
+        request.session['sucursales_asistente_ids'] = [s.pk for s in sucursales_con_asignacion]
         return redirect("control:seleccionar_sucursal")
 
-    return None  # 0 sucursales → entra igual
+    # ── Encargado ──
+    if len(sucursales) == 1:
+        request.session['sucursal_activa_id'] = sucursales[0].pk
+        _auto_iniciar_turno(request, user, sucursales[0])
+        return None
+    else:
+        return redirect("control:seleccionar_sucursal")
 
 
 @login_required
 def seleccionar_sucursal_view(request):
     """
-    Pantalla de selección de sucursal para encargado/asistente/supervisor
-    con más de una sucursal asignada.
-    Solo el encargado inicia turno automáticamente al seleccionar.
+    Pantalla de selección de sucursal.
+    - Encargado: ve todas sus sucursales
+    - Asistente: solo llega aquí si tiene asignación en 2+ sucursales
     """
-    ROLES_CON_SELECCION = ('encargado', 'asistente', 'supervisor')
+    ROLES_CON_SELECCION = ('encargado', 'asistente')
     user = request.user
 
     if user.role not in ROLES_CON_SELECCION:
-        return _redirect_por_rol(user.role)
+        return _redirect_por_rol(user.role, user)
 
-    sucursales = user.sucursales.filter(is_active=True).order_by('nombre')
+    if user.role == 'asistente':
+        from django.contrib.auth import logout as auth_logout
+        ids = request.session.get('sucursales_asistente_ids', [])
+        if not ids:
+            auth_logout(request)
+            messages.error(request, "No tienes ninguna asignación activa.")
+            return redirect("control:login")
+        sucursales = user.sucursales.filter(pk__in=ids, is_active=True).order_by('nombre')
+    else:
+        sucursales = user.sucursales.filter(is_active=True).order_by('nombre')
 
-    # Si solo tiene 1, asignar automáticamente y continuar
     if sucursales.count() == 1:
         sucursal = sucursales.first()
         request.session['sucursal_activa_id'] = sucursal.pk
-        if user.role == 'encargado':
+        request.session.pop('sucursales_asistente_ids', None)
+        if user.role in ('encargado', 'asistente'):
             _auto_iniciar_turno(request, user, sucursal)
-        return _redirect_por_rol(user.role)
+        return _redirect_por_rol(user.role, user)
 
     if request.method == 'POST':
         sucursal_id = request.POST.get('sucursal_id')
         if sucursal_id and sucursales.filter(pk=sucursal_id).exists():
             sucursal = sucursales.get(pk=sucursal_id)
             request.session['sucursal_activa_id'] = int(sucursal_id)
-            if user.role == 'encargado':
+            request.session.pop('sucursales_asistente_ids', None)
+            if user.role in ('encargado', 'asistente'):
                 _auto_iniciar_turno(request, user, sucursal)
-            return _redirect_por_rol(user.role)
+            return _redirect_por_rol(user.role, user)
         else:
             messages.error(request, 'Debes seleccionar una sucursal válida.')
 
@@ -756,6 +845,13 @@ def _auto_iniciar_turno(request, user, sucursal):
             request,
             f"Turno {tipo_turno} iniciado automáticamente en {sucursal.nombre}."
         )
+        # Actualizar registro de sesión con sucursal y turno
+        reg_id = request.session.get('registro_sesion_id')
+        if reg_id:
+            RegistroSesion.objects.filter(pk=reg_id).update(
+                sucursal=sucursal,
+                turno=turno,
+            )
     except Exception as e:
         messages.warning(request, f"No se pudo iniciar el turno: {e}")
 
@@ -797,6 +893,14 @@ def logout_view(request):
             turno_abierto.estado = "Cerrado"
             turno_abierto.total_cierre = Decimal(str(total))
             turno_abierto.save()
+
+    # Cerrar registro de sesión
+    from django.utils import timezone as tz
+    reg_id = request.session.get('registro_sesion_id')
+    if reg_id:
+        RegistroSesion.objects.filter(pk=reg_id, hora_cierre__isnull=True).update(
+            hora_cierre=tz.now()
+        )
 
     logout(request)
     return redirect("control:login")
@@ -1614,7 +1718,7 @@ def turno_view(request):
     if turno_abierto:
         cantidad_lecturas = LecturaMaquina.objects.filter(turno=turno_abierto).count()
         zonas = list(Zona.objects.filter(sucursal=turno_abierto.sucursal, is_active=True).order_by("orden", "nombre"))
-        usuarios_sucursal = list(Usuario.objects.filter(is_active=True).exclude(role="admin").order_by("nombre"))
+        usuarios_sucursal = list(Usuario.objects.filter(is_active=True, role="asistente", sucursales = turno_abierto.sucursal).order_by("nombre"))
 
         for az in AsignacionTurnoZona.objects.filter(turno=turno_abierto).select_related("usuario", "zona"):
             asig_zonas[az.zona_id] = az
@@ -1644,6 +1748,8 @@ def turno_view(request):
         "cant_servicios_range": list(range(1, cant_servicios + 1)),
     }
 
+    if request.user.role == "asistente":
+        return render(request, "turno_asistente.html", context)
     return render(request, "turno.html", context)
 
 
@@ -1696,7 +1802,71 @@ def guardar_asignaciones(request, turno_id):
         )
 
     messages.success(request, "Asignaciones guardadas correctamente.")
+
+    # Verificar asistentes que quedaron sin asignación
+    _cerrar_sesion_asistentes_sin_asignacion(turno)
+
     return redirect("control:turno")
+
+
+def _cerrar_sesion_asistentes_sin_asignacion(turno):
+    """
+    Después de guardar asignaciones, revisa asistentes con turno abierto
+    en esta sucursal que ya no tienen ninguna asignación (zona ni slot).
+    Les cierra el turno, el RegistroSesion y elimina todas sus sesiones Django.
+    """
+    from django.utils import timezone as tz
+    from django.contrib.sessions.models import Session
+    from decimal import Decimal
+    from django.db.models import Sum as _Sum
+
+    turnos_asistentes = Turno.objects.filter(
+        sucursal=turno.sucursal,
+        estado="Abierto",
+        usuario__role="asistente"
+    ).select_related("usuario")
+
+    for t in turnos_asistentes:
+        asistente = t.usuario
+        tiene_zona = AsignacionTurnoZona.objects.filter(turno=turno, usuario=asistente).exists()
+        tiene_slot = AsignacionTurnoSlot.objects.filter(turno=turno, usuario=asistente).exists()
+
+        if not tiene_zona and not tiene_slot:
+            # Cerrar turno
+            total = LecturaMaquina.objects.filter(turno=t).aggregate(s=_Sum("total"))["s"] or 0
+            t.estado = "Cerrado"
+            t.total_cierre = Decimal(str(total))
+            t.save()
+
+            # Cerrar RegistroSesion con motivo
+            try:
+                RegistroSesion.objects.filter(
+                    usuario=asistente, hora_cierre__isnull=True
+                ).update(hora_cierre=tz.now(), motivo_cierre="sin_asignacion")
+            except Exception:
+                pass
+
+            # Eliminar TODAS las sesiones Django del asistente
+            # y guardar username en cada sesión para que el login muestre la alerta
+            keys = []
+            for session in Session.objects.filter(expire_date__gte=tz.now()):
+                try:
+                    data = session.get_decoded()
+                    if str(data.get("_auth_user_id")) == str(asistente.pk):
+                        # Inyectar username en la sesión antes de borrarla
+                        # (no aplica porque la sesión se borra, usamos ?u= en la URL de login)
+                        keys.append(session.session_key)
+                except Exception:
+                    pass
+            if keys:
+                Session.objects.filter(session_key__in=keys).delete()
+            # Guardar flag en caché — cuando el asistente llegue al login
+            # Django lo redirige con ?next=... y nosotros añadimos ?uid= al siguiente redirect
+            try:
+                from django.core.cache import cache
+                cache.set(f"forzado_sin_asig_{asistente.pk}", True, timeout=300)
+            except Exception:
+                pass
 
 
 # ============================================
@@ -1720,25 +1890,39 @@ def cuadratura_zona_view(request, turno_id):
         CuadraturaZona = None
     turno = get_object_or_404(Turno, id=turno_id)
 
-    zonas = Zona.objects.filter(
-        sucursal=turno.sucursal, is_active=True
-    ).order_by("orden", "nombre")
+    user = request.user
+
+    # Asistente: buscar asignaciones en el turno del encargado de la misma sucursal
+    if user.role == 'asistente':
+        turno_encargado = Turno.objects.filter(
+            sucursal=turno.sucursal, estado="Abierto", usuario__role="encargado"
+        ).first()
+        turno_ref = turno_encargado if turno_encargado else turno
+        zona_ids = AsignacionTurnoZona.objects.filter(
+            turno=turno_ref, usuario=user
+        ).values_list('zona_id', flat=True)
+        zonas = Zona.objects.filter(id__in=zona_ids, is_active=True).order_by("orden", "nombre")
+    else:
+        turno_ref = turno
+        zonas = Zona.objects.filter(
+            sucursal=turno.sucursal, is_active=True
+        ).order_by("orden", "nombre")
 
     asig_zonas = {
         az.zona_id: az
-        for az in AsignacionTurnoZona.objects.filter(turno=turno).select_related("usuario", "zona")
+        for az in AsignacionTurnoZona.objects.filter(turno=turno_ref).select_related("usuario", "zona")
     }
 
     cz_map = {}
     if CuadraturaZona is not None:
         cz_map = {
             cz.zona_id: cz
-            for cz in CuadraturaZona.objects.filter(turno=turno)
+            for cz in CuadraturaZona.objects.filter(turno=turno_ref)
         }
 
     lecturas_raw = (
         LecturaMaquina.objects
-        .filter(turno=turno)
+        .filter(turno=turno_ref)
         .select_related("zona", "maquina")
         .order_by("zona__orden", "zona__nombre", "numero_maquina")
     )
@@ -1763,12 +1947,11 @@ def cuadratura_zona_view(request, turno_id):
             "val_retiros":  cz.retiros  if cz else (az.retiros  if az else 0),
         })
 
-    slots = list(
-        AsignacionTurnoSlot.objects
-        .filter(turno=turno)
-        .select_related("usuario")
-        .order_by("tipo", "numero")
-    )
+    # Asistente: solo sus slots del turno del encargado
+    slots_qs = AsignacionTurnoSlot.objects.filter(turno=turno_ref).select_related("usuario").order_by("tipo", "numero")
+    if user.role == 'asistente':
+        slots_qs = slots_qs.filter(usuario=user)
+    slots = list(slots_qs)
     redbank_data  = [{"numero": s.numero, "usuario": s.usuario} for s in slots if s.tipo == "redbank"]
     servicio_data = [{"numero": s.numero, "usuario": s.usuario} for s in slots if s.tipo == "servicio"]
 
@@ -1863,6 +2046,10 @@ def cerrar_turno(request, turno_id):
     else:
         messages.warning(request, "El turno ya está cerrado.")
 
+    if request.user.role in ('encargado', 'asistente'):
+        logout(request)
+        return redirect("control:login")
+
     return redirect("control:cierre_turno", turno_id=turno.id)
 
 @login_required
@@ -1872,6 +2059,14 @@ def registro_view(request):
     turno_abierto = Turno.objects.filter(usuario=request.user, estado__iexact="abierto").first()
     zona_guardada_id = request.session.get("ultima_zona")
 
+    # Asistente: usar turno del encargado como referencia para asignaciones y zonas
+    if request.user.role == 'asistente' and turno_abierto:
+        turno_ref = Turno.objects.filter(
+            sucursal=turno_abierto.sucursal, estado="Abierto", usuario__role="encargado"
+        ).first() or turno_abierto
+    else:
+        turno_ref = turno_abierto
+
     if request.method == "POST":
         if not turno_abierto:
             messages.error(
@@ -1880,7 +2075,7 @@ def registro_view(request):
             )
             return redirect("control:turno")
 
-        form = LecturaMaquinaForm(request.POST, turno=turno_abierto, usuario=request.user)
+        form = LecturaMaquinaForm(request.POST, turno=turno_ref, usuario=request.user)
 
         if form.is_valid():
             lectura = form.save(commit=False)
@@ -1961,9 +2156,9 @@ def registro_view(request):
                 initial["zona"] = zona_guardada_id
             if siguiente_maquina_id:
                 initial["maquina"] = siguiente_maquina_id
-            # Verificar si el usuario tiene zona asignada en este turno
+            # Verificar si el usuario tiene zona asignada (buscar en turno de referencia)
             zonas_asignadas = AsignacionTurnoZona.objects.filter(
-                turno=turno_abierto, usuario=request.user
+                turno=turno_ref, usuario=request.user
             ).select_related("zona")
             tiene_asignacion = zonas_asignadas.exists()
 
@@ -1971,7 +2166,7 @@ def registro_view(request):
             if not initial.get("zona") and tiene_asignacion and zonas_asignadas.count() == 1:
                 initial["zona"] = zonas_asignadas.first().zona_id
 
-            form = LecturaMaquinaForm(turno=turno_abierto, usuario=request.user, initial=initial if initial else None)
+            form = LecturaMaquinaForm(turno=turno_ref, usuario=request.user, initial=initial if initial else None)
         else:
             form = None
         siguiente_maquina_id = None  # ya fue consumida
@@ -1980,7 +2175,7 @@ def registro_view(request):
     zonas_asignadas_usuario = []
     if turno_abierto:
         zonas_asignadas_usuario = list(
-            AsignacionTurnoZona.objects.filter(turno=turno_abierto, usuario=request.user)
+            AsignacionTurnoZona.objects.filter(turno=turno_ref, usuario=request.user)
             .select_related("zona").values_list("zona__nombre", flat=True)
         )
 
@@ -3142,6 +3337,7 @@ def cierre_turno_list(request):
 @login_required
 @role_required(*ROLES_OPERACIONES)
 def cuadratura_zona_list(request):
+    user = request.user
     qs = CuadraturaZona.objects.select_related("turno", "turno__sucursal", "turno__usuario", "zona")
 
     sucursal_id = request.GET.get("sucursal")
@@ -3149,8 +3345,47 @@ def cuadratura_zona_list(request):
     fecha_desde = request.GET.get("fecha_desde")
     fecha_hasta = request.GET.get("fecha_hasta")
 
-    if sucursal_id:
-        qs = qs.filter(turno__sucursal_id=sucursal_id)
+    # ── Restricciones por rol ──
+    sucursal_activa_id   = request.session.get('sucursal_activa_id')
+    sucursal_activa_nombre = ""
+
+    if user.role == 'asistente':
+        # Solo su sucursal activa y sus zonas asignadas en el turno del encargado
+        if sucursal_activa_id:
+            qs = qs.filter(turno__sucursal_id=sucursal_activa_id)
+            sucursal_obj = Sucursal.objects.filter(pk=sucursal_activa_id).first()
+            sucursal_activa_nombre = sucursal_obj.nombre if sucursal_obj else ""
+        turno_enc = Turno.objects.filter(
+            sucursal_id=sucursal_activa_id, estado="Abierto", usuario__role="encargado"
+        ).first()
+        zona_ids = []
+        if turno_enc:
+            zona_ids = list(AsignacionTurnoZona.objects.filter(
+                turno=turno_enc, usuario=user
+            ).values_list('zona_id', flat=True))
+        if zona_ids:
+            qs = qs.filter(zona_id__in=zona_ids)
+        zonas = Zona.objects.filter(id__in=zona_ids, is_active=True).order_by("nombre")
+        sucursales = []
+
+    elif user.role == 'encargado':
+        # Solo sus sucursales
+        mis_sucursales = user.sucursales.filter(is_active=True)
+        qs = qs.filter(turno__sucursal__in=mis_sucursales)
+        sucursales = list(mis_sucursales.order_by("nombre"))
+        if sucursal_id:
+            qs = qs.filter(turno__sucursal_id=sucursal_id)
+        zonas = Zona.objects.filter(
+            sucursal__in=mis_sucursales, is_active=True
+        ).order_by("nombre")
+
+    else:
+        # Admin y otros: ven todo
+        sucursales = list(Sucursal.objects.filter(is_active=True).order_by("nombre"))
+        zonas = Zona.objects.filter(is_active=True).order_by("nombre")
+        if sucursal_id:
+            qs = qs.filter(turno__sucursal_id=sucursal_id)
+
     if zona_id:
         qs = qs.filter(zona_id=zona_id)
     if fecha_desde:
@@ -3165,8 +3400,10 @@ def cuadratura_zona_list(request):
         "cuadratura_zona/list.html",
         {
             "cuadraturas": qs,
-            "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
-            "zonas": Zona.objects.filter(is_active=True).order_by("nombre"),
+            "sucursales": sucursales,
+            "zonas": zonas,
+            "sucursal_activa_id": sucursal_activa_id,
+            "sucursal_activa_nombre": sucursal_activa_nombre,
         },
     )
 
@@ -3449,7 +3686,11 @@ def cerrar_turno_sin_cuadratura(request, turno_id):
         total_cierre=Decimal(str(total_lecturas)),
     )
 
-    messages.success(request, "Turno cerrado sin cuadratura.")
+    messages.success(request, "Turno cerrado.")
+    if request.user.role in ('encargado', 'asistente'):
+        logout(request)
+        return redirect("control:login")
+
     return redirect("control:turno")
 
 
@@ -3653,3 +3894,10 @@ def controles_detail(request, pk):
         "total_entrada_parcial": total_entrada_parcial,
         "total_salida_parcial":  total_salida_parcial,
     })
+
+@login_required
+def turno_asistente_redirect(request):
+    turno = Turno.objects.filter(usuario=request.user, estado="Abierto").first()
+    if turno:
+        return redirect("control:cuadratura_zona", turno_id=turno.id)
+    return redirect("control:turno")

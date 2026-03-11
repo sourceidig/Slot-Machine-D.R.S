@@ -106,15 +106,27 @@
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
           <div>
             <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Banano</label>
-            <input type="number" min="0" name="banano" class="form-control form-control-sm text-end" value="{{ item.val_banano }}">
+            {% if request.user.role == "asistente" %}
+              <input type="number" min="0" name="banano" class="form-control form-control-sm text-end" value="{{ item.val_banano|default_if_none:'' }}" readonly style="background:#f1f5f9;cursor:not-allowed;">
+            {% else %}
+              <input type="number" min="0" name="banano" class="form-control form-control-sm text-end" value="{{ item.val_banano|default_if_none:'' }}">
+            {% endif %}
           </div>
           <div>
             <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Préstamos</label>
-            <input type="number" name="prestamo" class="form-control form-control-sm text-end" value="{{ item.val_prestamo }}">
+            {% if request.user.role == "asistente" %}
+              <input type="number" name="prestamo" class="form-control form-control-sm text-end" value="{{ item.val_prestamo|default_if_none:'' }}" readonly style="background:#f1f5f9;cursor:not-allowed;">
+            {% else %}
+              <input type="number" name="prestamo" class="form-control form-control-sm text-end" value="{{ item.val_prestamo|default_if_none:'' }}">
+            {% endif %}
           </div>
           <div>
             <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Retiros</label>
-            <input type="number" min="0" name="retiros" class="form-control form-control-sm text-end" value="{{ item.val_retiros }}">
+            {% if request.user.role == "asistente" %}
+              <input type="number" min="0" name="retiros" class="form-control form-control-sm text-end" value="{{ item.val_retiros|default_if_none:'' }}" readonly style="background:#f1f5f9;cursor:not-allowed;">
+            {% else %}
+              <input type="number" min="0" name="retiros" class="form-control form-control-sm text-end" value="{{ item.val_retiros|default_if_none:'' }}">
+            {% endif %}
           </div>
         </div>
       </div>
@@ -127,7 +139,7 @@
             <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">${{ denom.label }}</label>
             <input type="number" min="0" name="ef_{{ denom.key }}"
                    class="form-control form-control-sm text-end ef-input"
-                   value="{% if item.cz %}{{ item.cz|get_ef:denom.key }}{% else %}0{% endif %}"
+                   value="{% if item.cz %}{{ item.cz|get_ef:denom.key }}{% endif %}"
                    oninput="calcularTotal('{{ item.zona.id }}')">
           </div>
           {% endfor %}
@@ -135,14 +147,14 @@
             <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">Monedas ($)</label>
             <input type="number" min="0" name="ef_monedas"
                    class="form-control form-control-sm text-end ef-input"
-                   value="{% if item.cz %}{{ item.cz.monedas_monto|default:0 }}{% else %}0{% endif %}"
+                   value="{% if item.cz %}{{ item.cz.monedas_monto|default_if_none:'' }}{% endif %}"
                    oninput="calcularTotal('{{ item.zona.id }}')">
           </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid #fde68a;">
           <span style="font-size:13px;font-weight:600;color:#6b7280;">Total efectivo:</span>
           <span id="total-ef-{{ item.zona.id }}" style="font-size:15px;font-weight:700;color:#d97706;">
-            ${% if item.cz %}{{ item.cz.detalle_entregado_total|default:0 }}{% else %}0{% endif %}
+            $0
           </span>
           <input type="hidden" name="detalle_entregado_total" id="hidden-total-{{ item.zona.id }}"
                  value="{% if item.cz %}{{ item.cz.detalle_entregado_total|default:0 }}{% else %}0{% endif %}">
@@ -161,7 +173,7 @@
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">Descuadre</div>
             <div style="font-size:11px;color:#9ca3af;">Se calculará al guardar</div>
           </div>
-          <span style="font-size:20px;font-weight:700;color:{% if item.cz and item.cz.descuadre %}#dc2626{% else %}#16a34a{% endif %};">
+          <span id="descuadre-display-{{ item.zona.id }}" style="font-size:20px;font-weight:700;color:{% if item.cz and item.cz.descuadre %}#dc2626{% else %}#16a34a{% endif %};">
             ${% if item.cz %}{{ item.cz.descuadre|default:0 }}{% else %}0{% endif %}
           </span>
         </div>

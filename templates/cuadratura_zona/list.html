@@ -23,29 +23,76 @@
                 <input type="date" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
             </div>
 
-            <div class="col-md-3">
+            {% if request.user.role == "asistente" %}
+              {# Asistente: sucursal fija, sin selector #}
+              <input type="hidden" name="sucursal" value="{{ sucursal_activa_id }}">
+              <div class="col-md-3">
                 <label class="form-label">Sucursal</label>
-                <select name="sucursal" class="form-select">
-                    <option value="">Todas</option>
-                    {% for suc in sucursales %}
-                        <option value="{{ suc.id }}" {% if request.GET.sucursal == suc.id|stringformat:"s" %}selected{% endif %}>
-                            {{ suc.nombre }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="col-md-2">
+                <input type="text" class="form-control" value="{{ sucursal_activa_nombre }}" readonly style="background:#f1f5f9;cursor:not-allowed;">
+              </div>
+              {# Zona: solo sus zonas asignadas #}
+              <div class="col-md-2">
                 <label class="form-label">Zona</label>
                 <select name="zona" class="form-select">
-                    <option value="">Todas</option>
-                    {% for z in zonas %}
-                        <option value="{{ z.id }}" {% if request.GET.zona == z.id|stringformat:"s" %}selected{% endif %}>
-                            {{ z.nombre }}
-                        </option>
-                    {% endfor %}
+                  <option value="">Todas mis zonas</option>
+                  {% for z in zonas %}
+                    <option value="{{ z.id }}" {% if request.GET.zona == z.id|stringformat:"s" %}selected{% endif %}>
+                      {{ z.nombre }}
+                    </option>
+                  {% endfor %}
                 </select>
-            </div>
+              </div>
+
+            {% elif request.user.role == "encargado" %}
+              {# Encargado: solo sus sucursales #}
+              <div class="col-md-3">
+                <label class="form-label">Sucursal</label>
+                <select name="sucursal" class="form-select">
+                  <option value="">Todas mis sucursales</option>
+                  {% for suc in sucursales %}
+                    <option value="{{ suc.id }}" {% if request.GET.sucursal == suc.id|stringformat:"s" %}selected{% endif %}>
+                      {{ suc.nombre }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Zona</label>
+                <select name="zona" class="form-select">
+                  <option value="">Todas</option>
+                  {% for z in zonas %}
+                    <option value="{{ z.id }}" {% if request.GET.zona == z.id|stringformat:"s" %}selected{% endif %}>
+                      {{ z.nombre }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+            {% else %}
+              {# Admin / otros: ven todo #}
+              <div class="col-md-3">
+                <label class="form-label">Sucursal</label>
+                <select name="sucursal" class="form-select">
+                  <option value="">Todas</option>
+                  {% for suc in sucursales %}
+                    <option value="{{ suc.id }}" {% if request.GET.sucursal == suc.id|stringformat:"s" %}selected{% endif %}>
+                      {{ suc.nombre }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Zona</label>
+                <select name="zona" class="form-select">
+                  <option value="">Todas</option>
+                  {% for z in zonas %}
+                    <option value="{{ z.id }}" {% if request.GET.zona == z.id|stringformat:"s" %}selected{% endif %}>
+                      {{ z.nombre }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endif %}
 
             <div class="col-md-3 d-flex align-items-end gap-2">
                 <button type="submit" class="btn btn-primary w-100">
@@ -82,16 +129,13 @@
                         <td>{{ cz.turno.sucursal.nombre }}</td>
                         <td>{{ cz.zona.nombre }}</td>
                         <td>{{ cz.turno.usuario.nombre|default:cz.turno.usuario.username }}</td>
-
                         <td class="text-end">${{ cz.banano|floatformat:0 }}</td>
                         <td class="text-end">${{ cz.prestamo|floatformat:0 }}</td>
                         <td class="text-end">${{ cz.retiros|floatformat:0 }}</td>
                         <td class="text-end">${{ cz.detalle_entregado_total|floatformat:0 }}</td>
-
                         <td class="text-end {% if cz.descuadre > 0 %}text-success{% elif cz.descuadre < 0 %}text-danger{% endif %}">
                             ${{ cz.descuadre|floatformat:0 }}
                         </td>
-
                         <td>
                             <a href="{% url 'control:cuadratura_zona' cz.turno.id %}"
                                class="btn btn-sm btn-info" title="Ver / Editar">
