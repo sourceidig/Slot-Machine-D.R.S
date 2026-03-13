@@ -21,7 +21,14 @@ MENU = [
                 "icon": "bi-clock-history",
                 "url": "control:turno",
                 "url_name": "turno",
-                "roles": ["admin", "encargado", "asistente"]
+                "roles": ["admin", "encargado",]
+            },
+            {
+                "label": "Turno",
+                "icon": "bi-clock-history",
+                "url": "control:turno_asistente_redirect",
+                "url_name": "turno_asistente_redirect",
+                "roles": ["asistente"]
             },
             {
                 "label": "Cuadratura Zonas",
