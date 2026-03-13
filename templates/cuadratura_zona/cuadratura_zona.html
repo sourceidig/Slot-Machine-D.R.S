@@ -19,9 +19,13 @@
           {{ turno.sucursal.nombre }} &nbsp;|&nbsp; {{ turno.fecha|date:"d/m/Y" }} &nbsp;|&nbsp; {{ turno.tipo_turno }} &nbsp;|&nbsp; {{ turno.usuario.nombre }}
         </div>
       </div>
-      <a href="{% url 'control:turno' %}" class="btn btn-sm btn-light d-flex align-items-center gap-1" style="white-space:nowrap;">
-        <i class="bi bi-arrow-left"></i> Volver
-      </a>
+
+      {% if user.role != "asistente" %}
+        <a href="{% url 'control:turno' %}" class="btn btn-sm btn-light d-flex align-items-center gap-1" style="white-space:nowrap;">
+          <i class="bi bi-arrow-left"></i> Volver
+        </a>
+      {% endif %}
+
     </div>
   </div>
 </div>

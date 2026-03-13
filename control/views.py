@@ -1278,15 +1278,21 @@ def cuadratura_diaria_list(request):
 
     if fecha_hasta:
         cuadraturas = cuadraturas.filter(fecha__lte=fecha_hasta)
-
+    
     cuadraturas = cuadraturas.order_by("-fecha", "-creado_el")
+
+    if request.user.role == 'supervisor':
+        sucursales_qs = request.user.sucursales.filter(is_active=True).order_by("nombre")
+        cuadraturas = cuadraturas.filter(sucursal__in=sucursales_qs)
+    else:
+        sucursales_qs = Sucursal.objects.filter(is_active=True).order_by("nombre")
 
     return render(
         request,
         "cuadratura_diaria/list.html",
         {
             "cuadraturas": cuadraturas,
-            "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
+            "sucursales": sucursales_qs,
         },
     )
 
@@ -4099,6 +4105,11 @@ def controles_list(request):
         qs = qs.filter(fecha_trabajo__gte=fecha_desde)
     if fecha_hasta:
         qs = qs.filter(fecha_trabajo__lte=fecha_hasta)
+    if request.user.role == 'supervisor':
+        sucursales_qs = request.user.sucursales.filter(is_active=True).order_by("nombre")
+        qs = qs.filter(sucursal__in=sucursales_qs)
+    else:
+        sucursales_qs = Sucursal.objects.filter(is_active=True).order_by("nombre")
 
     from django.core.paginator import Paginator
     paginator = Paginator(qs, 25)
