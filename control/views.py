@@ -146,8 +146,12 @@ def informe_recaudacion_list(request):
     if sucursal_id:
         informes = informes.filter(sucursal_id=sucursal_id)
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(informes, 25)
+    informes = paginator.get_page(request.GET.get("page", 1))
     return render(request, "recaudacion/informe_list.html", {
         "informes": informes,
+        "page_obj": informes,
         "sucursales": sucursales,
         "sucursal_sel": sucursal_id,
     })
@@ -641,11 +645,20 @@ def login_view(request):
         return _redirect_por_rol(request.user.role, request.user)
 
     if request.method == "POST":
-        username = request.POST.get("username")
-        password = request.POST.get("password")
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "")
+
+        # ── Rate limiting: máx 10 intentos fallidos por IP en 10 minutos ────
+        from django.core.cache import cache as _login_cache
+        ip_key = "login_fail_" + (request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", "unknown")) or "unknown").split(",")[0].strip()
+        intentos = _login_cache.get(ip_key, 0)
+        if intentos >= 10:
+            messages.error(request, "Demasiados intentos fallidos. Espera 10 minutos.")
+            return render(request, "login.html", {"alerta_sesion": ""})
 
         user = authenticate(request, username=username, password=password)
         if user is not None:
+            _login_cache.delete(ip_key)  # reset counter on success
             login(request, user)
             # Chequear programaciones automáticas
             nuevos_informes = _chequear_programaciones(user)
@@ -662,10 +675,18 @@ def login_view(request):
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
             if ip and ',' in ip:
                 ip = ip.split(',')[0].strip()
+            # Cerrar sesiones huérfanas del mismo usuario (browser cerrado sin logout)
+            RegistroSesion.objects.filter(
+                usuario=user,
+                hora_cierre__isnull=True
+            ).update(
+                hora_cierre=timezone.now(),
+                motivo_cierre="nueva_sesion",
+            )
+
             registro = RegistroSesion.objects.create(
                 usuario=user,
                 tipo_usuario=user.role,
-                ip_cliente=ip or None,
             )
             request.session['registro_sesion_id'] = registro.pk
 
@@ -682,6 +703,10 @@ def login_view(request):
                 return _redirect_por_rol(user.role, user)
             return redir
         else:
+            # Incrementar contador de intentos fallidos
+            from django.core.cache import cache as _login_cache
+            ip_key2 = "login_fail_" + (request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", "unknown")) or "unknown").split(",")[0].strip()
+            _login_cache.set(ip_key2, _login_cache.get(ip_key2, 0) + 1, timeout=600)
             messages.error(request, "Usuario o contraseña incorrectos.")
 
     # Detectar si el usuario fue desconectado forzosamente (sin_asignacion)
@@ -1576,7 +1601,10 @@ def encuadre_create(request):
 @user_passes_test(is_admin, login_url="/login/")
 def encuadre_list(request):
     encuadres = EncuadreCajaAdmin.objects.all().select_related("sucursal", "usuario_admin")
-    return render(request, "encuadre/list.html", {"encuadres": encuadres})
+    from django.core.paginator import Paginator
+    paginator = Paginator(encuadres, 25)
+    encuadres = paginator.get_page(request.GET.get("page", 1))
+    return render(request, "encuadre/list.html", {"encuadres": encuadres, "page_obj": encuadres})
 
 
 @login_required
@@ -1593,82 +1621,134 @@ def encuadre_detail(request, pk):
 @login_required
 @role_required(*ROLES_DASHBOARD)
 def dashboard_view(request):
-    hoy = timezone.now().date()
+    from decimal import Decimal
+    hoy = timezone.localdate()
 
-    fecha_desde = request.GET.get("fecha_desde")
-    fecha_hasta = request.GET.get("fecha_hasta")
-    sucursal_id = request.GET.get("sucursal")
-
-    if not fecha_hasta:
-        fecha_hasta = hoy
-    else:
-        fecha_hasta = datetime.strptime(fecha_hasta, "%Y-%m-%d").date()
-
-    if not fecha_desde:
-        fecha_desde = fecha_hasta - timedelta(days=6)
-    else:
-        fecha_desde = datetime.strptime(fecha_desde, "%Y-%m-%d").date()
-
-    inicio = timezone.make_aware(datetime.combine(fecha_desde, time.min))
-    fin = timezone.make_aware(datetime.combine(fecha_hasta, time.max))
-
-    lecturas = LecturaMaquina.objects.filter(fecha_registro__range=(inicio, fin))
-
-    if sucursal_id:
-        lecturas = lecturas.filter(sucursal_id=sucursal_id)
-
-    kpis = lecturas.aggregate(
-        total_entrada=Sum("entrada"),
-        total_salida=Sum("salida"),
-        total_neto=Sum("total"),
-        maquinas_activas=Count("maquina", distinct=True),
-        total_lecturas=Count("id"),
+    # ── Totales globales ────────────────────────────────────────────────────
+    todas_lecturas = LecturaMaquina.objects.all()
+    global_kpis = todas_lecturas.aggregate(
+        total_entrada = Sum("entrada_dia"),
+        total_salida  = Sum("salida_dia"),
+        total_neto    = Sum("total"),
     )
+    for k in global_kpis:
+        global_kpis[k] = global_kpis[k] or 0
 
-    for k in kpis:
-        kpis[k] = kpis[k] or 0
+    if global_kpis["total_entrada"] and global_kpis["total_entrada"] > 0:
+        global_kpis["rtp_global"] = round(
+            global_kpis["total_salida"] / global_kpis["total_entrada"] * 100, 2
+        )
+    else:
+        global_kpis["rtp_global"] = 0
 
-    chart_labels = []
-    chart_data = []
+    # ── Retiros y prestamos acumulados ──────────────────────────────────────
+    total_retiros   = AsignacionTurnoZona.objects.aggregate(s=Sum("retiros"))["s"] or 0
+    total_prestamos = AsignacionTurnoZona.objects.aggregate(s=Sum("prestamo"))["s"] or 0
 
-    fecha_cursor = fecha_desde
-    while fecha_cursor <= fecha_hasta:
-        inicio_dia = timezone.make_aware(datetime.combine(fecha_cursor, time.min))
-        fin_dia = timezone.make_aware(datetime.combine(fecha_cursor, time.max))
+    # ── Top/Bottom 5 RTP por maquina ───────────────────────────────────────
+    maquinas_con_rtp = []
+    for maq in Maquina.objects.filter(is_active=True).select_related("sucursal", "zona"):
+        agg = LecturaMaquina.objects.filter(maquina=maq).aggregate(
+            ent=Sum("entrada_dia"), sal=Sum("salida_dia"), tot=Sum("total")
+        )
+        ent = agg["ent"] or 0
+        sal = agg["sal"] or 0
+        tot = agg["tot"] or 0
+        if ent > 0:
+            maquinas_con_rtp.append({
+                "maquina": maq,
+                "rtp": round(sal / ent * 100, 2),
+                "entrada": ent,
+                "salida": sal,
+                "total": tot,
+            })
 
-        total_dia = LecturaMaquina.objects.filter(
-            fecha_registro__range=(inicio_dia, fin_dia)
+    top_rtp    = sorted(maquinas_con_rtp, key=lambda x: x["rtp"], reverse=True)[:5]
+    bottom_rtp = sorted(maquinas_con_rtp, key=lambda x: x["rtp"])[:5]
+
+    # ── Data por sucursal ───────────────────────────────────────────────────
+    sucursales_data = []
+    for sucursal in Sucursal.objects.filter(is_active=True).order_by("nombre"):
+        turno_activo = Turno.objects.filter(
+            sucursal=sucursal, estado="Abierto"
+        ).select_related("usuario").first()
+
+        # Buscar la primer sesión del día del turno activo en esa sucursal
+        # (el turno se abre después del login, así que no filtramos por turno)
+        if turno_activo:
+            # Primero intentar con sucursal asignada
+            ultima_sesion = RegistroSesion.objects.filter(
+                sucursal=sucursal,
+                fecha=turno_activo.fecha,
+            ).order_by("hora_inicio").first()
+            # Si no hay, buscar por usuario del turno en esa fecha (sucursal puede ser null al login)
+            if not ultima_sesion and turno_activo.usuario:
+                ultima_sesion = RegistroSesion.objects.filter(
+                    usuario=turno_activo.usuario,
+                    fecha=turno_activo.fecha,
+                ).order_by("hora_inicio").first()
+        else:
+            ultima_sesion = RegistroSesion.objects.filter(
+                sucursal=sucursal
+            ).order_by("-hora_inicio").first()
+
+        lecs_turno = LecturaMaquina.objects.filter(
+            sucursal=sucursal, turno=turno_activo
+        ) if turno_activo else LecturaMaquina.objects.none()
+
+        turno_ent = lecs_turno.aggregate(s=Sum("entrada_dia"))["s"] or 0
+        turno_sal = lecs_turno.aggregate(s=Sum("salida_dia"))["s"] or 0
+        turno_tot = lecs_turno.aggregate(s=Sum("total"))["s"] or 0
+        rtp_dia   = round(turno_sal / turno_ent * 100, 2) if turno_ent > 0 else 0
+
+        acum = LecturaMaquina.objects.filter(sucursal=sucursal).aggregate(
+            ent=Sum("entrada_dia"), sal=Sum("salida_dia"), tot=Sum("total")
+        )
+        acum_ent = acum["ent"] or 0
+        acum_sal = acum["sal"] or 0
+        acum_tot = acum["tot"] or 0
+        rtp_acum = round(acum_sal / acum_ent * 100, 2) if acum_ent > 0 else 0
+
+        asig_qs = AsignacionTurnoZona.objects.filter(turno=turno_activo) if turno_activo else AsignacionTurnoZona.objects.none()
+        retiros_turno   = asig_qs.aggregate(s=Sum("retiros"))["s"] or 0
+        prestamos_turno = asig_qs.aggregate(s=Sum("prestamo"))["s"] or 0
+
+        maquinas_sucursal = list(
+            Maquina.objects.filter(sucursal=sucursal, is_active=True)
+            .select_related("zona")
+            .order_by("zona__orden", "numero_maquina")
         )
 
-        if sucursal_id:
-            total_dia = total_dia.filter(sucursal_id=sucursal_id)
+        sucursales_data.append({
+            "sucursal":        sucursal,
+            "turno_activo":    turno_activo,
+            "ultima_sesion":   ultima_sesion,
+            "turno_ent":       turno_ent,
+            "turno_sal":       turno_sal,
+            "turno_tot":       turno_tot,
+            "rtp_dia":         rtp_dia,
+            "acum_ent":        acum_ent,
+            "acum_sal":        acum_sal,
+            "acum_tot":        acum_tot,
+            "rtp_acum":        rtp_acum,
+            "retiros_turno":   retiros_turno,
+            "prestamos_turno": prestamos_turno,
+            "maquinas":        maquinas_sucursal,
+        })
 
-        total_dia = total_dia.aggregate(suma=Sum("total"))["suma"] or 0
+    rtp_tables = [
+        (top_rtp,    "Top 5 RTP más altos", "#16a34a"),
+        (bottom_rtp, "Top 5 RTP más bajos", "#dc2626"),
+    ]
 
-        chart_labels.append(fecha_cursor.strftime("%d/%m"))
-        chart_data.append(int(total_dia))
-        fecha_cursor += timedelta(days=1)
-
-    top_maquinas = lecturas.values("numero_maquina", "nombre_juego").annotate(
-        neto=Sum("total")
-    ).order_by("-neto")[:5]
-
-    bottom_maquinas = lecturas.values("numero_maquina", "nombre_juego").annotate(
-        neto=Sum("total")
-    ).order_by("neto")[:5]
-
-    context = {
-        "kpis": kpis,
-        "chart_labels": chart_labels,
-        "chart_data": chart_data,
-        "top_maquinas": top_maquinas,
-        "bottom_maquinas": bottom_maquinas,
-        "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
-        "fecha_desde": fecha_desde,
-        "fecha_hasta": fecha_hasta,
-    }
-
-    return render(request, "dashboard.html", context)
+    return render(request, "dashboard.html", {
+        "hoy":             hoy,
+        "global_kpis":     global_kpis,
+        "total_retiros":   total_retiros,
+        "total_prestamos": total_prestamos,
+        "rtp_tables":      rtp_tables,
+        "sucursales_data": sucursales_data,
+    })
 
 
 # ============================================
@@ -2568,14 +2648,19 @@ def tablas_view(request):
     if fecha and request.user.role == "usuario":
         lecturas = lecturas.filter(fecha_trabajo=fecha)
 
-    lecturas = lecturas.order_by("-fecha_trabajo", "-fecha_registro")
+    lecturas = lecturas.select_related("maquina", "zona", "sucursal", "turno", "usuario").order_by("-fecha_trabajo", "-fecha_registro")
 
     total_entrada = lecturas.aggregate(Sum("entrada"))["entrada__sum"] or 0
     total_salida = lecturas.aggregate(Sum("salida"))["salida__sum"] or 0
     total_total = lecturas.aggregate(Sum("total"))["total__sum"] or 0
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(lecturas, 50)
+    lecturas_page = paginator.get_page(request.GET.get("page", 1))
+
     context = {
-        "lecturas": lecturas,
+        "lecturas": lecturas_page,
+        "page_obj": lecturas_page,
         "total_entrada": total_entrada,
         "total_salida": total_salida,
         "total_total": total_total,
@@ -2739,8 +2824,12 @@ def sucursales_list(request):
     if query:
         sucursales = sucursales.filter(nombre__icontains=query)
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(sucursales, 25)
+    sucursales = paginator.get_page(request.GET.get("page", 1))
     return render(request, "sucursales/list.html", {
         "sucursales":   sucursales,
+        "page_obj":     sucursales,
         "query":        query,
         "puede_editar": role in ('admin', 'tecnico'),
     })
@@ -2806,7 +2895,7 @@ def zonas_list(request):
     sucursal_id   = request.GET.get("sucursal")
     role          = request.user.role
 
-    zonas         = Zona.objects.filter(is_active=True, sucursal__is_active=True)
+    zonas         = Zona.objects.filter(is_active=True, sucursal__is_active=True).select_related("sucursal")
     sucursales_qs = Sucursal.objects.filter(is_active=True)
 
     if role in ('supervisor', 'encargado'):
@@ -2817,8 +2906,12 @@ def zonas_list(request):
     if sucursal_id:
         zonas = zonas.filter(sucursal_id=sucursal_id)
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(zonas, 25)
+    zonas = paginator.get_page(request.GET.get("page", 1))
     return render(request, "zonas/list.html", {
         "zonas":        zonas,
+        "page_obj":     zonas,
         "sucursales":   sucursales_qs,
         "sucursal_id":  sucursal_id,
         "puede_editar": role in ('admin', 'tecnico'),
@@ -2886,7 +2979,7 @@ def maquinas_list(request):
     zona_id     = request.GET.get("zona")
     role        = request.user.role
 
-    maquinas      = Maquina.objects.filter(sucursal__is_active=True, zona__is_active=True)
+    maquinas      = Maquina.objects.filter(sucursal__is_active=True, zona__is_active=True).select_related("sucursal", "zona")
     sucursales_qs = Sucursal.objects.filter(is_active=True)
 
     if role in ('supervisor', 'encargado'):
@@ -2899,8 +2992,12 @@ def maquinas_list(request):
     if zona_id:
         maquinas = maquinas.filter(zona_id=zona_id)
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(maquinas.order_by("sucursal__nombre", "zona__nombre", "numero_maquina"), 25)
+    maquinas = paginator.get_page(request.GET.get("page", 1))
     return render(request, "maquinas/list.html", {
         "maquinas":     maquinas,
+        "page_obj":     maquinas,
         "sucursales":   sucursales_qs,
         "zonas":        Zona.objects.filter(is_active=True, sucursal__in=sucursales_qs),
         "sucursal_id":  sucursal_id,
@@ -2983,8 +3080,11 @@ def maquina_update_estado(request, pk):
 @login_required
 @role_required(*ROLES_VER_USUARIOS)
 def usuarios_list(request):
-    usuarios = Usuario.objects.all()
-    return render(request, "usuarios/list.html", {"usuarios": usuarios})
+    usuarios = Usuario.objects.all().order_by("username").prefetch_related("sucursales")
+    from django.core.paginator import Paginator
+    paginator = Paginator(usuarios, 25)
+    usuarios = paginator.get_page(request.GET.get("page", 1))
+    return render(request, "usuarios/list.html", {"usuarios": usuarios, "page_obj": usuarios})
 
 
 @login_required
@@ -3625,7 +3725,7 @@ def generar_control(request, turno_id):
     lecturas = (
         LecturaMaquina.objects
         .filter(turno=turno)
-        .select_related("maquina", "zona")
+        .select_related("maquina", "maquina__sucursal", "zona")
         .order_by("zona__orden", "zona__nombre", "numero_maquina")
     )
 
@@ -3661,12 +3761,95 @@ def generar_control(request, turno_id):
     total_salida_dia  = lecturas.aggregate(s=Sum("salida_dia"))["s"] or 0
     total_total       = lecturas.aggregate(s=Sum("total"))["s"] or 0
 
+    # ── Resumen por Servidor ─────────────────────────────────────────────────
+    from collections import defaultdict
+    serv_map = defaultdict(lambda: {"cant": 0, "entrada": 0, "salida": 0, "total": 0})
+    juego_map = defaultdict(lambda: {"cant": 0, "entrada": 0, "salida": 0, "total": 0})
+    for l in lecturas:
+        srv = l.maquina.servidor or "—"
+        jue = l.nombre_juego or "—"
+        serv_map[srv]["cant"]    += 1
+        serv_map[srv]["entrada"] += l.entrada_dia
+        serv_map[srv]["salida"]  += l.salida_dia
+        serv_map[srv]["total"]   += l.total
+        juego_map[jue]["cant"]    += 1
+        juego_map[jue]["entrada"] += l.entrada_dia
+        juego_map[jue]["salida"]  += l.salida_dia
+        juego_map[jue]["total"]   += l.total
+
+    def add_rtp(d):
+        result = []
+        for name, v in sorted(d.items()):
+            rtp = round(v["salida"] / v["entrada"] * 100, 1) if v["entrada"] > 0 else 0
+            result.append({"nombre": name, "rtp": rtp, **v})
+        return result
+
+    resumen_servidor = add_rtp(serv_map)
+    resumen_juego    = add_rtp(juego_map)
+
+    # ── Resumen Caja ─────────────────────────────────────────────────────────
+    asig = AsignacionTurnoZona.objects.filter(turno=turno)
+    caja_prestamos = asig.aggregate(s=Sum("prestamo"))["s"] or 0
+    caja_retiros   = asig.aggregate(s=Sum("retiros"))["s"] or 0
+    caja_redbank   = asig.aggregate(s=Sum("banano"))["s"] or 0
+
+    # Movimientos del cierre (si ya está cerrado)
+    movimientos = {}
+    try:
+        cierre_obj = turno.cierre
+        for mov in cierre_obj.movimientos.all():
+            movimientos[mov.tipo] = movimientos.get(mov.tipo, 0) + mov.monto
+    except Exception:
+        cierre_obj = None
+
+    # Billetes malos de cuadratura
+    from django.db.models import Q
+    billetes_malos = CuadraturaCajaDiaria.objects.filter(turno=turno).aggregate(
+        s=Sum("ef_billetes_malos")
+    )["s"] or 0
+
+    descuadre_total = CuadraturaCajaDiaria.objects.filter(turno=turno).aggregate(
+        s=Sum("descuadre_dia")
+    )["s"] or 0
+
+    resumen_caja = {
+        "numeral":       total_total,
+        "prestamos":     caja_prestamos,
+        "retiros":       caja_retiros,
+        "redbank":       caja_redbank,
+        "transferencias": movimientos.get("TRANSFER", 0),
+        "sueldo_extra":  movimientos.get("SUELDO_B", 0),
+        "sorteos":       movimientos.get("SORTEOS", 0),
+        "gastos":        movimientos.get("GASTOS", 0),
+        "regalos":       movimientos.get("REGALOS", 0),
+        "jugados":       movimientos.get("JUGADOS", 0),
+        "billetes_malos": billetes_malos,
+        "descuadre":     descuadre_total,
+    }
+    resumen_caja["total"] = (
+        resumen_caja["numeral"]
+        + resumen_caja["prestamos"]
+        - resumen_caja["retiros"]
+        - resumen_caja["redbank"]
+        - resumen_caja["transferencias"]
+        - resumen_caja["sueldo_extra"]
+        - resumen_caja["sorteos"]
+        - resumen_caja["gastos"]
+        - resumen_caja["regalos"]
+        - resumen_caja["jugados"]
+        - resumen_caja["billetes_malos"]
+        - resumen_caja["descuadre"]
+    )
+
     return render(request, "control/control_generado.html", {
-        "turno": turno,
-        "lecturas": lecturas,
+        "turno":            turno,
+        "lecturas":         lecturas,
         "total_entrada_dia": total_entrada_dia,
-        "total_salida_dia": total_salida_dia,
-        "total_total": total_total,
+        "total_salida_dia":  total_salida_dia,
+        "total_total":       total_total,
+        "resumen_servidor":  resumen_servidor,
+        "resumen_juego":     resumen_juego,
+        "resumen_caja":      resumen_caja,
     })
 
 @login_required
@@ -3788,6 +3971,72 @@ def guardar_control(request, turno_id):
 
 
 @login_required
+@login_required
+def lectura_edit_ajax(request, pk):
+    """Editar entrada/salida de una lectura via AJAX desde el control generado."""
+    import json
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    lectura = get_object_or_404(LecturaMaquina, pk=pk)
+
+    es_dueno = (lectura.turno.usuario == request.user or request.user.role == "admin")
+    es_asignado = AsignacionTurnoZona.objects.filter(turno=lectura.turno, usuario=request.user).exists()
+    if not es_dueno and not es_asignado:
+        return JsonResponse({"ok": False, "error": "No autorizado"}, status=403)
+
+    try:
+        data    = json.loads(request.body)
+        entrada = int(data.get("entrada", 0))
+        salida  = int(data.get("salida",  0))
+        nota    = str(data.get("nota",    ""))[:255]
+    except (ValueError, KeyError):
+        return JsonResponse({"ok": False, "error": "Datos inválidos"}, status=400)
+
+    entrada_dia = entrada - int(lectura.entrada_anterior or 0)
+    salida_dia  = salida  - int(lectura.salida_anterior  or 0)
+    total       = entrada_dia - salida_dia
+
+    try:
+        LecturaMaquina.objects.filter(pk=pk).update(
+            entrada=entrada,
+            salida=salida,
+            entrada_dia=entrada_dia,
+            salida_dia=salida_dia,
+            total=total,
+            nota=nota,
+        )
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": f"Error al guardar lectura: {e}"}, status=500)
+
+    control = ControlLecturas.objects.filter(
+        sucursal=lectura.sucursal,
+        fecha_trabajo=lectura.fecha_trabajo,
+    ).first()
+    if control:
+        ControlLecturasLinea.objects.filter(
+            control=control, maquina=lectura.maquina
+        ).update(
+            entrada_historica=entrada,
+            salida_historica=salida,
+            entrada_parcial=entrada_dia,
+            salida_parcial=salida_dia,
+            total=total,
+        )
+        total_general = control.lineas.aggregate(s=Sum("total"))["s"] or 0
+        control.total_general = total_general
+        control.save(update_fields=["total_general"])
+
+    return JsonResponse({
+        "ok": True,
+        "entrada": entrada,
+        "salida": salida,
+        "entrada_dia": entrada_dia,
+        "salida_dia": salida_dia,
+        "total": total,
+    })
+
+
 def lectura_edit_from_control(request, linea_pk, control_pk):
     """Editar una LecturaMaquina accediendo desde el detalle del control."""
     from django.shortcuts import get_object_or_404
@@ -3851,8 +4100,12 @@ def controles_list(request):
     if fecha_hasta:
         qs = qs.filter(fecha_trabajo__lte=fecha_hasta)
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, 25)
+    controles_page = paginator.get_page(request.GET.get("page", 1))
     return render(request, "controles/list.html", {
-        "controles": qs,
+        "controles": controles_page,
+        "page_obj":  controles_page,
         "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
     })
 
@@ -3901,3 +4154,54 @@ def turno_asistente_redirect(request):
     if turno:
         return redirect("control:cuadratura_zona", turno_id=turno.id)
     return redirect("control:turno")
+
+# ============================================
+# SESIONES ADMIN
+# ============================================
+
+@login_required
+def sesiones_admin(request):
+    """Vista exclusiva del admin para ver todos los registros de inicio y cierre de sesión."""
+    if request.user.role != "admin":
+        return HttpResponse("No autorizado", status=403)
+
+    filtro_usuario = request.GET.get("usuario", "")
+    filtro_rol     = request.GET.get("rol", "")
+    filtro_fecha   = request.GET.get("fecha", "")
+    filtro_estado  = request.GET.get("estado", "")
+
+    qs = RegistroSesion.objects.select_related("usuario", "sucursal", "turno").order_by("-hora_inicio")
+
+    if filtro_usuario:
+        qs = qs.filter(usuario__username__icontains=filtro_usuario)
+    if filtro_rol:
+        qs = qs.filter(tipo_usuario=filtro_rol)
+    if filtro_fecha:
+        qs = qs.filter(fecha=filtro_fecha)
+    if filtro_estado == "activa":
+        qs = qs.filter(hora_cierre__isnull=True)
+    elif filtro_estado == "cerrada":
+        qs = qs.filter(hora_cierre__isnull=False)
+
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, 50)
+    page = request.GET.get("page", 1)
+    sesiones = paginator.get_page(page)
+
+    hoy = timezone.localdate()
+    activas_hoy  = RegistroSesion.objects.filter(fecha=hoy, hora_cierre__isnull=True).count()
+    cerradas_hoy = RegistroSesion.objects.filter(fecha=hoy, hora_cierre__isnull=False).count()
+    total_hoy    = RegistroSesion.objects.filter(fecha=hoy).count()
+
+    return render(request, "control/sesiones_admin.html", {
+        "sesiones":          sesiones,
+        "page_obj":          sesiones,
+        "filtro_usuario":    filtro_usuario,
+        "filtro_rol":        filtro_rol,
+        "filtro_fecha":      filtro_fecha,
+        "filtro_estado":     filtro_estado,
+        "roles_disponibles": RegistroSesion.TIPO_CHOICES,
+        "activas_hoy":       activas_hoy,
+        "cerradas_hoy":      cerradas_hoy,
+        "total_hoy":         total_hoy,
+    })

@@ -13,10 +13,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-slot-machine-drs-change-this-in-production'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-slot-machine-drs-change-this-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Para producción: setear variable de entorno DJANGO_DEBUG=False
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -55,6 +56,7 @@ MIDDLEWARE = [
 
     'control.middleware.AlertaSesionCerradaMiddleware', 
     'control.middleware.SucursalEncargadoMiddleware',
+    'control.middleware.ErrorHandlerMiddleware',
 ]
 
 ROOT_URLCONF = 'slot_machine_drs.urls'
@@ -156,3 +158,34 @@ LOGOUT_REDIRECT_URL = 'control:login'
 
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
+
+# ══ Seguridad y sesiones ══════════════════════════════════════════════════
+# Sesión expira al cerrar el browser (ya estaba) y también por inactividad
+SESSION_COOKIE_AGE = 28800          # 8 horas máximo aunque el browser siga abierto
+SESSION_SAVE_EVERY_REQUEST = True   # Renueva el timeout con cada request
+
+
+# Logging de errores a archivo
+# Crear carpeta logs automáticamente si no existe
+import os as _os
+_logs_dir = BASE_DIR / 'logs'
+_logs_dir.mkdir(exist_ok=True)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'django_errors.log',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
+}

@@ -45,6 +45,13 @@ MENU = [
                 "roles": ["admin", "encargado", "asistente"]
             },
             {
+                "label": "Sesiones",
+                "icon": "bi-person-lines-fill",
+                "url": "control:sesiones_admin",
+                "url_name": "sesiones_admin",
+                "roles": ["admin"]
+            },
+            {
                 "label": "Recaudación",
                 "icon": "bi-bar-chart-steps",
                 "url": "control:recaudacion",

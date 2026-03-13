@@ -250,6 +250,18 @@ class LecturaMaquina(models.Model):
 
         super().save(*args, **kwargs)
 
+        # 5) Actualizar rtp_objetivo en la máquina con el RTP real de esta lectura
+        #    RTP real = (salida_dia / entrada_dia) * 100  → retorno al jugador
+        #    Solo actualiza si entrada_dia > 0 para evitar división por cero
+        if self.maquina_id and self.entrada_dia and self.entrada_dia > 0:
+            from decimal import Decimal, ROUND_HALF_UP
+            rtp_real = (Decimal(self.salida_dia) / Decimal(self.entrada_dia) * 100).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            # Solo actualizar si hay diferencia (evitar writes innecesarios)
+            if self.maquina.rtp_objetivo != rtp_real:
+                Maquina.objects.filter(pk=self.maquina_id).update(rtp_objetivo=rtp_real)
+
 
 
 # ==========================

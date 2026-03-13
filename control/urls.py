@@ -30,6 +30,8 @@ urlpatterns = [
     # -------------------------
     path("registro/", views.registro_view, name="registro"),
     path("lectura/<int:pk>/editar/", LecturaEditView.as_view(), name="lectura_edit"),
+    path("lecturas/<int:pk>/editar-ajax/", views.lectura_edit_ajax, name="lectura_edit_ajax"),
+    path("sesiones/", views.sesiones_admin, name="sesiones_admin"),
 
     # -------------------------
     # Cuadratura Caja Diaria (EXCEL GRANDE - GERENCIA)

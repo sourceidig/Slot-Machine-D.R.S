@@ -65,11 +65,7 @@
                     <h5 class="mb-0"><i class="bi bi-clipboard-data"></i> Registrar Lectura de Máquina</h5>
                 </div>
                 <div class="card-body">
-                    {% if tiene_asignacion %}
-                    <form method="post" id="lecturaForm">
-                    {% else %}
-                    <form method="post" id="lecturaForm" style="pointer-events:none;opacity:0.5;" aria-disabled="true">
-                    {% endif %}
+                    <form method="post" id="lecturaForm" {% if not tiene_asignacion %}style="pointer-events:none;opacity:0.5;" aria-disabled="true"{% endif %}>
                         {% csrf_token %}
                         
                         <!-- Sección: Selección de Zona y Máquina -->
@@ -162,6 +158,7 @@
                     </form>
                 </div>
             </div>
+        {% endif %}
         
     </div>
 </div>
@@ -224,6 +221,9 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Enfocar campo entrada al cargar
+        const inputEntrada = document.getElementById('id_entrada');
+        if (inputEntrada) inputEntrada.focus();
         const zonaGuardada   = "{{ zona_guardada|default:'' }}";
         const zonaSelect     = document.getElementById('id_zona');
         const siguienteMaqId = localStorage.getItem('siguiente_maquina_id');
@@ -239,7 +239,7 @@
                     maquinaSelect.value = siguienteMaqId;
                     // Mostrar info de la máquina pre-seleccionada
                     actualizarInfoMaquina(maquinaSelect);
-                    maquinaSelect.focus();
+                    document.getElementById('id_entrada').focus();
                 });
             } else {
                 zonaSelect.dispatchEvent(new Event('change'));
@@ -445,5 +445,4 @@
         btnRetomar.style.display = 'none';
     });
 </script>
-{% endif %} 
 {% endblock %}

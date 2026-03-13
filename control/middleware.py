@@ -86,3 +86,35 @@ class AlertaSesionCerradaMiddleware:
             pass
 
         return response
+
+
+class ErrorHandlerMiddleware:
+    """
+    Captura excepciones no manejadas y devuelve una respuesta limpia
+    en vez de mostrar el traceback completo al usuario.
+    Solo activo cuando DEBUG=False.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_exception(self, request, exception):
+        from django.conf import settings
+        if settings.DEBUG:
+            return None  # Django muestra el traceback normal en desarrollo
+        import logging
+        logger = logging.getLogger('django')
+        logger.error(
+            f"Excepción no manejada en {request.path}: {exception}",
+            exc_info=True,
+            extra={"request": request},
+        )
+        # Devolver página de error genérica
+        from django.http import HttpResponse
+        return HttpResponse(
+            "<h2>Ocurrió un error inesperado. Por favor intenta de nuevo.</h2>"
+            "<p><a href='/'>Volver al inicio</a></p>",
+            status=500
+        )

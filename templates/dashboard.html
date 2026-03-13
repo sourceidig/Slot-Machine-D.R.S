@@ -1,227 +1,259 @@
-{% extends 'base.html' %}
-
-{% block title %}Dashboard - Slot Machine D.R.S.{% endblock %}
-{% block page_title %}Dashboard Empresarial{% endblock %}
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Dashboard — Plaza Games{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
+<div style="padding:20px 24px;max-width:1400px;">
 
-<!-- =========================
-     FILTROS
-========================= -->
-<form method="get" class="card card-body mb-4">
-    <div class="row g-3">
-        <div class="col-md-3">
-            <label class="form-label">Desde</label>
-            <input type="date" name="fecha_desde" class="form-control"
-                   value="{{ fecha_desde|date:'Y-m-d' }}">
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label">Hasta</label>
-            <input type="date" name="fecha_hasta" class="form-control"
-                   value="{{ fecha_hasta|date:'Y-m-d' }}">
-        </div>
-
-        <div class="col-md-3">
-            <label class="form-label">Sucursal</label>
-            <select name="sucursal" class="form-control">
-                <option value="">Todas</option>
-                {% for s in sucursales %}
-                    <option value="{{ s.id }}"
-                        {% if request.GET.sucursal == s.id|stringformat:"s" %}selected{% endif %}>
-                        {{ s.nombre }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="col-md-3 d-flex align-items-end">
-            <button class="btn btn-primary w-100">
-                Aplicar filtros
-            </button>
-        </div>
+  <!-- ── CABECERA ─────────────────────────────────────────────────────────── -->
+  <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:28px;">
+    <div style="font-size:28px;font-weight:800;color:#111827;letter-spacing:-1px;">
+      {{ hoy|date:"d" }} <span style="color:#9ca3af;">{{ hoy|date:"F Y" }}</span>
     </div>
-</form>
+    <div style="font-size:13px;color:#9ca3af;font-weight:500;">{{ hoy|date:"l" }}</div>
+  </div>
 
-<!-- =========================
-     KPIs EMPRESARIALES
-========================= -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-center border-success">
-            <div class="card-body">
-                <h4 class="text-success">
-                    {{ kpis.total_neto|floatformat:0 }}
-                </h4>
-                <p class="text-muted mb-0">Resultado Neto</p>
+  <!-- ── KPIs GLOBALES ────────────────────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:32px;">
+
+    <div class="kpi">
+      <div class="kpi-l">Entrada Total</div>
+      <div class="kpi-v kpi-green">${{ global_kpis.total_entrada|intcomma }}</div>
+      <div class="kpi-s">acumulado todas las máquinas</div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpi-l">Salida Total</div>
+      <div class="kpi-v kpi-amber">${{ global_kpis.total_salida|intcomma }}</div>
+      <div class="kpi-s">acumulado todas las máquinas</div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpi-l">Neto Total</div>
+      <div class="kpi-v {% if global_kpis.total_neto >= 0 %}kpi-blue{% else %}kpi-red{% endif %}">
+        ${{ global_kpis.total_neto|intcomma }}
+      </div>
+      <div class="kpi-s">entrada − salida</div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpi-l">RTP Global</div>
+      <div class="kpi-v kpi-purple">{{ global_kpis.rtp_global }}%</div>
+      <div class="kpi-s">retorno al jugador acumulado</div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpi-l">Retiros / Préstamos</div>
+      <div class="kpi-v kpi-slate">${{ total_retiros|intcomma }}</div>
+      <div class="kpi-s">préstamos: ${{ total_prestamos|intcomma }}</div>
+    </div>
+
+  </div>
+
+  <!-- ── RTP TOP / BOTTOM ─────────────────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px;">
+
+    {% for lista, titulo, color in rtp_tables %}
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:{{ color }};"></div>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#6b7280;">{{ titulo }}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead>
+          <tr style="background:#fafafa;">
+            <th style="padding:7px 16px;text-align:left;color:#9ca3af;font-weight:600;font-size:11px;">#</th>
+            <th style="padding:7px 8px;text-align:left;color:#9ca3af;font-weight:600;font-size:11px;">Máquina</th>
+            <th style="padding:7px 8px;text-align:left;color:#9ca3af;font-weight:600;font-size:11px;">Local</th>
+            <th style="padding:7px 16px;text-align:right;color:#9ca3af;font-weight:600;font-size:11px;">RTP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in lista %}
+          <tr style="border-top:1px solid #f3f4f6;">
+            <td style="padding:7px 16px;color:#d1d5db;font-weight:700;">{{ forloop.counter }}</td>
+            <td style="padding:7px 8px;">
+              <span style="font-weight:700;color:#111827;">M{{ m.maquina.numero_maquina|stringformat:"02d" }}</span>
+              <span style="color:#9ca3af;margin-left:4px;">{{ m.maquina.nombre_juego }}</span>
+            </td>
+            <td style="padding:7px 8px;color:#6b7280;font-size:12px;">{{ m.maquina.sucursal.nombre }}</td>
+            <td style="padding:7px 16px;text-align:right;font-weight:700;color:{{ color }};">{{ m.rtp }}%</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" style="padding:20px;text-align:center;color:#9ca3af;">Sin datos</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+
+  </div>
+
+  <!-- ── LOCALES ───────────────────────────────────────────────────────────── -->
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;margin-bottom:12px;">Locales</div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+    {% for item in sucursales_data %}
+    <button onclick="toggleLocal('loc-{{ item.sucursal.id }}')"
+            id="btn-{{ item.sucursal.id }}"
+            style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:13px;font-weight:600;color:#374151;cursor:pointer;transition:all .15s;" class="local-btn">
+      <span style="width:7px;height:7px;border-radius:50%;background:{% if item.turno_activo %}#22c55e{% else %}#d1d5db{% endif %};{% if item.turno_activo %}animation:blink 1.5s infinite;{% endif %}"></span>
+      {{ item.sucursal.nombre }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- Paneles -->
+  {% for item in sucursales_data %}
+  <div id="loc-{{ item.sucursal.id }}" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:12px;">
+
+    <!-- Header -->
+    <div style="padding:16px 20px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:18px;font-weight:800;color:#111827;letter-spacing:-0.5px;">{{ item.sucursal.nombre }}</div>
+        {% if item.turno_activo %}
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:blink 1.5s infinite;"></span>
+            <span style="font-size:12px;color:#16a34a;font-weight:600;">Turno abierto — {{ item.turno_activo.tipo_turno }}</span>
+            {% if item.turno_activo.usuario %}
+              <span style="font-size:12px;color:#9ca3af;">·</span>
+              <span style="font-size:12px;color:#6b7280;">{{ item.turno_activo.usuario.get_full_name|default:item.turno_activo.usuario.username }}</span>
+            {% endif %}
+          </div>
+        {% else %}
+          <div style="font-size:12px;color:#9ca3af;margin-top:4px;">Sin turno activo</div>
+        {% endif %}
+      </div>
+
+      <!-- Hora apertura / cierre -->
+      <div style="display:flex;gap:20px;">
+        <div style="text-align:center;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;">Apertura</div>
+          {% if item.ultima_sesion %}
+            <div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.5px;">{{ item.ultima_sesion.hora_inicio|date:"H:i" }}</div>
+            <div style="font-size:11px;color:#9ca3af;">{{ item.ultima_sesion.hora_inicio|date:"d/m/Y" }}</div>
+          {% else %}
+            <div style="font-size:22px;font-weight:800;color:#d1d5db;">—</div>
+            <div style="font-size:11px;color:#d1d5db;">sin sesión</div>
+          {% endif %}
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;">Cierre</div>
+          {% if item.turno_activo %}
+            <div style="font-size:22px;font-weight:800;color:#22c55e;letter-spacing:-0.5px;">En curso</div>
+            <div style="font-size:11px;color:#9ca3af;">turno abierto</div>
+          {% elif item.ultima_sesion and item.ultima_sesion.hora_cierre %}
+            <div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.5px;">{{ item.ultima_sesion.hora_cierre|date:"H:i" }}</div>
+            <div style="font-size:11px;color:#9ca3af;">duración: {{ item.ultima_sesion.duracion }}</div>
+          {% else %}
+            <div style="font-size:22px;font-weight:800;color:#d1d5db;">—</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid #f3f4f6;">
+
+      <!-- Turno actual -->
+      <div style="padding:16px 20px;border-right:1px solid #f3f4f6;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:12px;">Turno actual</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          {% if item.turno_ent %}<div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Entrada</div><div style="font-size:15px;font-weight:700;color:#16a34a;">${{ item.turno_ent|intcomma }}</div></div>{% endif %}
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Salida</div><div style="font-size:15px;font-weight:700;color:#d97706;">${{ item.turno_sal|intcomma }}</div></div>
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Total</div><div style="font-size:15px;font-weight:700;color:#2563eb;">${{ item.turno_tot|intcomma }}</div></div>
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">RTP Día</div><div style="font-size:15px;font-weight:700;color:#7c3aed;">{{ item.rtp_dia }}%</div></div>
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Retiros</div><div style="font-size:15px;font-weight:700;color:#0891b2;">${{ item.retiros_turno|intcomma }}</div></div>
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Préstamos</div><div style="font-size:15px;font-weight:700;color:#ea580c;">${{ item.prestamos_turno|intcomma }}</div></div>
+        </div>
+      </div>
+
+      <!-- Acumulado -->
+      <div style="padding:16px 20px;border-right:1px solid #f3f4f6;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:12px;">Acumulado histórico</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Entrada</div><div style="font-size:15px;font-weight:700;color:#16a34a;">${{ item.acum_ent|intcomma }}</div></div>
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Salida</div><div style="font-size:15px;font-weight:700;color:#d97706;">${{ item.acum_sal|intcomma }}</div></div>
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Total</div><div style="font-size:15px;font-weight:700;color:#2563eb;">${{ item.acum_tot|intcomma }}</div></div>
+          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">RTP Acum.</div><div style="font-size:15px;font-weight:700;color:#7c3aed;">{{ item.rtp_acum }}%</div></div>
+        </div>
+      </div>
+
+      <!-- Máquinas -->
+      <div style="padding:16px 20px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:12px;">
+          Máquinas ({{ item.maquinas|length }})
+        </div>
+        <div style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+          {% for maq in item.maquinas %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:6px;background:#f9fafb;">
+            <div style="font-size:12px;">
+              <span style="font-weight:700;color:#111827;">M{{ maq.numero_maquina|stringformat:"02d" }}</span>
+              <span style="color:#6b7280;margin-left:4px;">{{ maq.nombre_juego }}</span>
             </div>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h4>{{ kpis.total_entrada|floatformat:0 }}</h4>
-                <p class="text-muted mb-0">Entradas</p>
+            <div style="display:flex;gap:4px;align-items:center;">
+              {% if maq.rtp_objetivo %}
+              <span style="font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;background:{% if maq.rtp_objetivo > 80 %}#dcfce7;color:#166534{% elif maq.rtp_objetivo > 50 %}#fef9c3;color:#854d0e{% else %}#fee2e2;color:#991b1b{% endif %};">
+                {{ maq.rtp_objetivo }}%
+              </span>
+              {% endif %}
+              <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:{% if maq.estado == 'Operativa' %}#dcfce7;color:#166534{% elif maq.estado == 'Mantenimiento' %}#fef9c3;color:#854d0e{% else %}#fee2e2;color:#991b1b{% endif %};">
+                {{ maq.estado }}
+              </span>
             </div>
+          </div>
+          {% endfor %}
         </div>
-    </div>
+      </div>
 
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h4>{{ kpis.total_salida|floatformat:0 }}</h4>
-                <p class="text-muted mb-0">Salidas</p>
-            </div>
-        </div>
     </div>
+  </div>
+  {% endfor %}
 
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h4>{{ kpis.maquinas_activas }}</h4>
-                <p class="text-muted mb-0">Máquinas con actividad</p>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- =========================
-     GRÁFICO
-========================= -->
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    Evolución del Resultado Neto (período seleccionado)
-                </h6>
-            </div>
-            <div class="card-body">
-                <canvas id="chartLecturas" height="90"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+.kpi {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.kpi-l  { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:6px; }
+.kpi-v  { font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1; }
+.kpi-s  { font-size:11px;color:#9ca3af;margin-top:4px; }
+.kpi-green  { color:#16a34a; }
+.kpi-amber  { color:#d97706; }
+.kpi-blue   { color:#2563eb; }
+.kpi-red    { color:#dc2626; }
+.kpi-purple { color:#7c3aed; }
+.kpi-slate  { color:#475569; }
 
-<!-- =========================
-     TOP / BOTTOM MÁQUINAS
-========================= -->
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">Top 5 Máquinas (mejor rendimiento)</h6>
-            </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Máquina</th>
-                            <th>Juego</th>
-                            <th class="text-end">Neto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in top_maquinas %}
-                        <tr>
-                            <td>M{{ item.numero_maquina|stringformat:"02d" }}</td>
-                            <td>{{ item.nombre_juego }}</td>
-                            <td class="text-end text-success">
-                                {{ item.neto|floatformat:0 }}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="3" class="text-center text-muted">
-                                Sin datos
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+.local-btn:hover { background:#f9fafb !important; border-color:#d1d5db !important; }
+.local-btn.open  { border-color:#3b82f6 !important; background:#eff6ff !important; }
 
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">Bottom 5 Máquinas (peor rendimiento)</h6>
-            </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Máquina</th>
-                            <th>Juego</th>
-                            <th class="text-end">Neto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in bottom_maquinas %}
-                        <tr>
-                            <td>M{{ item.numero_maquina|stringformat:"02d" }}</td>
-                            <td>{{ item.nombre_juego }}</td>
-                            <td class="text-end text-danger">
-                                {{ item.neto|floatformat:0 }}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="3" class="text-center text-muted">
-                                Sin datos
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
+@keyframes blink {
+  0%,100% { opacity:1; }
+  50%      { opacity:.3; }
+}
+</style>
 
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    const ctx = document.getElementById('chartLecturas');
+function toggleLocal(id) {
+  const panel = document.getElementById(id);
+  const sucId = id.replace('loc-', '');
+  const btn   = document.getElementById('btn-' + sucId);
+  const open  = panel.style.display !== 'none';
 
-    const chartLabels = {{ chart_labels|safe }};
-    const chartData = {{ chart_data|safe }};
+  document.querySelectorAll('[id^="loc-"]').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.local-btn').forEach(b => b.classList.remove('open'));
 
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: chartLabels,
-            datasets: [{
-                label: 'Resultado Neto',
-                data: chartData,
-                borderColor: 'rgb(25, 135, 84)',
-                backgroundColor: 'rgba(25, 135, 84, 0.15)',
-                tension: 0.25,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let value = context.parsed.y || 0;
-                            return 'Neto: ' + value.toLocaleString('es-CL');
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
+  if (!open) {
+    panel.style.display = 'block';
+    btn.classList.add('open');
+    panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+}
 </script>
 {% endblock %}

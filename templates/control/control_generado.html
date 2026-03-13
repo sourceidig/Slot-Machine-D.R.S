@@ -1,67 +1,143 @@
 {% extends "base.html" %}
+{% load humanize %}
 {% block content %}
-<div class="container mt-3">
+<div class="container-fluid px-3 mt-3" style="max-width:1300px;">
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
     <div>
-      <h4 class="mb-0">Control de Lecturas</h4>
-      <div class="text-muted">
-        {{ turno.sucursal }} | {{ turno.fecha }} | {{ turno.tipo_turno }}
+      <h4 class="mb-0 fw-bold">Informe de Recaudación</h4>
+      <div class="text-muted" style="font-size:13px;">
+        {{ turno.sucursal }} &nbsp;·&nbsp; {{ turno.fecha|date:"d/m/Y" }} &nbsp;·&nbsp; {{ turno.tipo_turno }}
       </div>
     </div>
-    <a class="btn btn-secondary" href="{% url 'control:turno' %}">Volver</a>
+    <div class="d-flex gap-2 flex-wrap">
+      <form method="post" action="{% url 'control:guardar_control' turno.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success fw-semibold px-4" style="border-radius:10px;">
+          <i class="bi bi-floppy2-fill me-2"></i>Guardar control
+        </button>
+      </form>
+      <a class="btn btn-outline-primary fw-semibold px-4" style="border-radius:10px;" href="{% url 'control:controles_list' %}">
+        <i class="bi bi-archive me-1"></i>Ver controles
+      </a>
+      <a class="btn btn-outline-secondary fw-semibold px-4" style="border-radius:10px;" href="{% url 'control:turno' %}">
+        <i class="bi bi-arrow-left me-1"></i>Volver
+      </a>
+    </div>
   </div>
-  <form method="post" action="{% url 'control:guardar_control' turno.id %}" class="mb-3">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-success">
-      Guardar control
-    </button>
-  </form>
 
-<a class="btn btn-outline-primary mb-3" href="{% url 'control:controles_list' %}">
-  Ver controles guardados
-</a>
-
-  <div class="card">
+  <!-- ══ TABLA PRINCIPAL ═══════════════════════════════════════════════════ -->
+  <div class="card shadow-sm mb-4" style="border-radius:12px;overflow:hidden;">
+    <div class="card-header border-0 py-2 px-3" style="background:#1e293b;">
+      <span class="text-white fw-bold" style="font-size:12px;letter-spacing:1px;text-transform:uppercase;">
+        <i class="bi bi-cpu me-2"></i>Detalle por Máquina
+      </span>
+    </div>
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-bordered table-sm mb-0 align-middle">
-          <thead class="table-light">
+        <table class="table table-sm table-bordered mb-0 align-middle" id="tablaControl" style="font-size:13px;">
+          <thead style="background:#f8fafc;">
             <tr>
-              <th>Zona</th>
-              <th class="text-end">N°</th>
-              <th>Servidor</th>
-              <th>Juego</th>
-              <th class="text-end">Entrada Histórica</th>
-              <th class="text-end">Salida Histórica</th>
-              <th class="text-end">Entrada Parcial</th>
-              <th class="text-end">Salida Parcial</th>
-              <th class="text-end">Total</th>
+              <th class="text-center" rowspan="2" style="vertical-align:middle;">Zona</th>
+              <th class="text-center" rowspan="2" style="vertical-align:middle;">N°</th>
+              <th class="text-center" rowspan="2" style="vertical-align:middle;">Interface</th>
+              <th class="text-center" rowspan="2" style="vertical-align:middle;">Servidor</th>
+              <th class="text-center" rowspan="2" style="vertical-align:middle;">Juego</th>
+              <th class="text-center" colspan="2" style="background:#e0f2fe;">Histórico</th>
+              <th class="text-center" colspan="2" style="background:#fef9c3;">Parcial</th>
+              <th class="text-center" rowspan="2" style="vertical-align:middle;">Total</th>
+              <th class="text-center" rowspan="2" style="vertical-align:middle;">RTP</th>
+              <th class="text-center" rowspan="2" style="vertical-align:middle;width:100px;">Acciones</th>
+            </tr>
+            <tr>
+              <th class="text-end" style="background:#e0f2fe;">Entrada</th>
+              <th class="text-end" style="background:#e0f2fe;">Salida</th>
+              <th class="text-end" style="background:#fef9c3;">Entrada</th>
+              <th class="text-end" style="background:#fef9c3;">Salida</th>
             </tr>
           </thead>
           <tbody>
             {% for l in lecturas %}
-              <tr>
-                <td>{{ l.zona.nombre }}</td>
-                <td class="text-end">{{ l.numero_maquina }}</td>
-                <td>{{ l.maquina.codigo_interno|default:"-" }}</td>
-                <td>{{ l.nombre_juego }}</td>
-                <td class="text-end">{{ l.entrada }}</td>
-                <td class="text-end">{{ l.salida }}</td>
-                <td class="text-end">{{ l.entrada_dia }}</td>
-                <td class="text-end">{{ l.salida_dia }}</td>
-                <td class="text-end fw-bold">{{ l.total }}</td>
-              </tr>
+            <tr id="fila-{{ l.pk }}">
+              <td style="font-size:11px;color:#64748b;">{{ l.zona.nombre }}</td>
+              <td class="text-center fw-bold">{{ l.numero_maquina }}</td>
+              <td class="text-center text-muted" style="font-size:12px;">{{ l.maquina.codigo_interno|default:"—" }}</td>
+              <td class="text-center" style="font-size:12px;">{{ l.maquina.servidor|default:"—" }}</td>
+              <td>{{ l.nombre_juego }}</td>
+
+              <!-- Entrada histórica -->
+              <td class="text-end" style="background:#f0f9ff;">
+                <span id="val-entrada-{{ l.pk }}">{{ l.entrada|intcomma }}</span>
+                <input id="inp-entrada-{{ l.pk }}" type="number" class="form-control form-control-sm d-none"
+                       value="{{ l.entrada }}" style="width:90px;margin-left:auto;"
+                       oninput="recalcularFila({{ l.pk }}, {{ l.entrada_anterior }}, {{ l.salida_anterior }})">
+              </td>
+
+              <!-- Salida histórica -->
+              <td class="text-end" style="background:#f0f9ff;">
+                <span id="val-salida-{{ l.pk }}">{{ l.salida|intcomma }}</span>
+                <input id="inp-salida-{{ l.pk }}" type="number" class="form-control form-control-sm d-none"
+                       value="{{ l.salida }}" style="width:90px;margin-left:auto;"
+                       oninput="recalcularFila({{ l.pk }}, {{ l.entrada_anterior }}, {{ l.salida_anterior }})">
+              </td>
+
+              <!-- Parciales -->
+              <td class="text-end" id="ent-dia-{{ l.pk }}" style="background:#fefce8;">{{ l.entrada_dia|intcomma }}</td>
+              <td class="text-end" id="sal-dia-{{ l.pk }}" style="background:#fefce8;">{{ l.salida_dia|intcomma }}</td>
+
+              <!-- Total -->
+              <td class="text-end fw-bold" id="total-{{ l.pk }}">
+                <span class="{% if l.total < 0 %}text-danger{% else %}text-success{% endif %}">{{ l.total|intcomma }}</span>
+              </td>
+
+              <!-- RTP -->
+              <td class="text-center" id="rtp-{{ l.pk }}">
+                {% if l.entrada_dia > 0 %}
+                  {% widthratio l.salida_dia l.entrada_dia 100 as rtp_val %}
+                  <span class="badge rounded-pill"
+                    style="font-size:11px;background:{% if rtp_val|add:0 > 90 %}#fee2e2;color:#991b1b{% elif rtp_val|add:0 > 70 %}#fef9c3;color:#854d0e{% else %}#dcfce7;color:#166534{% endif %};">
+                    {{ rtp_val }}%
+                  </span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+
+              <!-- Botones -->
+              <td class="text-center">
+                <button id="btn-edit-{{ l.pk }}" class="btn btn-sm btn-outline-primary" style="border-radius:6px;" onclick="activarEdicion({{ l.pk }})">
+                  <i class="bi bi-pencil-fill"></i>
+                </button>
+                <div id="btns-save-{{ l.pk }}" class="d-none d-flex gap-1 justify-content-center">
+                  <button class="btn btn-sm btn-success" style="border-radius:6px;"
+                          onclick="guardarFila({{ l.pk }}, {{ l.entrada_anterior }}, {{ l.salida_anterior }})">
+                    <i class="bi bi-check-lg"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" style="border-radius:6px;"
+                          onclick="cancelarEdicion({{ l.pk }}, {{ l.entrada }}, {{ l.salida }})">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
             {% empty %}
-              <tr><td colspan="9" class="text-muted p-3">No hay lecturas en este turno.</td></tr>
+            <tr><td colspan="12" class="text-center text-muted p-3">No hay lecturas en este turno.</td></tr>
             {% endfor %}
           </tbody>
-          <tfoot class="table-light">
+          <tfoot style="background:#f1f5f9;">
             <tr class="fw-bold">
-              <td colspan="6" class="text-end">Totales:</td>
-              <td class="text-end">{{ total_entrada_dia }}</td>
-              <td class="text-end">{{ total_salida_dia }}</td>
-              <td class="text-end">{{ total_total }}</td>
+              <td colspan="7" class="text-end">Totales:</td>
+              <td class="text-end" id="total-ent-dia">{{ total_entrada_dia|intcomma }}</td>
+              <td class="text-end" id="total-sal-dia">{{ total_salida_dia|intcomma }}</td>
+              <td class="text-end {% if total_total < 0 %}text-danger{% else %}text-success{% endif %}" id="total-general">{{ total_total|intcomma }}</td>
+              <td class="text-center">
+                {% if total_entrada_dia > 0 %}
+                  {% widthratio total_salida_dia total_entrada_dia 100 as rtp_total %}
+                  <span class="badge rounded-pill" style="background:#e0e7ff;color:#3730a3;font-size:11px;">{{ rtp_total }}%</span>
+                {% endif %}
+              </td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -69,5 +145,269 @@
     </div>
   </div>
 
+  <!-- ══ RESÚMENES + CAJA ════════════════════════════════════════════════════ -->
+  <div class="row g-3 mb-4">
+
+    <!-- Resumen por Servidor -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100" style="border-radius:12px;overflow:hidden;">
+        <div class="card-header border-0 py-2 px-3" style="background:#0f172a;">
+          <span class="text-white fw-bold" style="font-size:11px;letter-spacing:1px;text-transform:uppercase;">
+            Resumen por Servidor
+          </span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0" style="font-size:12px;">
+            <thead style="background:#f8fafc;">
+              <tr>
+                <th class="ps-3">Servidor</th>
+                <th class="text-center">Mqs</th>
+                <th class="text-end">Entrada</th>
+                <th class="text-end">Salida</th>
+                <th class="text-end">Total</th>
+                <th class="text-center pe-3">RTP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in resumen_servidor %}
+              <tr>
+                <td class="ps-3 fw-semibold">{{ r.nombre }}</td>
+                <td class="text-center text-muted">{{ r.cant }}</td>
+                <td class="text-end">{{ r.entrada|intcomma }}</td>
+                <td class="text-end">{{ r.salida|intcomma }}</td>
+                <td class="text-end fw-bold {% if r.total < 0 %}text-danger{% else %}text-success{% endif %}">{{ r.total|intcomma }}</td>
+                <td class="text-center pe-3">
+                  <span class="badge rounded-pill"
+                    style="font-size:10px;background:{% if r.rtp > 90 %}#fee2e2;color:#991b1b{% elif r.rtp > 70 %}#fef9c3;color:#854d0e{% else %}#dcfce7;color:#166534{% endif %};">
+                    {{ r.rtp }}%
+                  </span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-center text-muted p-3">Sin datos</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resumen por Juego -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100" style="border-radius:12px;overflow:hidden;">
+        <div class="card-header border-0 py-2 px-3" style="background:#1e3a5f;">
+          <span class="text-white fw-bold" style="font-size:11px;letter-spacing:1px;text-transform:uppercase;">
+            Resumen por Juego
+          </span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0" style="font-size:12px;">
+            <thead style="background:#f8fafc;">
+              <tr>
+                <th class="ps-3">Juego</th>
+                <th class="text-center">Mqs</th>
+                <th class="text-end">Entrada</th>
+                <th class="text-end">Salida</th>
+                <th class="text-end">Total</th>
+                <th class="text-center pe-3">RTP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in resumen_juego %}
+              <tr>
+                <td class="ps-3 fw-semibold">{{ r.nombre }}</td>
+                <td class="text-center text-muted">{{ r.cant }}</td>
+                <td class="text-end">{{ r.entrada|intcomma }}</td>
+                <td class="text-end">{{ r.salida|intcomma }}</td>
+                <td class="text-end fw-bold {% if r.total < 0 %}text-danger{% else %}text-success{% endif %}">{{ r.total|intcomma }}</td>
+                <td class="text-center pe-3">
+                  <span class="badge rounded-pill"
+                    style="font-size:10px;background:{% if r.rtp > 90 %}#fee2e2;color:#991b1b{% elif r.rtp > 70 %}#fef9c3;color:#854d0e{% else %}#dcfce7;color:#166534{% endif %};">
+                    {{ r.rtp }}%
+                  </span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-center text-muted p-3">Sin datos</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resumen Caja -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100" style="border-radius:12px;overflow:hidden;">
+        <div class="card-header border-0 py-2 px-3" style="background:#065f46;">
+          <span class="text-white fw-bold" style="font-size:11px;letter-spacing:1px;text-transform:uppercase;">
+            Resumen Caja
+          </span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0" style="font-size:12px;">
+            <tbody>
+              <tr class="table-light">
+                <td class="ps-3 fw-bold" colspan="2">NUMERAL</td>
+                <td class="text-end pe-3 fw-bold text-success">${{ resumen_caja.numeral|intcomma }}</td>
+              </tr>
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Préstamos</td>
+                <td class="text-end pe-3">${{ resumen_caja.prestamos|intcomma }}</td>
+              </tr>
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Retiros</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.retiros|intcomma }}</td>
+              </tr>
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Redbank</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.redbank|intcomma }}</td>
+              </tr>
+              {% if resumen_caja.transferencias %}
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Transferencias</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.transferencias|intcomma }}</td>
+              </tr>
+              {% endif %}
+              {% if resumen_caja.sueldo_extra %}
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Sueldo Extra</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.sueldo_extra|intcomma }}</td>
+              </tr>
+              {% endif %}
+              {% if resumen_caja.sorteos %}
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Sorteos</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.sorteos|intcomma }}</td>
+              </tr>
+              {% endif %}
+              {% if resumen_caja.gastos %}
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Gastos</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.gastos|intcomma }}</td>
+              </tr>
+              {% endif %}
+              {% if resumen_caja.regalos %}
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Regalos</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.regalos|intcomma }}</td>
+              </tr>
+              {% endif %}
+              {% if resumen_caja.jugados %}
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Jugados</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.jugados|intcomma }}</td>
+              </tr>
+              {% endif %}
+              {% if resumen_caja.billetes_malos %}
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Billetes Malos</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.billetes_malos|intcomma }}</td>
+              </tr>
+              {% endif %}
+              {% if resumen_caja.descuadre %}
+              <tr>
+                <td class="ps-3 text-muted" colspan="2">Descuadre</td>
+                <td class="text-end pe-3 text-danger">− ${{ resumen_caja.descuadre|intcomma }}</td>
+              </tr>
+              {% endif %}
+              <tr style="border-top:2px solid #e5e7eb;background:#f0fdf4;">
+                <td class="ps-3 fw-bold" colspan="2">TOTAL</td>
+                <td class="text-end pe-3 fw-bold {% if resumen_caja.total < 0 %}text-danger{% else %}text-success{% endif %}">
+                  ${{ resumen_caja.total|intcomma }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
+
+<script>
+function activarEdicion(id) {
+  document.getElementById(`val-entrada-${id}`).classList.add('d-none');
+  document.getElementById(`val-salida-${id}`).classList.add('d-none');
+  document.getElementById(`inp-entrada-${id}`).classList.remove('d-none');
+  document.getElementById(`inp-salida-${id}`).classList.remove('d-none');
+  document.getElementById(`btn-edit-${id}`).classList.add('d-none');
+  document.getElementById(`btns-save-${id}`).classList.remove('d-none');
+  document.getElementById(`inp-entrada-${id}`).focus();
+}
+
+function cancelarEdicion(id, entradaOrig, salidaOrig) {
+  document.getElementById(`inp-entrada-${id}`).value = entradaOrig;
+  document.getElementById(`inp-salida-${id}`).value  = salidaOrig;
+  document.getElementById(`val-entrada-${id}`).classList.remove('d-none');
+  document.getElementById(`val-salida-${id}`).classList.remove('d-none');
+  document.getElementById(`inp-entrada-${id}`).classList.add('d-none');
+  document.getElementById(`inp-salida-${id}`).classList.add('d-none');
+  document.getElementById(`btn-edit-${id}`).classList.remove('d-none');
+  document.getElementById(`btns-save-${id}`).classList.add('d-none');
+}
+
+function recalcularFila(id, entAnt, salAnt) {
+  const ent    = parseInt(document.getElementById(`inp-entrada-${id}`).value) || 0;
+  const sal    = parseInt(document.getElementById(`inp-salida-${id}`).value)  || 0;
+  const entDia = ent - entAnt;
+  const salDia = sal - salAnt;
+  const total  = entDia - salDia;
+  document.getElementById(`ent-dia-${id}`).textContent = entDia.toLocaleString();
+  document.getElementById(`sal-dia-${id}`).textContent = salDia.toLocaleString();
+  const totalEl = document.getElementById(`total-${id}`);
+  totalEl.innerHTML = `<span class="${total < 0 ? 'text-danger' : 'text-success'} fw-bold">${total.toLocaleString()}</span>`;
+  const rtpEl = document.getElementById(`rtp-${id}`);
+  if (entDia > 0) {
+    const rtp = Math.round(salDia / entDia * 100);
+    const bg  = rtp > 90 ? '#fee2e2;color:#991b1b' : rtp > 70 ? '#fef9c3;color:#854d0e' : '#dcfce7;color:#166534';
+    rtpEl.innerHTML = `<span class="badge rounded-pill" style="font-size:11px;background:${bg};">${rtp}%</span>`;
+  }
+}
+
+function guardarFila(id, entAnt, salAnt) {
+  const entrada = parseInt(document.getElementById(`inp-entrada-${id}`).value) || 0;
+  const salida  = parseInt(document.getElementById(`inp-salida-${id}`).value)  || 0;
+  const btnSave = document.querySelector(`#btns-save-${id} button`);
+  btnSave.disabled = true;
+  btnSave.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  fetch(`/lecturas/${id}/editar-ajax/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+    body: JSON.stringify({ entrada, salida, nota: '' }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      document.getElementById(`val-entrada-${id}`).textContent = entrada.toLocaleString();
+      document.getElementById(`val-salida-${id}`).textContent  = salida.toLocaleString();
+      cancelarEdicion(id, entrada, salida);
+      recalcularTotales();
+    } else {
+      alert('Error: ' + (data.error || 'No se pudo guardar'));
+    }
+  })
+  .catch(() => alert('Error de conexión'))
+  .finally(() => {
+    btnSave.disabled = false;
+    btnSave.innerHTML = '<i class="bi bi-check-lg"></i>';
+  });
+}
+
+function recalcularTotales() {
+  let sumEnt = 0, sumSal = 0, sumTot = 0;
+  document.querySelectorAll('#tablaControl tbody tr[id^="fila-"]').forEach(row => {
+    const id = row.id.replace('fila-', '');
+    sumEnt += parseInt(document.getElementById(`ent-dia-${id}`)?.textContent?.replace(/,/g,'') || 0);
+    sumSal += parseInt(document.getElementById(`sal-dia-${id}`)?.textContent?.replace(/,/g,'') || 0);
+    const span = document.getElementById(`total-${id}`)?.querySelector('span');
+    sumTot += parseInt(span?.textContent?.replace(/,/g,'') || 0);
+  });
+  document.getElementById('total-ent-dia').textContent = sumEnt.toLocaleString();
+  document.getElementById('total-sal-dia').textContent = sumSal.toLocaleString();
+  document.getElementById('total-general').textContent = sumTot.toLocaleString();
+}
+</script>
 {% endblock %}
