@@ -122,7 +122,7 @@ class Maquina(models.Model):
     modelo = models.CharField(max_length=80, blank=True, verbose_name="Modelo")
     numero_serie = models.CharField(max_length=120, blank=True, verbose_name="Número de Serie")
     rtp_objetivo = models.DecimalField(
-        max_digits=5, decimal_places=2,
+        max_digits=7, decimal_places=2,
         null=True, blank=True,
         verbose_name="RTP Objetivo (%)",
         help_text="Porcentaje de retorno al jugador configurado en la máquina (ej: 92.5)"
@@ -252,15 +252,16 @@ class LecturaMaquina(models.Model):
 
         # 5) Actualizar rtp_objetivo en la máquina con el RTP real de esta lectura
         #    RTP real = (salida_dia / entrada_dia) * 100  → retorno al jugador
-        #    Solo actualiza si entrada_dia > 0 para evitar división por cero
+        #    Solo actualiza si entrada_dia > 0 y el valor está en rango razonable
         if self.maquina_id and self.entrada_dia and self.entrada_dia > 0:
             from decimal import Decimal, ROUND_HALF_UP
             rtp_real = (Decimal(self.salida_dia) / Decimal(self.entrada_dia) * 100).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
-            # Solo actualizar si hay diferencia (evitar writes innecesarios)
-            if self.maquina.rtp_objetivo != rtp_real:
-                Maquina.objects.filter(pk=self.maquina_id).update(rtp_objetivo=rtp_real)
+            # No guardar si excede el rango del campo (max_digits=7, decimal_places=2 → max 99999.99)
+            if Decimal("-99999.99") <= rtp_real <= Decimal("99999.99"):
+                if self.maquina.rtp_objetivo != rtp_real:
+                    Maquina.objects.filter(pk=self.maquina_id).update(rtp_objetivo=rtp_real)
 
 
 
@@ -808,3 +809,48 @@ class RegistroSesion(models.Model):
             m, s   = divmod(rem, 60)
             return f"{h:02d}:{m:02d}:{s:02d}"
         return "—"
+
+
+# ═══════════════════════════════════════════════════════════════
+# REGISTRO DE ACTIVIDAD — Audit log de todas las operaciones
+# ═══════════════════════════════════════════════════════════════
+
+class RegistroActividad(models.Model):
+    TIPO_CHOICES = [
+        ('CREAR',    'Crear'),
+        ('EDITAR',   'Editar'),
+        ('ELIMINAR', 'Eliminar'),
+        ('LOGIN',    'Iniciar sesión'),
+        ('LOGOUT',   'Cerrar sesión'),
+    ]
+
+    fecha_hora      = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # FK + snapshot del nombre para que el registro sobreviva si el objeto se elimina
+    usuario         = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='actividades'
+    )
+    nombre_usuario  = models.CharField(max_length=150, blank=True)
+
+    sucursal        = models.ForeignKey(
+        'Sucursal', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='actividades'
+    )
+    nombre_sucursal = models.CharField(max_length=150, blank=True)
+
+    tipo            = models.CharField(max_length=20, choices=TIPO_CHOICES, db_index=True)
+    modulo          = models.CharField(max_length=100, db_index=True)
+    objeto_id       = models.CharField(max_length=50, blank=True)
+    objeto_str      = models.CharField(max_length=300, blank=True)
+    descripcion     = models.TextField(blank=True)
+    detalles        = models.JSONField(null=True, blank=True)   # cambios campo por campo
+    ip              = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-fecha_hora']
+        verbose_name = 'Registro de Actividad'
+        verbose_name_plural = 'Registro de Actividades'
+
+    def __str__(self):
+        return f"{self.fecha_hora:%d/%m/%Y %H:%M} | {self.nombre_usuario} | {self.tipo} | {self.modulo}"

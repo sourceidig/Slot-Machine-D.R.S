@@ -1,6 +1,32 @@
+import threading
+
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.core.cache import cache
+
+# ── Thread-local: expone el request actual a los signals ──────────────────────
+_current_request_local = threading.local()
+
+
+def get_current_request():
+    return getattr(_current_request_local, 'request', None)
+
+
+class CurrentRequestMiddleware:
+    """
+    Almacena el request actual en thread-local para que los signals de audit
+    puedan identificar al usuario que disparó la acción.
+    Debe ir DESPUÉS de AuthenticationMiddleware en MIDDLEWARE.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        _current_request_local.request = request
+        try:
+            return self.get_response(request)
+        finally:
+            _current_request_local.request = None
 
 
 # URLs que el encargado puede visitar SIN haber seleccionado sucursal

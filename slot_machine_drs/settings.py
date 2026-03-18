@@ -54,7 +54,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    'control.middleware.AlertaSesionCerradaMiddleware', 
+    'control.middleware.CurrentRequestMiddleware',
+    'control.middleware.AlertaSesionCerradaMiddleware',
     'control.middleware.SucursalEncargadoMiddleware',
     'control.middleware.ErrorHandlerMiddleware',
 ]

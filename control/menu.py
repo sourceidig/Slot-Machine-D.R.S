@@ -17,11 +17,18 @@ MENU = [
         "section": "Operaciones",
         "items": [
             {
-                "label": "Turno",
-                "icon": "bi-clock-history",
-                "url": "control:turno",
-                "url_name": "turno",
-                "roles": ["admin", "encargado", "asistente"]
+                "label": "Caja",
+                "icon": "bi-calendar2-week",
+                "url": "control:cuadratura_diaria_list",
+                "url_name": "cuadratura_diaria_list",
+                "roles": ["admin", "gerente", "supervisor", "encargado"]
+            },
+            {
+                "label": "Control",
+                "icon": "bi-archive",
+                "url": "control:controles_list",
+                "url_name": "controles_list",
+                "roles": ["admin", "gerente", "supervisor"]
             },
             {
                 "label": "Cuadratura Zonas",
@@ -31,14 +38,14 @@ MENU = [
                 "roles": ["admin", "gerente", "supervisor", "encargado", "asistente"]
             },
             {
-                "label": "Caja",
-                "icon": "bi-calendar2-week",
-                "url": "control:cuadratura_diaria_list",
-                "url_name": "cuadratura_diaria_list",
-                "roles": ["admin", "gerente", "supervisor", "encargado"]
+                "label": "Turno",
+                "icon": "bi-clock-history",
+                "url": "control:turno",
+                "url_name": "turno",
+                "roles": ["admin", "encargado", "asistente"]
             },
             {
-                "label": "Registro",
+                "label": "Registro Numerales",
                 "icon": "bi-clipboard-data",
                 "url": "control:registro",
                 "url_name": "registro",
@@ -59,11 +66,11 @@ MENU = [
                 "roles": ["admin"]
             },
             {
-                "label": "Controles",
-                "icon": "bi-archive",
-                "url": "control:controles_list",
-                "url_name": "controles_list",
-                "roles": ["admin", "gerente", "supervisor"]
+                "label": "Movimientos",
+                "icon": "bi-clock-history",
+                "url": "control:movimientos_list",
+                "url_name": "movimientos_list",
+                "roles": ["admin", "gerente"]
             },
         ]
     },
@@ -76,14 +83,14 @@ MENU = [
                 "icon": "bi-cpu",
                 "url": "control:maquinas_list",
                 "url_name": "maquinas_list",
-                "roles": ["admin", "tecnico", "gerente", "supervisor", "encargado"]
+                "roles": ["admin", "tecnico", "gerente", "supervisor"]
             },
             {
                 "label": "Zonas",
                 "icon": "bi-grid-3x3",
                 "url": "control:zonas_list",
                 "url_name": "zonas_list",
-                "roles": ["admin", "tecnico", "gerente", "supervisor", "encargado"]
+                "roles": ["admin", "tecnico", "gerente", "supervisor"]
             },
             {
                 "label": "Sucursales",

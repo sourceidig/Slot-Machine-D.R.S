@@ -354,9 +354,29 @@ function toggleZonaForm(zid, uid, banano, prestamo, retiros) {
     form.style.display = "block";
     card.style.borderColor = "#86efac";
     card.style.background = "#f0fdf4";
-    if (banano   !== undefined) document.getElementById("zona-banano-"+zid).value   = banano   || 0;
-    if (prestamo !== undefined) document.getElementById("zona-prestamo-"+zid).value = prestamo || 0;
-    if (retiros  !== undefined) document.getElementById("zona-retiros-"+zid).value  = retiros  || 0;
+    // Si no se pasan valores explícitos, usar los guardados en ASIG_ZONAS
+    const saved = ASIG_ZONAS[zid] || {};
+    const valBanano   = (banano   !== undefined) ? banano   : (saved.banano   || 0);
+    const valPrestamo = (prestamo !== undefined) ? prestamo : (saved.prestamo || 0);
+    const valRetiros  = (retiros  !== undefined) ? retiros  : (saved.retiros  || 0);
+
+    const bInput = document.getElementById("zona-banano-"+zid);
+    bInput.value = valBanano;
+    if (valBanano > 0) {
+      bInput.readOnly = true;
+      bInput.style.background = "#f1f5f9";
+      bInput.style.cursor = "not-allowed";
+      bInput.style.color = "#64748b";
+      bInput.title = "El banano ya fue guardado y no puede modificarse";
+    } else {
+      bInput.readOnly = false;
+      bInput.style.background = "";
+      bInput.style.cursor = "";
+      bInput.style.color = "";
+      bInput.title = "";
+    }
+    document.getElementById("zona-prestamo-"+zid).value = valPrestamo;
+    document.getElementById("zona-retiros-"+zid).value  = valRetiros;
   } else {
     form.style.display = "none";
     card.style.borderColor = "";

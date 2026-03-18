@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block page_title %}Movimientos{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 mt-3" style="max-width:1400px;">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0 fw-bold"><i class="bi bi-clock-history me-2"></i>Historial de Movimientos</h4>
+      <div class="text-muted" style="font-size:13px;">
+        Todas las operaciones realizadas en el sistema
+        {% if page_obj.paginator.count %}&nbsp;·&nbsp; {{ page_obj.paginator.count|intcomma }} registros{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <form method="get" class="card shadow-sm mb-3 p-3" style="border-radius:12px;">
+    <div class="row g-2 align-items-end">
+
+      <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Operación</label>
+        <select name="tipo" class="form-select form-select-sm">
+          <option value="">Todas</option>
+          {% for val, label in tipos %}
+            <option value="{{ val }}" {% if filtros.tipo == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Módulo</label>
+        <select name="modulo" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          {% for m in modulos %}
+            <option value="{{ m }}" {% if filtros.modulo == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Usuario</label>
+        <select name="usuario" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          {% for u in usuarios %}
+            <option value="{{ u.pk }}" {% if filtros.usuario == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.nombre|default:u.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Local</label>
+        <select name="sucursal" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          {% for s in sucursales %}
+            <option value="{{ s.pk }}" {% if filtros.sucursal == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Desde</label>
+        <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ filtros.fecha_desde }}">
+      </div>
+
+      <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Hasta</label>
+        <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ filtros.fecha_hasta }}">
+      </div>
+
+      <div class="col-12 col-sm-8 col-md-4 col-lg-3">
+        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Buscar</label>
+        <input type="text" name="buscar" class="form-control form-control-sm"
+               placeholder="Usuario, descripción, objeto..."
+               value="{{ filtros.buscar }}">
+      </div>
+
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm px-3">
+          <i class="bi bi-search me-1"></i>Filtrar
+        </button>
+        <a href="{% url 'control:movimientos_list' %}" class="btn btn-outline-secondary btn-sm px-3 ms-1">
+          <i class="bi bi-x-circle me-1"></i>Limpiar
+        </a>
+      </div>
+
+    </div>
+  </form>
+
+  <!-- Tabla -->
+  <div class="card shadow-sm" style="border-radius:12px;overflow:hidden;">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0 align-middle" style="font-size:13px;">
+          <thead style="background:#1e293b;color:#fff;">
+            <tr>
+              <th class="px-3 py-2">Fecha / Hora</th>
+              <th class="px-3 py-2">Usuario</th>
+              <th class="px-3 py-2">Local</th>
+              <th class="px-3 py-2">Operación</th>
+              <th class="px-3 py-2">Módulo</th>
+              <th class="px-3 py-2">Detalle</th>
+              <th class="px-3 py-2 text-center">Cambios</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for reg in page_obj %}
+            <tr>
+              <!-- Fecha / Hora -->
+              <td class="px-3 text-nowrap" style="color:#64748b;">
+                <span style="font-size:12px;">{{ reg.fecha_hora|date:"d/m/Y" }}</span><br>
+                <span style="font-size:11px;opacity:.75;">{{ reg.fecha_hora|date:"H:i:s" }}</span>
+              </td>
+
+              <!-- Usuario -->
+              <td class="px-3">
+                <span class="fw-semibold">{{ reg.nombre_usuario|default:"—" }}</span>
+                {% if reg.ip %}<br><span style="font-size:10px;color:#94a3b8;">{{ reg.ip }}</span>{% endif %}
+              </td>
+
+              <!-- Local -->
+              <td class="px-3">{{ reg.nombre_sucursal|default:"—" }}</td>
+
+              <!-- Tipo / Operación -->
+              <td class="px-3">
+                {% if reg.tipo == 'CREAR' %}
+                  <span class="badge bg-success">Crear</span>
+                {% elif reg.tipo == 'EDITAR' %}
+                  <span class="badge bg-warning text-dark">Editar</span>
+                {% elif reg.tipo == 'ELIMINAR' %}
+                  <span class="badge bg-danger">Eliminar</span>
+                {% elif reg.tipo == 'LOGIN' %}
+                  <span class="badge bg-primary">Login</span>
+                {% elif reg.tipo == 'LOGOUT' %}
+                  <span class="badge bg-secondary">Logout</span>
+                {% else %}
+                  <span class="badge bg-light text-dark">{{ reg.tipo }}</span>
+                {% endif %}
+              </td>
+
+              <!-- Módulo -->
+              <td class="px-3">
+                <span style="font-size:12px;color:#475569;">{{ reg.modulo }}</span>
+              </td>
+
+              <!-- Descripción / objeto -->
+              <td class="px-3" style="max-width:320px;">
+                <span style="font-size:12px;">{{ reg.descripcion|default:reg.objeto_str|truncatechars:80 }}</span>
+              </td>
+
+              <!-- Cambios campo a campo -->
+              <td class="px-3 text-center">
+                {% if reg.detalles %}
+                  <button class="btn btn-outline-info btn-sm py-0 px-2"
+                          style="font-size:11px;"
+                          data-bs-toggle="modal"
+                          data-bs-target="#modalCambios{{ reg.pk }}">
+                    <i class="bi bi-list-ul"></i> {{ reg.detalles|length }}
+                  </button>
+
+                  <!-- Modal con el diff -->
+                  <div class="modal fade" id="modalCambios{{ reg.pk }}" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                      <div class="modal-content">
+                        <div class="modal-header py-2">
+                          <h6 class="modal-title fw-bold">
+                            Cambios — {{ reg.modulo }} &nbsp;
+                            <span class="text-muted fw-normal" style="font-size:12px;">
+                              {{ reg.fecha_hora|date:"d/m/Y H:i" }} · {{ reg.nombre_usuario }}
+                            </span>
+                          </h6>
+                          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-0">
+                          <table class="table table-sm mb-0" style="font-size:12px;">
+                            <thead style="background:#f8fafc;">
+                              <tr>
+                                <th class="px-3 py-2">Campo</th>
+                                <th class="px-3 py-2" style="color:#dc2626;">Antes</th>
+                                <th class="px-3 py-2" style="color:#16a34a;">Después</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for campo, vals in reg.detalles.items %}
+                              <tr>
+                                <td class="px-3 fw-semibold">{{ campo }}</td>
+                                <td class="px-3" style="color:#dc2626;background:#fef2f2;">{{ vals.antes|default:"—" }}</td>
+                                <td class="px-3" style="color:#16a34a;background:#f0fdf4;">{{ vals.despues|default:"—" }}</td>
+                              </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                {% else %}
+                  <span class="text-muted" style="font-size:11px;">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-5">
+                <i class="bi bi-inbox" style="font-size:2rem;opacity:.3;"></i>
+                <div class="mt-2">No hay movimientos registrados</div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Paginación -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center py-2 px-3">
+      <small class="text-muted">
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        &nbsp;·&nbsp; {{ page_obj.paginator.count|intcomma }} registros totales
+      </small>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          {% if page_obj.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?{% for k,v in filtros.items %}{% if v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
+          {% endif %}
+          {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+              <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+              <li class="page-item">
+                <a class="page-link" href="?{% for k,v in filtros.items %}{% if v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+              </li>
+            {% endif %}
+          {% endfor %}
+          {% if page_obj.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?{% for k,v in filtros.items %}{% if v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

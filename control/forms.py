@@ -198,6 +198,9 @@ class LecturaMaquinaForm(forms.ModelForm):
         usuario = kwargs.pop("usuario", None)
         super().__init__(*args, **kwargs)
 
+        # total se calcula en clean() y en el modelo; no debe ser requerido en el form
+        self.fields["total"].required = False
+
         if turno:
             # Si el usuario tiene zonas asignadas en este turno, filtrar solo esas
             from .models import AsignacionTurnoZona
@@ -298,8 +301,9 @@ class MaquinaForm(forms.ModelForm):
     class Meta:
         model = Maquina
         fields = [
-            "nombre_juego", "modelo", "numero_serie", "rtp_objetivo", 
-            "ubicacion_detalle","contador_inicial_entrada","contador_inicial_salida","servidor"
+            "sucursal", "zona", "numero_maquina", "codigo_interno",
+            "nombre_juego", "modelo", "numero_serie", "rtp_objetivo",
+            "ubicacion_detalle", "contador_inicial_entrada", "contador_inicial_salida", "servidor"
         ]
         widgets = {
             "servidor": forms.TextInput(attrs={"class": "form-control"}),

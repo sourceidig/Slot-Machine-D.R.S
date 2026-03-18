@@ -136,12 +136,12 @@
 
     mostrarEstado("Procesando imagen...", "info")
 
-    // Convertir canvas a blob
+    // Convertir canvas a blob — PNG lossless para mejor calidad OCR
     canvas.toBlob(
       (blob) => {
         // Crear FormData para enviar la imagen
         const formData = new FormData()
-        formData.append("imagen", blob, "captura.jpg")
+        formData.append("imagen", blob, "captura.png")
 
         // Obtener CSRF token
         const csrftoken = getCookie("csrftoken")
@@ -164,18 +164,33 @@
               document.getElementById("id_salida").value = data.salida
               document.getElementById("id_total").value = data.total
 
+              const iconoConfianza = data.confianza === "alta" ? "✅" : data.confianza === "media" ? "⚠️" : "⚠️"
+              const alertaTipo = data.confianza === "baja" ? "warning" : "success"
               mostrarEstado(
-                `¡Éxito! Datos extraídos: Entrada=${data.entrada}, Salida=${data.salida}, Total=${data.total}`,
-                "success",
+                `${iconoConfianza} Entrada: ${data.entrada} | Salida: ${data.salida} | Total: ${data.total}` +
+                (data.confianza !== "alta" ? ` — Confianza ${data.confianza}, verifica los valores` : ""),
+                alertaTipo,
               )
 
               // Cerrar modal después de 2 segundos
               setTimeout(() => {
                 cerrarCamara()
-                bootstrap.Modal.getInstance(document.getElementById("cameraModal")).hide()
+                const modal = bootstrap.Modal.getInstance(document.getElementById("cameraModal"))
+                if (modal) modal.hide()
               }, 2000)
             } else {
-              mostrarEstado("Error: " + (data.error || "No se pudieron extraer los datos"), "danger")
+              // Mostrar error + lo que leyó el OCR para diagnóstico
+              let msg = data.error || "No se pudieron extraer los datos"
+              if (data.debug_texto && data.debug_texto !== "(sin texto)") {
+                msg += `<br><small style="opacity:.7">OCR leyó: <em>${data.debug_texto}</em></small>`
+              } else if (data.errores_ocr && data.errores_ocr.length > 0) {
+                msg += `<br><small style="opacity:.7">Error técnico: ${data.errores_ocr[0]}</small>`
+              } else {
+                msg += `<br><small style="opacity:.7">Tesseract no detectó texto. Intenta más cerca y con luz.</small>`
+              }
+              mostrarEstadoHtml(msg, "danger")
+              // Log completo en consola para diagnóstico
+              console.log("OCR debug:", data)
               capturedImage.style.display = "block"
               document.getElementById("btnProcesarFoto").disabled = false
               document.getElementById("btnRetomar").disabled = false
@@ -190,8 +205,7 @@
             document.getElementById("btnRetomar").disabled = false
           })
       },
-      "image/jpeg",
-      0.9,
+      "image/png",
     )
   }
 
@@ -208,11 +222,19 @@
     }
   }
 
-  // Función para mostrar mensajes de estado
+  // Función para mostrar mensajes de estado (texto plano)
   function mostrarEstado(mensaje, tipo) {
     const statusDiv = document.getElementById("cameraStatus")
     statusDiv.className = `alert alert-${tipo} mt-3`
     statusDiv.textContent = mensaje
+    statusDiv.style.display = "block"
+  }
+
+  // Función para mostrar mensajes con HTML (para debug del OCR)
+  function mostrarEstadoHtml(mensaje, tipo) {
+    const statusDiv = document.getElementById("cameraStatus")
+    statusDiv.className = `alert alert-${tipo} mt-3`
+    statusDiv.innerHTML = mensaje
     statusDiv.style.display = "block"
   }
 

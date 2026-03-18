@@ -18,6 +18,8 @@
   <div class="pg-card-body">
   <form method="post">
     {% csrf_token %}
+    {% if preselect_sucursal %}<input type="hidden" name="_sucursal_id" value="{{ preselect_sucursal }}">{% endif %}
+    {% if preselect_zona %}<input type="hidden" name="_zona_id" value="{{ preselect_zona }}">{% endif %}
     {% if form.errors %}
     <div class="alert alert-danger rounded-3 small mb-4">
       {% for field in form %}{% for err in field.errors %}
@@ -88,7 +90,7 @@
         <i class="bi bi-floppy me-1"></i> Guardar
       </button>
       <button type="submit" name="guardar_otro" class="btn btn-outline-success px-4 fw-semibold" style="border-radius:8px;font-size:14px;">
-        <i class="bi bi-plus-circle me-1"></i> Guardar y agregar otro
+        <i class="bi bi-plus-circle me-1"></i> Guardar y agregar otra
       </button>
       <a href="{% url 'control:maquinas_list' %}" class="btn-pg-secondary" style="text-decoration:none;">Cancelar</a>
     </div>
@@ -103,8 +105,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const zonaSelect = document.getElementById("id_zona");
   if (!sucursalSelect || !zonaSelect) return;
 
-  sucursalSelect.addEventListener("change", function () {
-    const sucursalId = this.value;
+  function cargarZonas(sucursalId, preselectZonaId) {
     zonaSelect.innerHTML = '<option value="">---------</option>';
     if (!sucursalId) return;
     fetch(`/ajax/zonas/?sucursal_id=${sucursalId}`)
@@ -114,10 +115,25 @@ document.addEventListener("DOMContentLoaded", function () {
           const opt = document.createElement("option");
           opt.value = zona.id;
           opt.textContent = zona.nombre;
+          if (preselectZonaId && String(zona.id) === String(preselectZonaId)) {
+            opt.selected = true;
+          }
           zonaSelect.appendChild(opt);
         });
       });
+  }
+
+  sucursalSelect.addEventListener("change", function () {
+    cargarZonas(this.value, null);
   });
+
+  // Pre-cargar zonas si viene del flujo de creación
+  const preselSuc  = "{{ preselect_sucursal|default:'' }}";
+  const preselZona = "{{ preselect_zona|default:'' }}";
+  if (preselSuc) {
+    sucursalSelect.value = preselSuc;
+    cargarZonas(preselSuc, preselZona);
+  }
 });
 </script>
 {% endblock %}

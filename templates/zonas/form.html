@@ -13,6 +13,7 @@
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
+                    {% if sucursal_id %}<input type="hidden" name="_sucursal_id" value="{{ sucursal_id }}">{% endif %}
                     
                     <div class="mb-3">
                         <label for="id_sucursal" class="form-label">Sucursal *</label>
@@ -30,15 +31,22 @@
                         <small class="form-text text-muted">Orden de visualización de la zona</small>
                     </div>
                     
-                    <div class="d-flex gap-2">
-                        <button type="submit" name="guardar" class="btn btn-primary">
+                    <div class="d-flex gap-2 flex-wrap">
+                        {% if sucursal_id %}
+                          <button type="submit" name="guardar_maquinas" class="btn btn-primary">
+                            <i class="bi bi-cpu"></i> Guardar y crear máquinas
+                          </button>
+                          <button type="submit" name="guardar_otro" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Guardar y agregar otra zona
+                          </button>
+                        {% else %}
+                          <button type="submit" name="guardar" class="btn btn-primary">
                             <i class="bi bi-save"></i> Guardar
-                        </button>
-
-                        <button type="submit" name="guardar_otro" class="btn btn-success">
+                          </button>
+                          <button type="submit" name="guardar_otro" class="btn btn-success">
                             <i class="bi bi-plus-circle"></i> Guardar y agregar otra
-                        </button>
-
+                          </button>
+                        {% endif %}
                         <a href="{% url 'control:zonas_list' %}" class="btn btn-secondary">
                             Cancelar
                         </a>

@@ -54,7 +54,7 @@
         </form>
 
         <!-- TABLA -->
-        {% if cierres %}
+        {% if page_obj.object_list %}
         <div class="table-responsive">
             <table class="table table-hover table-bordered">
                 <thead class="table-light">
@@ -101,6 +101,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% include "includes/pagination.html" %}
         </div>
         {% else %}
         <div class="alert alert-info">

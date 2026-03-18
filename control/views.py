@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Case, When, Value, IntegerField
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
@@ -20,7 +20,7 @@ from .models import CierreTurno, CierreTurnoZona, CierreTurnoMovimiento, CierreT
 from .forms import CierreTurnoForm, CierreTurnoZonaFormSet, CierreTurnoMovimientoFormSet, CierreTurnoPagoFormSet, CierreTurnoDenFormSet
 from .models import CuadraturaDetalle
 from django.views.generic.edit import UpdateView
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.db import transaction
 from django.db.models import Q
 import calendar
@@ -29,7 +29,9 @@ import json
 import re
 import base64
 import io
+from collections import Counter
 
+import numpy as np
 from PIL import Image, ImageOps
 import pytesseract
 from pytesseract import Output
@@ -59,6 +61,16 @@ from .decorators import (role_required, readonly_for,
     ROLES_RECAUDACION, ROLES_CONTROLES, ROLES_CONFIG_VER, ROLES_CONFIG_EDIT,
     ROLES_USUARIOS,ROLES_VER_USUARIOS ,ROLES_READONLY, ROLES_CUADRATURA, ROLES_CUADRATURA_DIARIA, ROLES_CUADRATURA_ZONA)
 from django.shortcuts import render
+
+def _estado_ord():
+    """Anotación para ordenar máquinas: Mantenimiento → Retirada → Operativa."""
+    return Case(
+        When(estado="Mantenimiento", then=Value(0)),
+        When(estado="Retirada",      then=Value(1)),
+        default=Value(2),
+        output_field=IntegerField(),
+    )
+
 
 def error_403(request, exception=None):
     return render(request, "errors/403.html", status=403)
@@ -147,7 +159,7 @@ def informe_recaudacion_list(request):
         informes = informes.filter(sucursal_id=sucursal_id)
 
     from django.core.paginator import Paginator
-    paginator = Paginator(informes, 25)
+    paginator = Paginator(informes, 15)
     informes = paginator.get_page(request.GET.get("page", 1))
     return render(request, "recaudacion/informe_list.html", {
         "informes": informes,
@@ -243,7 +255,7 @@ def cerrar_ciclo_y_generar_informe(request):
         )
 
         # ── 2. Líneas por máquina ───────────────────────────────────────────
-        maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True).select_related("zona")
+        maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True).select_related("zona").annotate(estado_ord=_estado_ord()).order_by("estado_ord", "zona__orden", "numero_maquina")
         bulk_lineas = []
         total_entrada = 0
         total_salida  = 0
@@ -416,7 +428,7 @@ def _ejecutar_recaudacion_programada(sucursal, user):
             creado_por=user,
         )
 
-        maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True).select_related("zona")
+        maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True).select_related("zona").annotate(estado_ord=_estado_ord()).order_by("estado_ord", "zona__orden", "numero_maquina")
         bulk_lineas = []
         total_entrada = total_salida = 0
 
@@ -1278,21 +1290,20 @@ def cuadratura_diaria_list(request):
 
     if fecha_hasta:
         cuadraturas = cuadraturas.filter(fecha__lte=fecha_hasta)
-    
+
     cuadraturas = cuadraturas.order_by("-fecha", "-creado_el")
 
-    if request.user.role == 'supervisor':
-        sucursales_qs = request.user.sucursales.filter(is_active=True).order_by("nombre")
-        cuadraturas = cuadraturas.filter(sucursal__in=sucursales_qs)
-    else:
-        sucursales_qs = Sucursal.objects.filter(is_active=True).order_by("nombre")
+    from django.core.paginator import Paginator
+    paginator = Paginator(cuadraturas, 15)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
 
     return render(
         request,
         "cuadratura_diaria/list.html",
         {
-            "cuadraturas": cuadraturas,
-            "sucursales": sucursales_qs,
+            "cuadraturas": page_obj,
+            "page_obj": page_obj,
+            "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
         },
     )
 
@@ -1301,11 +1312,20 @@ def cuadratura_diaria_list(request):
 @login_required
 def cuadratura_diaria_detail(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
-    # Última caja guardada antes de esta (mismo día más antigua, o días anteriores)
     caja_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
+
+    # Hora de apertura del turno: usa el turno vinculado o busca por sucursal+fecha
+    turno_ref = cuadratura.turno or (
+        Turno.objects.filter(sucursal=cuadratura.sucursal, fecha=cuadratura.fecha)
+        .order_by("created_at")
+        .first()
+    )
+    hora_apertura = turno_ref.created_at if turno_ref else None
+
     return render(request, "cuadratura_diaria/detail.html", {
-        "cuadratura": cuadratura,
+        "cuadratura":    cuadratura,
         "caja_anterior": caja_anterior,
+        "hora_apertura": hora_apertura,
     })
 @login_required
 def cuadratura_diaria_edit(request, pk):
@@ -1608,7 +1628,7 @@ def encuadre_create(request):
 def encuadre_list(request):
     encuadres = EncuadreCajaAdmin.objects.all().select_related("sucursal", "usuario_admin")
     from django.core.paginator import Paginator
-    paginator = Paginator(encuadres, 25)
+    paginator = Paginator(encuadres, 15)
     encuadres = paginator.get_page(request.GET.get("page", 1))
     return render(request, "encuadre/list.html", {"encuadres": encuadres, "page_obj": encuadres})
 
@@ -1651,26 +1671,85 @@ def dashboard_view(request):
     total_retiros   = AsignacionTurnoZona.objects.aggregate(s=Sum("retiros"))["s"] or 0
     total_prestamos = AsignacionTurnoZona.objects.aggregate(s=Sum("prestamo"))["s"] or 0
 
-    # ── Top/Bottom 5 RTP por maquina ───────────────────────────────────────
-    maquinas_con_rtp = []
-    for maq in Maquina.objects.filter(is_active=True).select_related("sucursal", "zona"):
-        agg = LecturaMaquina.objects.filter(maquina=maq).aggregate(
-            ent=Sum("entrada_dia"), sal=Sum("salida_dia"), tot=Sum("total")
+    # ── Top/Bottom RTP de locales (último turno + histórico) ────────────────
+    locales_rtp = []
+    for suc in Sucursal.objects.filter(is_active=True):
+        ultimo_turno = (
+            Turno.objects.filter(sucursal=suc)
+            .order_by("-fecha", "-created_at")
+            .first()
         )
-        ent = agg["ent"] or 0
-        sal = agg["sal"] or 0
-        tot = agg["tot"] or 0
-        if ent > 0:
-            maquinas_con_rtp.append({
-                "maquina": maq,
-                "rtp": round(sal / ent * 100, 2),
-                "entrada": ent,
-                "salida": sal,
-                "total": tot,
-            })
+        # RTP último turno
+        if ultimo_turno:
+            agg = LecturaMaquina.objects.filter(turno=ultimo_turno).aggregate(
+                ent=Sum("entrada_dia"), sal=Sum("salida_dia")
+            )
+            t_ent = agg["ent"] or 0
+            t_sal = agg["sal"] or 0
+            rtp_turno = round(t_sal / t_ent * 100, 2) if t_ent > 0 else None
+        else:
+            rtp_turno = None
 
-    top_rtp    = sorted(maquinas_con_rtp, key=lambda x: x["rtp"], reverse=True)[:5]
-    bottom_rtp = sorted(maquinas_con_rtp, key=lambda x: x["rtp"])[:5]
+        # RTP histórico
+        agg_h = LecturaMaquina.objects.filter(sucursal=suc).aggregate(
+            ent=Sum("entrada_dia"), sal=Sum("salida_dia")
+        )
+        h_ent = agg_h["ent"] or 0
+        h_sal = agg_h["sal"] or 0
+        rtp_hist = round(h_sal / h_ent * 100, 2) if h_ent > 0 else None
+
+        locales_rtp.append({
+            "sucursal":     suc,
+            "ultimo_turno": ultimo_turno,
+            "rtp_turno":    rtp_turno,
+            "rtp_hist":     rtp_hist,
+        })
+
+    # Separar los que tienen datos para ordenar
+    turno_con_datos = [x for x in locales_rtp if x["rtp_turno"] is not None]
+    hist_con_datos  = [x for x in locales_rtp if x["rtp_hist"]  is not None]
+
+    rtp_por_local = {
+        "turno_top":    sorted(turno_con_datos, key=lambda x: x["rtp_turno"], reverse=True),
+        "turno_bottom": sorted(turno_con_datos, key=lambda x: x["rtp_turno"]),
+        "hist_top":     sorted(hist_con_datos,  key=lambda x: x["rtp_hist"],  reverse=True),
+        "hist_bottom":  sorted(hist_con_datos,  key=lambda x: x["rtp_hist"]),
+    }
+
+    # ── Máquinas malas (Mantenimiento) ─────────────────────────────────────
+    maquinas_malas = list(
+        Maquina.objects.filter(estado__in=["Mantenimiento", "Retirada"], is_active=True)
+        .select_related("sucursal", "zona")
+        .annotate(estado_ord=_estado_ord())
+        .order_by("estado_ord", "sucursal__nombre", "numero_maquina")
+    )
+    total_maquinas_malas = len(maquinas_malas)
+
+    # ── Redbank total (acumulado histórico de cierres) ──────────────────────
+    total_redbank = CierreTurno.objects.aggregate(s=Sum("redbank_retiros"))["s"] or 0
+
+    # ── Desglose por sucursal para KPIs desplegables ────────────────────────
+    detalles_kpi = []
+    for suc in Sucursal.objects.filter(is_active=True).order_by("nombre"):
+        ret_suc = AsignacionTurnoZona.objects.filter(
+            turno__sucursal=suc
+        ).aggregate(s=Sum("retiros"))["s"] or 0
+        prest_suc = AsignacionTurnoZona.objects.filter(
+            turno__sucursal=suc
+        ).aggregate(s=Sum("prestamo"))["s"] or 0
+        rb_suc = CierreTurno.objects.filter(
+            sucursal=suc
+        ).aggregate(s=Sum("redbank_retiros"))["s"] or 0
+        # RTP histórico ya está en locales_rtp
+        rtp_entry = next((x for x in locales_rtp if x["sucursal"].pk == suc.pk), None)
+        detalles_kpi.append({
+            "sucursal":  suc,
+            "retiros":   ret_suc,
+            "prestamos": prest_suc,
+            "redbank":   rb_suc,
+            "rtp_turno": rtp_entry["rtp_turno"] if rtp_entry else None,
+            "rtp_hist":  rtp_entry["rtp_hist"]  if rtp_entry else None,
+        })
 
     # ── Data por sucursal ───────────────────────────────────────────────────
     sucursales_data = []
@@ -1707,6 +1786,29 @@ def dashboard_view(request):
         turno_tot = lecs_turno.aggregate(s=Sum("total"))["s"] or 0
         rtp_dia   = round(turno_sal / turno_ent * 100, 2) if turno_ent > 0 else 0
 
+        # ── Stats del último turno para el botón (activo o último cerrado) ──
+        if turno_activo:
+            btn_numeral  = turno_ent
+            btn_ganancia = turno_tot
+            btn_rtp      = rtp_dia
+        else:
+            ultimo_turno_cerrado = (
+                Turno.objects.filter(sucursal=sucursal, estado="Cerrado")
+                .order_by("-fecha", "-created_at")
+                .first()
+            )
+            if ultimo_turno_cerrado:
+                _lec = LecturaMaquina.objects.filter(turno=ultimo_turno_cerrado).aggregate(
+                    ent=Sum("entrada_dia"), sal=Sum("salida_dia"), tot=Sum("total")
+                )
+                _ent = _lec["ent"] or 0
+                _sal = _lec["sal"] or 0
+                btn_numeral  = _ent
+                btn_ganancia = _lec["tot"] or 0
+                btn_rtp      = round(_sal / _ent * 100, 2) if _ent > 0 else 0
+            else:
+                btn_numeral = btn_ganancia = btn_rtp = None
+
         acum = LecturaMaquina.objects.filter(sucursal=sucursal).aggregate(
             ent=Sum("entrada_dia"), sal=Sum("salida_dia"), tot=Sum("total")
         )
@@ -1722,8 +1824,11 @@ def dashboard_view(request):
         maquinas_sucursal = list(
             Maquina.objects.filter(sucursal=sucursal, is_active=True)
             .select_related("zona")
-            .order_by("zona__orden", "numero_maquina")
+            .annotate(estado_ord=_estado_ord())
+            .order_by("estado_ord", "zona__orden", "numero_maquina")
         )
+
+        ultimo_control = ControlLecturas.objects.filter(sucursal=sucursal).first()
 
         sucursales_data.append({
             "sucursal":        sucursal,
@@ -1740,20 +1845,23 @@ def dashboard_view(request):
             "retiros_turno":   retiros_turno,
             "prestamos_turno": prestamos_turno,
             "maquinas":        maquinas_sucursal,
+            "ultimo_control":  ultimo_control,
+            "btn_numeral":     btn_numeral,
+            "btn_ganancia":    btn_ganancia,
+            "btn_rtp":         btn_rtp,
         })
 
-    rtp_tables = [
-        (top_rtp,    "Top 5 RTP más altos", "#16a34a"),
-        (bottom_rtp, "Top 5 RTP más bajos", "#dc2626"),
-    ]
-
     return render(request, "dashboard.html", {
-        "hoy":             hoy,
-        "global_kpis":     global_kpis,
-        "total_retiros":   total_retiros,
-        "total_prestamos": total_prestamos,
-        "rtp_tables":      rtp_tables,
-        "sucursales_data": sucursales_data,
+        "hoy":                  hoy,
+        "global_kpis":          global_kpis,
+        "total_retiros":        total_retiros,
+        "total_prestamos":      total_prestamos,
+        "rtp_por_local":        rtp_por_local,
+        "sucursales_data":      sucursales_data,
+        "maquinas_malas":       maquinas_malas,
+        "total_maquinas_malas": total_maquinas_malas,
+        "total_redbank":        total_redbank,
+        "detalles_kpi":         detalles_kpi,
     })
 
 
@@ -1854,12 +1962,17 @@ def guardar_asignaciones(request, turno_id):
 
     # Zonas
     zonas = Zona.objects.filter(sucursal=turno.sucursal, is_active=True)
+    # Pre-fetch existing assignments to check banano lock
+    existing_az = {az.zona_id: az for az in AsignacionTurnoZona.objects.filter(turno=turno)}
     for zona in zonas:
         uid_str  = post.get("zona_%d_usuario" % zona.id, "")
-        banano   = int(post.get("zona_%d_banano"   % zona.id, 0) or 0)
+        banano_nuevo = int(post.get("zona_%d_banano" % zona.id, 0) or 0)
         prestamo = int(post.get("zona_%d_prestamo" % zona.id, 0) or 0)
         retiros  = int(post.get("zona_%d_retiros"  % zona.id, 0) or 0)
         uid = int(uid_str) if uid_str.isdigit() else None
+        # Banano bloqueado: si ya fue guardado con valor > 0, no se puede modificar
+        az_prev = existing_az.get(zona.id)
+        banano = az_prev.banano if (az_prev and az_prev.banano > 0) else banano_nuevo
         AsignacionTurnoZona.objects.update_or_create(
             turno=turno, zona=zona,
             defaults={"usuario_id": uid, "banano": banano, "prestamo": prestamo, "retiros": retiros}
@@ -2010,7 +2123,13 @@ def cuadratura_zona_view(request, turno_id):
         LecturaMaquina.objects
         .filter(turno=turno_ref)
         .select_related("zona", "maquina")
-        .order_by("zona__orden", "zona__nombre", "numero_maquina")
+        .annotate(estado_ord=Case(
+            When(maquina__estado="Mantenimiento", then=Value(0)),
+            When(maquina__estado="Retirada",      then=Value(1)),
+            default=Value(2),
+            output_field=IntegerField(),
+        ))
+        .order_by("zona__orden", "zona__nombre", "estado_ord", "numero_maquina")
     )
     lecturas_por_zona = {}
     for lec in lecturas_raw:
@@ -2161,6 +2280,11 @@ def registro_view(request):
             )
             return redirect("control:turno")
 
+        # ── Flags de reporte ──────────────────────────────────────────────────────
+        reportar_maquina   = request.POST.get("reportar_maquina") == "1"
+        numeral_visible    = request.POST.get("numeral_visible") == "1"
+        observacion_rep    = request.POST.get("observacion_reporte", "").strip()
+
         form = LecturaMaquinaForm(request.POST, turno=turno_ref, usuario=request.user)
 
         if form.is_valid():
@@ -2175,36 +2299,54 @@ def registro_view(request):
                 lectura.nombre_juego = lectura.maquina.nombre_juego
 
             try:
-                lectura.total = int(lectura.entrada or 0) - int(lectura.salida or 0)
-                lectura.full_clean()
-
-                # ── Validación: los contadores nunca deben retroceder ──
+                # ── Si es reporte sin numeral visible, usar el último contador registrado ──
                 from .utils import get_referencia_anterior
                 entrada_ant, salida_ant, fuente = get_referencia_anterior(
                     lectura.maquina, turno_abierto.fecha
                 )
                 entrada_ant = int(entrada_ant or 0)
                 salida_ant  = int(salida_ant or 0)
+
+                if reportar_maquina and not numeral_visible:
+                    lectura.entrada = entrada_ant
+                    lectura.salida  = salida_ant
+
+                lectura.total = int(lectura.entrada or 0) - int(lectura.salida or 0)
+
+                # ── Si es reporte, agregar observación a la nota ──
+                if reportar_maquina and observacion_rep:
+                    prefijo = f"[REPORTE MANTENIMIENTO] {observacion_rep}"
+                    lectura.nota = f"{prefijo} | {lectura.nota}" if lectura.nota else prefijo
+
+                lectura.full_clean()
+
+                # ── Validación: los contadores nunca deben retroceder ──
                 entrada_nueva = int(lectura.entrada or 0)
                 salida_nueva  = int(lectura.salida or 0)
 
                 errores = []
-                if entrada_nueva < entrada_ant:
-                    errores.append(
-                        f"Entrada ingresada ({entrada_nueva:,}) es MENOR al valor anterior ({entrada_ant:,}). "
-                        f"Verifique que los datos estén bien ingresados."
-                    )
-                if salida_nueva < salida_ant:
-                    errores.append(
-                        f"Salida ingresada ({salida_nueva:,}) es MENOR al valor anterior ({salida_ant:,}). "
-                        f"Verifique que los datos estén bien ingresados."
-                    )
+                if not (reportar_maquina and not numeral_visible):
+                    if entrada_nueva < entrada_ant:
+                        errores.append(
+                            f"Entrada ingresada ({entrada_nueva:,}) es MENOR al valor anterior ({entrada_ant:,}). "
+                            f"Verifique que los datos estén bien ingresados."
+                        )
+                    if salida_nueva < salida_ant:
+                        errores.append(
+                            f"Salida ingresada ({salida_nueva:,}) es MENOR al valor anterior ({salida_ant:,}). "
+                            f"Verifique que los datos estén bien ingresados."
+                        )
 
                 if errores:
                     for err in errores:
                         messages.error(request, f"⚠️ Máquina {lectura.numero_maquina}: {err}")
                 else:
                     lectura.save()
+
+                    # ── Cambiar estado de la máquina a Mantenimiento ──
+                    if reportar_maquina:
+                        Maquina.objects.filter(pk=lectura.maquina.pk).update(estado="Mantenimiento")
+
                     request.session["ultima_zona"] = lectura.zona.id
 
                     # Calcular la siguiente máquina en orden dentro de la zona
@@ -2225,7 +2367,10 @@ def registro_view(request):
                     else:
                         request.session.pop("siguiente_maquina", None)
 
-                    messages.success(request, f"Lectura registrada. Máquina {lectura.maquina.numero_maquina} guardada.")
+                    if reportar_maquina:
+                        messages.warning(request, f"Máquina {lectura.maquina.numero_maquina} reportada y puesta en Mantenimiento.")
+                    else:
+                        messages.success(request, f"Lectura registrada. Máquina {lectura.maquina.numero_maquina} guardada.")
                     return redirect("control:registro")
             except IntegrityError:
                 messages.error(request, "Ya existe una lectura para esa máquina en este turno.")
@@ -2409,18 +2554,218 @@ def get_maquinas_ajax(request, zona_id):
     return JsonResponse(list(maquinas), safe=False)
 
 
+@login_required
+def get_referencia_maquina_ajax(request, pk):
+    """Devuelve el último numeral (entrada/salida) registrado para una máquina."""
+    from .utils import get_referencia_anterior
+    from django.utils import timezone
+    maquina = get_object_or_404(Maquina, pk=pk)
+    fecha = timezone.localdate()
+    entrada_ant, salida_ant, fuente = get_referencia_anterior(maquina, fecha)
+    return JsonResponse({
+        "entrada_anterior": int(entrada_ant or 0),
+        "salida_anterior":  int(salida_ant or 0),
+        "fuente": fuente,
+    })
+
+
 # ============================================
 # OCR
 # ============================================
 
 @csrf_exempt
+def _preprocesar_imagen(imagen):
+    """
+    Preprocesado para pantallas de máquinas slot con fondo azul oscuro y texto blanco.
+    Estrategia: aislar solo los píxeles muy brillantes (texto blanco/amarillo)
+    y convertirlos a negro sobre fondo blanco para Tesseract.
+    """
+    from PIL import ImageEnhance, ImageFilter
+
+    variantes = []
+    imagen = imagen.convert("RGB")
+    w, h = imagen.size
+
+    # Auto-rotar: pantallas de slot son siempre apaisadas.
+    # Si la foto viene en retrato (h > w), rotar 90° para que Tesseract lea mejor.
+    if h > w:
+        imagen = imagen.rotate(-90, expand=True)
+        w, h = imagen.size
+        print(f"[OCR] Imagen rotada a landscape: {w}x{h}")
+
+    # Escalar a 1600px en el lado más largo
+    lado = max(w, h)
+    if lado < 1600:
+        f = 1600 / lado
+        imagen = imagen.resize((int(w*f), int(h*f)), Image.LANCZOS)
+    elif lado > 2400:
+        f = 2400 / lado
+        imagen = imagen.resize((int(w*f), int(h*f)), Image.LANCZOS)
+
+    gray = imagen.convert("L")
+
+    # ── Variante 1: umbral alto — solo texto muy brillante (blanco puro) ──
+    # En pantallas slot: texto blanco > 200, fondo azul < 100
+    # Resultado: texto negro sobre blanco
+    v1 = gray.point(lambda x: 0 if x > 180 else 255)
+    variantes.append(v1)
+
+    # ── Variante 2: umbral medio — captura texto ligeramente menos brillante
+    v2 = gray.point(lambda x: 0 if x > 140 else 255)
+    variantes.append(v2)
+
+    # ── Variante 3: autocontraste + umbral alto ────────────────────────────
+    v3 = ImageOps.autocontrast(gray, cutoff=3)
+    v3 = v3.point(lambda x: 0 if x > 170 else 255)
+    variantes.append(v3)
+
+    # ── Variante 4: sharpening + autocontraste + umbral medio ─────────────
+    v4 = gray.filter(ImageFilter.SHARPEN)
+    v4 = ImageOps.autocontrast(v4, cutoff=2)
+    v4 = v4.point(lambda x: 0 if x > 150 else 255)
+    variantes.append(v4)
+
+    # ── Variante 5: extracción RGB — aísla texto blanco/amarillo ──────────
+    # Las pantallas slot usan texto blanco o amarillo sobre fondo oscuro.
+    # Suma R+G por canal: blanco=alto en los 3, amarillo=R+G altos, B bajo.
+    try:
+        img_arr = np.array(imagen)   # shape: (H, W, 3)
+        r = img_arr[:, :, 0].astype(np.int16)
+        g = img_arr[:, :, 1].astype(np.int16)
+        b = img_arr[:, :, 2].astype(np.int16)
+        # Pixel "brillante": R y G ambos altos (blanco o amarillo)
+        bright = ((r + g) > 360) & (r > 150) & (g > 150)
+        mask = (bright.astype(np.uint8)) * 255
+        v5 = Image.fromarray(255 - mask)  # negro sobre blanco
+        variantes.append(v5)
+    except Exception:
+        pass  # si numpy falla por alguna razón, omitir esta variante
+
+    # ── Variante 6: doble nitidez + umbral bajo (texto tenue) ─────────────
+    v6 = gray.filter(ImageFilter.SHARPEN).filter(ImageFilter.SHARPEN)
+    v6 = v6.point(lambda x: 0 if x > 120 else 255)
+    variantes.append(v6)
+
+    return variantes
+
+
+def _ocr_texto(variante, config):
+    """
+    Corre tesseract y devuelve texto plano + data estructurada.
+    Usa image_to_string para texto (más fiable) e image_to_data para estructura.
+    """
+    texto = pytesseract.image_to_string(variante, lang="eng", config=config)
+    data  = pytesseract.image_to_data(variante, lang="eng", config=config, output_type=Output.DICT)
+    # Print en consola del servidor para diagnóstico
+    lineas = [l.strip() for l in texto.splitlines() if l.strip()]
+    if lineas:
+        print(f"[OCR] cfg={config[-5:]} texto={lineas[:4]}")
+    else:
+        print(f"[OCR] cfg={config[-5:]} SIN TEXTO")
+    return texto, data
+
+
+def _extraer_valores_de_texto(texto_plano, filas):
+    """
+    Estrategia principal: busca ENTRADAS/SALIDAS en filas estructuradas.
+    Estrategia secundaria: regex sobre texto plano.
+    Estrategia terciaria: busca columnas numéricas (pantallas con formato tabla).
+    Devuelve (entrada, salida, entrada_raw, salida_raw) o Nones.
+    """
+    entrada = salida = entrada_raw = salida_raw = None
+
+    # ── Estrategia 1: fila contiene LABEL + número en la misma línea ──────
+    # Esta es la más confiable — "ENTRADAS $197.000" en una sola línea
+    for f in filas:
+        txt_norm = normalizar_texto_label(f["texto"])
+        if entrada is None and es_linea_entrada(txt_norm) and f["numeros"]:
+            r, s_str = extraer_monto_desde_tokens(f["numeros"])
+            v = normalizar_valor(s_str)
+            # Solo aceptar si el valor tiene sentido (>= 1000)
+            if v and v >= 1000:
+                entrada_raw, entrada = r, v
+        if salida is None and es_linea_salida(txt_norm) and f["numeros"]:
+            r, s_str = extraer_monto_desde_tokens(f["numeros"])
+            v = normalizar_valor(s_str)
+            if v and v >= 1000:
+                salida_raw, salida = r, v
+
+    # ── Fallback: label en fila i, número en fila i+1 ──────────────────────
+    # Solo si la estrategia 1 no encontró algo
+    if salida is None:
+        for i in range(len(filas) - 1):
+            if es_linea_salida(normalizar_texto_label(filas[i]["texto"])):
+                nums = filas[i + 1]["numeros"]
+                if nums:
+                    salida_raw, salida_str = extraer_monto_desde_tokens(nums)
+                    v = normalizar_valor(salida_str)
+                    if v and v >= 1000:
+                        salida_raw, salida = salida_raw, v
+                        break
+    if entrada is None:
+        for i in range(len(filas) - 1):
+            if es_linea_entrada(normalizar_texto_label(filas[i]["texto"])):
+                nums = filas[i + 1]["numeros"]
+                if nums:
+                    entrada_raw, entrada_str = extraer_monto_desde_tokens(nums)
+                    v = normalizar_valor(entrada_str)
+                    if v and v >= 1000:
+                        entrada_raw, entrada = entrada_raw, v
+                        break
+
+    # ── Estrategia 2: regex sobre texto plano ─────────────────────────────
+    # Permite ruido entre el label y el número: "ALD eee 100" → "SALIDAS ... 402100"
+    # [^\n]{0,25} = hasta 25 chars de ruido antes del número
+    patron_entrada = r'(?:ENTRAD|UNTRAD|NTRADA)[A-Za-z]{0,4}[^\n]{0,25}?(\d[\d\.\,]{3,})'
+    patron_salida  = r'(?:SALID|SAUD|SAIDA|ALIDA|ALD)[A-Za-z]{0,4}[^\n]{0,25}?(\d[\d\.\,]{3,})'
+
+    if entrada is None:
+        m = re.search(patron_entrada, texto_plano, re.IGNORECASE)
+        if m:
+            entrada_raw = m.group(1)
+            entrada = normalizar_valor(entrada_raw)
+
+    if salida is None:
+        m = re.search(patron_salida, texto_plano, re.IGNORECASE)
+        if m:
+            salida_raw = m.group(1)
+            salida = normalizar_valor(salida_raw)
+
+    # ── Estrategia 3: buscar por proximidad en líneas ─────────────────────
+    if entrada is None or salida is None:
+        lineas = texto_plano.splitlines()
+        for linea in lineas:
+            norm = normalizar_texto_label(linea)
+            # Buscar números de 4+ dígitos con posible separador de miles
+            nums = re.findall(r"\d[\d\.\,]{3,}", linea)
+            if not nums:
+                continue
+            if entrada is None and es_linea_entrada(norm):
+                for n in nums:
+                    v = normalizar_valor(n)
+                    if v and v >= 1000:
+                        entrada_raw = n
+                        entrada = v
+                        break
+            if salida is None and es_linea_salida(norm):
+                for n in nums:
+                    v = normalizar_valor(n)
+                    if v and v >= 1000:
+                        salida_raw = n
+                        salida = v
+                        break
+
+    return entrada, salida, entrada_raw, salida_raw
+
+
 def ocr_lectura(request):
     if request.method != "POST":
         return JsonResponse({"success": False, "error": "Método no permitido"}, status=405)
 
     try:
-        # 1) cargar imagen
+        # ── 1) Cargar imagen ───────────────────────────────────────────────
         if "imagen" in request.FILES:
+            print(f"[OCR] Imagen recibida via FILES: {request.FILES['imagen'].size} bytes")
             imagen = Image.open(request.FILES["imagen"])
         else:
             data = json.loads(request.body.decode("utf-8"))
@@ -2431,92 +2776,170 @@ def ocr_lectura(request):
                 b64 = b64.split(",", 1)[1]
             imagen = Image.open(io.BytesIO(base64.b64decode(b64)))
 
-        # 2) preproceso
-        imagen = imagen.convert("L")
-        imagen = ImageOps.autocontrast(imagen)
+        # ── 2) Generar variantes preprocesadas ────────────────────────────
+        variantes = _preprocesar_imagen(imagen)
 
-        w, h = imagen.size
-        factor = max(2.0, 1500 / max(w, h))
-        imagen = imagen.resize((int(w * factor), int(h * factor)), Image.LANCZOS)
-        imagen = imagen.point(lambda x: 0 if x < 150 else 255, "1")
+        print(f"[OCR] {len(variantes)} variantes generadas, tamaños: {[v.size for v in variantes]}")
 
-        config = "--oem 3 --psm 6"
+        # psm 11 = texto disperso — ideal para pantallas slot
+        # psm 6  = bloque de texto uniforme — fallback
+        # oem 1  = LSTM puro, más preciso en fuentes de pantalla
+        WLIST = "-c tessedit_char_whitelist=0123456789$.,ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz "
+        configs = [
+            f"--oem 3 --psm 11 {WLIST}",
+            f"--oem 3 --psm 6  {WLIST}",
+            f"--oem 1 --psm 11 {WLIST}",
+            f"--oem 3 --psm 11",
+        ]
 
-        texto_plano = pytesseract.image_to_string(imagen, lang="eng", config=config)
-        print("===== OCR RAW =====")
-        print(texto_plano)
+        # Candidatos recolectados de todas las combinaciones variante×config
+        entradas_cand = []   # lista de (valor_int, raw_str)
+        salidas_cand  = []
+        mejor_texto   = ""
+        errores_ocr   = []
 
-        data_ocr = pytesseract.image_to_data(imagen, lang="eng", config=config, output_type=Output.DICT)
-        filas = agrupar_lineas(data_ocr)
+        # ── 3) Correr TODAS las combinaciones y votar ──────────────────────
+        for idx_v, variante in enumerate(variantes):
+            for cfg in configs:
+                try:
+                    texto_plano, data_ocr = _ocr_texto(variante, cfg)
+                    filas = agrupar_lineas(data_ocr)
 
-        entrada = None
-        salida = None
-        entrada_raw = None
-        salida_raw = None
+                    e, s, er, sr = _extraer_valores_de_texto(texto_plano, filas)
 
-        # 3) buscar entradas/salidas por filas
-        for f in filas:
-            txt_norm = normalizar_texto_label(f["texto"])
+                    if len(texto_plano.strip()) > len(mejor_texto.strip()):
+                        mejor_texto = texto_plano
 
-            if entrada is None and es_linea_entrada(txt_norm) and f["numeros"]:
-                entrada_raw, entrada_str = extraer_monto_desde_tokens(f["numeros"])
-                entrada = normalizar_valor(entrada_str)
+                    if e is not None:
+                        entradas_cand.append((e, er))
+                    if s is not None:
+                        salidas_cand.append((s, sr))
 
-            if salida is None and es_linea_salida(txt_norm) and f["numeros"]:
-                salida_raw, salida_str = extraer_monto_desde_tokens(f["numeros"])
-                salida = normalizar_valor(salida_str)
+                except Exception as ex_ocr:
+                    errores_ocr.append(f"v{idx_v+1}: {ex_ocr}")
+                    continue
 
-        # 4) fallback: salida en línea siguiente
-        if salida is None:
-            for i in range(len(filas) - 1):
-                txt_norm = normalizar_texto_label(filas[i]["texto"])
-                if es_linea_salida(txt_norm):
-                    nums_sig = filas[i + 1]["numeros"]
-                    if nums_sig:
-                        salida_raw, salida_str = extraer_monto_desde_tokens(nums_sig)
-                        salida = normalizar_valor(salida_str)
+                # Salida temprana: alta confianza alcanzada (≥3 votos coincidentes)
+                if entradas_cand and salidas_cand:
+                    top_e = Counter(v for v, _ in entradas_cand).most_common(1)[0][1]
+                    top_s = Counter(v for v, _ in salidas_cand).most_common(1)[0][1]
+                    if top_e >= 3 and top_s >= 3:
                         break
+            else:
+                continue
+            break  # salir del loop externo si el inner hizo break
 
-        # 5) fallback regex plano
-        if entrada is None:
-            m = re.search(r"ENTRADAS?\s*[^\d]*(\d[\d\.\,]*)", texto_plano, re.IGNORECASE)
-            if m:
-                entrada_raw = m.group(1)
-                entrada = normalizar_valor(entrada_raw)
+        # ── 4) Votar: elegir el valor más frecuente entre candidatos ──────
+        def _votar(cand):
+            if not cand:
+                return None, None, 0
+            c = Counter(v for v, _ in cand)
+            valor, votos = c.most_common(1)[0]
+            raw = next(r for v, r in cand if v == valor)
+            return valor, raw, votos
 
-        if salida is None:
-            m = re.search(r"SALIDAS?\s*[^\d]*(\d[\d\.\,]*)", texto_plano, re.IGNORECASE)
-            if m:
-                salida_raw = m.group(1)
-                salida = normalizar_valor(salida_raw)
+        entrada, entrada_raw, votos_e = _votar(entradas_cand)
+        salida,  salida_raw,  votos_s = _votar(salidas_cand)
 
-        # 6) validar
+        votos_min = min(votos_e or 0, votos_s or 0)
+        confianza = "alta" if votos_min >= 3 else "media" if votos_min >= 2 else "baja"
+
+        print(f"[OCR] Resultado: entrada={entrada}({votos_e}v) salida={salida}({votos_s}v) confianza={confianza}")
+
+        # ── 5) Validar resultados ─────────────────────────────────────────
         if entrada is None or salida is None:
-            return JsonResponse(
-                {"success": False, "error": "No se encontraron ENTRADAS / SALIDAS", "debug": texto_plano},
-                status=400,
-            )
+            faltantes = []
+            if entrada is None: faltantes.append("ENTRADAS")
+            if salida  is None: faltantes.append("SALIDAS")
+            lineas_debug = [l.strip() for l in mejor_texto.splitlines() if l.strip()][:5]
+            debug_visible = " | ".join(lineas_debug) if lineas_debug else "(sin texto)"
+            return JsonResponse({
+                "success":     False,
+                "error":       f"No se pudieron leer: {', '.join(faltantes)}.",
+                "debug_texto": debug_visible,
+                "debug_full":  mejor_texto,
+                "errores_ocr": errores_ocr,
+            }, status=400)
 
         total = entrada - salida
 
-        return JsonResponse(
-            {
-                "success": True,
-                "entrada": entrada,
-                "salida": salida,
-                "total": total,
-                "entrada_raw": entrada_raw,
-                "salida_raw": salida_raw,
-                "mensaje": "OCR procesado correctamente",
-            }
-        )
+        return JsonResponse({
+            "success":     True,
+            "entrada":     entrada,
+            "salida":      salida,
+            "total":       total,
+            "entrada_raw": entrada_raw,
+            "salida_raw":  salida_raw,
+            "confianza":   confianza,
+            "votos":       {"entrada": votos_e, "salida": votos_s},
+            "mensaje":     f"Lectura procesada ({confianza} confianza, {votos_e}/{votos_s} votos)",
+        })
 
     except Exception as e:
-        print("Error OCR:", e)
+        import traceback
+        traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
-def agrupar_lineas(ocr_data):
+def ocr_debug(request):
+    """
+    Endpoint de diagnóstico: recibe una imagen y devuelve las 3 variantes
+    preprocesadas como base64 para ver exactamente qué ve Tesseract.
+    URL: /ocr/debug/  (solo accesible para admin)
+    """
+    if not request.user.is_authenticated or request.user.role != "admin":
+        return JsonResponse({"error": "No autorizado"}, status=403)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+
+    try:
+        if "imagen" in request.FILES:
+            imagen = Image.open(request.FILES["imagen"])
+        else:
+            data = json.loads(request.body.decode("utf-8"))
+            b64 = data.get("image", "")
+            if "," in b64:
+                b64 = b64.split(",", 1)[1]
+            imagen = Image.open(io.BytesIO(base64.b64decode(b64)))
+
+        variantes = _preprocesar_imagen(imagen)
+        resultado = []
+        configs = ["--oem 3 --psm 6", "--oem 3 --psm 4"]
+
+        for i, v in enumerate(variantes):
+            buf = io.BytesIO()
+            v.save(buf, format="PNG")
+            img_b64 = base64.b64encode(buf.getvalue()).decode()
+
+            # Correr OCR en esta variante
+            texto_v = ""
+            for cfg in configs:
+                try:
+                    data_ocr = pytesseract.image_to_data(v, lang="eng", config=cfg, output_type=Output.DICT)
+                    texto_v = " ".join(t for t in data_ocr["text"] if t.strip())
+                    if texto_v:
+                        break
+                except Exception:
+                    pass
+
+            resultado.append({
+                "variante": i + 1,
+                "imagen_base64": f"data:image/png;base64,{img_b64}",
+                "ocr_texto": texto_v,
+                "size": f"{v.size[0]}x{v.size[1]}",
+            })
+
+        return JsonResponse({"variantes": resultado})
+    except Exception as e:
+        import traceback
+        return JsonResponse({"error": str(e), "trace": traceback.format_exc()}, status=500)
+
+
+def agrupar_lineas(ocr_data, min_conf=25):
+    """
+    Agrupa palabras en líneas. min_conf descarta palabras con confianza baja
+    (ruido OCR: caracteres fantasma, artefactos de compresión).
+    """
     filas = {}
     n = len(ocr_data["text"])
 
@@ -2524,6 +2947,13 @@ def agrupar_lineas(ocr_data):
         txt = ocr_data["text"][i]
         if not txt or not txt.strip():
             continue
+
+        # Filtrar palabras de baja confianza
+        try:
+            if int(ocr_data["conf"][i]) < min_conf:
+                continue
+        except (ValueError, TypeError, IndexError, KeyError):
+            pass  # si no hay conf, incluir igualmente
 
         key = (ocr_data["block_num"][i], ocr_data["par_num"][i], ocr_data["line_num"][i])
         top = ocr_data["top"][i]
@@ -2561,17 +2991,32 @@ def es_linea_entrada(txt):
 
 
 def es_linea_salida(txt):
-    patrones = ["SALIDA", "SALIDAS", "SLIDA", "SALID", "SALD", "SALDA", "ALIDAS", "IDAS"]
+    # Incluye variantes por error OCR: SAUDAS (L→U), SAIDAS, SALUDA, etc.
+    patrones = [
+        "SALIDA", "SALIDAS", "SLIDA", "SALID", "SALD", "SALDA",
+        "ALIDAS", "IDAS", "SAUDAS", "SAUDA", "SAIDA", "SAIIDAS",
+        "SAUIDAS", "SLIDAS", "SAIIDA",
+    ]
     return any(p in txt for p in patrones)
 
 
 def extraer_monto_desde_tokens(tokens):
     raw = " ".join(tokens)
-    solo_digitos = re.sub(r"[^\d]", "", raw)
+    # Buscar el patrón de número chileno: $197.000 o 197.000 o 197000
+    # Primero intentar con formato de puntos (separador de miles chileno)
+    m = re.search(r'[\$S]?\s*(\d{1,3}(?:\.\d{3})+)', raw)
+    if m:
+        solo_digitos = re.sub(r"[^\d]", "", m.group(1))
+        return m.group(1), solo_digitos
 
-    if len(solo_digitos) >= 5:
-        if len(solo_digitos) > 6:
-            solo_digitos = solo_digitos[:6]
+    # Si no hay puntos, buscar número de 4+ dígitos
+    m2 = re.search(r'(\d{4,})', raw)
+    if m2:
+        return m2.group(1), m2.group(1)
+
+    # Fallback: quitar todo lo que no sea dígito
+    solo_digitos = re.sub(r"[^\d]", "", raw)
+    if len(solo_digitos) >= 4:
         return raw, solo_digitos
 
     candidato = seleccionar_numero_correcto(tokens)
@@ -2587,12 +3032,46 @@ def seleccionar_numero_correcto(nums):
 def normalizar_valor(raw):
     if raw is None:
         return None
-    s = re.sub(r"[^\d]", "", str(raw))
+    s = str(raw).strip()
+
+    # Limpiar símbolo peso ($, S, y dígitos que son $ mal leído: 5, 3, 6, 2)
+    s = re.sub(r"^[\$sS]\s*", "", s).strip()
+    # A veces el OCR lee $ como un dígito (5, 3, 6, 2) — detectarlo por contexto:
+    # Si el número empieza con esos dígitos Y tiene 7+ dígitos → el primero es falso
+    if re.match(r"^[23456]\d{6,}$", s):
+        s = s[1:]
+
+    # Formato chileno: 197.000 o 197,000 → separador de miles
+    # Detectar patrón NNN.NNN o NNN,NNN (grupos exactos de 3)
+    if re.match(r"^\d{1,3}([.,]\d{3})+$", s):
+        s = re.sub(r"[.,]", "", s)
+    else:
+        s = re.sub(r"[^\d]", "", s)
+
     if not s:
         return None
-    if s.startswith("5") and len(s) >= 6:
+
+    # Corregir "5" inicial = "$" mal leído por OCR
+    if s.startswith("5") and len(s) >= 6 and not s.startswith("50"):
         s = s[1:]
-    return int(s)
+
+    # Corrección de último dígito erróneo: si termina en múltiplo de 10
+    # con variación de ±6 (ej: 197006 → probablemente 197000)
+    # Solo aplica si el número tiene 6+ dígitos
+    try:
+        v = int(s)
+        if len(s) >= 6:
+            resto = v % 10
+            if resto in (1, 2, 6, 7, 8, 9):
+                # Último dígito sospechoso — redondear a decena más cercana
+                # 197006 → 197010? No, redondear a 100 más cercano
+                v_redondeado = round(v / 100) * 100
+                # Solo aplicar si la diferencia es pequeña (< 20)
+                if abs(v - v_redondeado) <= 10:
+                    return v_redondeado
+        return v
+    except ValueError:
+        return None
 
 
 @login_required
@@ -2661,7 +3140,7 @@ def tablas_view(request):
     total_total = lecturas.aggregate(Sum("total"))["total__sum"] or 0
 
     from django.core.paginator import Paginator
-    paginator = Paginator(lecturas, 50)
+    paginator = Paginator(lecturas, 15)
     lecturas_page = paginator.get_page(request.GET.get("page", 1))
 
     context = {
@@ -2672,7 +3151,7 @@ def tablas_view(request):
         "total_total": total_total,
         "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
         "zonas": Zona.objects.filter(is_active=True).order_by("sucursal", "orden", "nombre"),
-        "maquinas": Maquina.objects.all(),
+        "maquinas": Maquina.objects.annotate(estado_ord=_estado_ord()).order_by("estado_ord", "numero_maquina"),
         "usuarios": Usuario.objects.filter(role="usuario"),
     }
 
@@ -2831,7 +3310,7 @@ def sucursales_list(request):
         sucursales = sucursales.filter(nombre__icontains=query)
 
     from django.core.paginator import Paginator
-    paginator = Paginator(sucursales, 25)
+    paginator = Paginator(sucursales, 15)
     sucursales = paginator.get_page(request.GET.get("page", 1))
     return render(request, "sucursales/list.html", {
         "sucursales":   sucursales,
@@ -2847,10 +3326,10 @@ def sucursal_create(request):
     if request.method == "POST":
         form = SucursalForm(request.POST)
         if form.is_valid():
-            form.save()
-            if "guardar_otro" in request.POST:
-                messages.success(request, "Sucursal guardada. Puede agregar otra.")
-                return redirect("control:sucursal_create")
+            sucursal = form.save()
+            if "guardar_zona" in request.POST:
+                messages.success(request, f"Sucursal «{sucursal.nombre}» creada. Ahora agrega sus zonas.")
+                return redirect(f"{reverse_lazy('control:zona_create')}?sucursal_id={sucursal.pk}")
             messages.success(request, "Sucursal creada exitosamente.")
             return redirect("control:sucursales_list")
     else:
@@ -2913,7 +3392,7 @@ def zonas_list(request):
         zonas = zonas.filter(sucursal_id=sucursal_id)
 
     from django.core.paginator import Paginator
-    paginator = Paginator(zonas, 25)
+    paginator = Paginator(zonas, 15)
     zonas = paginator.get_page(request.GET.get("page", 1))
     return render(request, "zonas/list.html", {
         "zonas":        zonas,
@@ -2927,19 +3406,38 @@ def zonas_list(request):
 @login_required
 @role_required(*ROLES_CONFIG_EDIT)
 def zona_create(request):
+    sucursal_id = request.GET.get("sucursal_id") or request.POST.get("_sucursal_id")
     if request.method == "POST":
         form = ZonaForm(request.POST)
         if form.is_valid():
-            form.save()
+            zona = form.save()
+            suc_id = zona.sucursal_id
+            if "guardar_maquinas" in request.POST:
+                # Primera zona de esa sucursal (orden de creación)
+                primera_zona = Zona.objects.filter(
+                    sucursal_id=suc_id, is_active=True
+                ).order_by("pk").first()
+                z_id = primera_zona.pk if primera_zona else zona.pk
+                messages.success(request, "Zona guardada. Ahora agrega las máquinas.")
+                return redirect(
+                    f"{reverse_lazy('control:maquina_create')}?sucursal_id={suc_id}&zona_id={z_id}"
+                )
             if "guardar_otro" in request.POST:
                 messages.success(request, "Zona guardada. Puede agregar otra.")
-                return redirect("control:zona_create")
+                return redirect(
+                    f"{reverse_lazy('control:zona_create')}?sucursal_id={suc_id}"
+                )
             messages.success(request, "Zona creada exitosamente.")
             return redirect("control:zonas_list")
     else:
-        form = ZonaForm()
+        initial = {"sucursal": sucursal_id} if sucursal_id else {}
+        form = ZonaForm(initial=initial)
 
-    return render(request, "zonas/form.html", {"form": form, "title": "Crear Zona"})
+    return render(request, "zonas/form.html", {
+        "form": form,
+        "title": "Crear Zona",
+        "sucursal_id": sucursal_id,
+    })
 
 
 @login_required
@@ -2983,9 +3481,10 @@ def zona_delete(request, pk):
 def maquinas_list(request):
     sucursal_id = request.GET.get("sucursal")
     zona_id     = request.GET.get("zona")
+    estado      = request.GET.get("estado", "Mantenimiento")
     role        = request.user.role
 
-    maquinas      = Maquina.objects.filter(sucursal__is_active=True, zona__is_active=True).select_related("sucursal", "zona")
+    maquinas      = Maquina.objects.filter(sucursal__is_active=True, zona__is_active=True).select_related("sucursal", "zona").annotate(estado_ord=_estado_ord()).order_by("estado_ord", "sucursal__nombre", "zona__orden", "numero_maquina")
     sucursales_qs = Sucursal.objects.filter(is_active=True)
 
     if role in ('supervisor', 'encargado'):
@@ -2997,37 +3496,55 @@ def maquinas_list(request):
         maquinas = maquinas.filter(sucursal_id=sucursal_id)
     if zona_id:
         maquinas = maquinas.filter(zona_id=zona_id)
+    if estado:
+        maquinas = maquinas.filter(estado=estado)
 
     from django.core.paginator import Paginator
-    paginator = Paginator(maquinas.order_by("sucursal__nombre", "zona__nombre", "numero_maquina"), 25)
+    paginator = Paginator(maquinas.order_by("sucursal__nombre", "zona__nombre", "numero_maquina"), 15)
     maquinas = paginator.get_page(request.GET.get("page", 1))
     return render(request, "maquinas/list.html", {
-        "maquinas":     maquinas,
-        "page_obj":     maquinas,
-        "sucursales":   sucursales_qs,
-        "zonas":        Zona.objects.filter(is_active=True, sucursal__in=sucursales_qs),
-        "sucursal_id":  sucursal_id,
-        "zona_id":      zona_id,
-        "puede_editar": role in ('admin', 'tecnico'),
+        "maquinas":         maquinas,
+        "page_obj":         maquinas,
+        "sucursales":       sucursales_qs,
+        "zonas":            Zona.objects.filter(is_active=True, sucursal__in=sucursales_qs),
+        "sucursal_id":      sucursal_id,
+        "zona_id":          zona_id,
+        "estado_filtro":    estado,
+        "estado_choices":   Maquina.ESTADO_CHOICES,
+        "puede_editar":     role in ('admin', 'tecnico'),
     })
 
 
 @login_required
 @role_required(*ROLES_CONFIG_EDIT)
 def maquina_create(request):
+    sucursal_id = request.GET.get("sucursal_id") or request.POST.get("_sucursal_id")
+    zona_id     = request.GET.get("zona_id")     or request.POST.get("_zona_id")
     if request.method == "POST":
         form = MaquinaForm(request.POST)
         if form.is_valid():
-            form.save()
+            maquina = form.save()
             if "guardar_otro" in request.POST:
                 messages.success(request, "Máquina guardada. Puede agregar otra.")
-                return redirect("control:maquina_create")
-            messages.success(request, "Máquina creada exitosamente.")
+                return redirect(
+                    f"{reverse_lazy('control:maquina_create')}?sucursal_id={maquina.sucursal_id}&zona_id={maquina.zona_id}"
+                )
+            messages.success(request, "Máquinas creadas exitosamente.")
             return redirect("control:maquinas_list")
     else:
-        form = MaquinaForm()
+        initial = {}
+        if sucursal_id:
+            initial["sucursal"] = sucursal_id
+        if zona_id:
+            initial["zona"] = zona_id
+        form = MaquinaForm(initial=initial)
 
-    return render(request, "maquinas/form.html", {"form": form, "title": "Crear Máquina"})
+    return render(request, "maquinas/form.html", {
+        "form": form,
+        "title": "Crear Máquina",
+        "preselect_sucursal": sucursal_id,
+        "preselect_zona": zona_id,
+    })
 
 
 @login_required
@@ -3088,7 +3605,7 @@ def maquina_update_estado(request, pk):
 def usuarios_list(request):
     usuarios = Usuario.objects.all().order_by("username").prefetch_related("sucursales")
     from django.core.paginator import Paginator
-    paginator = Paginator(usuarios, 25)
+    paginator = Paginator(usuarios, 15)
     usuarios = paginator.get_page(request.GET.get("page", 1))
     return render(request, "usuarios/list.html", {"usuarios": usuarios, "page_obj": usuarios})
 
@@ -3430,11 +3947,16 @@ def cierre_turno_list(request):
 
     qs = qs.order_by("-fecha", "-id")
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, 15)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+
     return render(
         request,
         "cierre_turno/list.html",
         {
-            "cierres": qs,
+            "cierres": page_obj,
+            "page_obj": page_obj,
             "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
         },
     )
@@ -3501,11 +4023,16 @@ def cuadratura_zona_list(request):
 
     qs = qs.order_by("-turno__fecha", "-id")
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, 15)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+
     return render(
         request,
         "cuadratura_zona/list.html",
         {
-            "cuadraturas": qs,
+            "cuadraturas": page_obj,
+            "page_obj": page_obj,
             "sucursales": sucursales,
             "zonas": zonas,
             "sucursal_activa_id": sucursal_activa_id,
@@ -3847,6 +4374,8 @@ def generar_control(request, turno_id):
         - resumen_caja["descuadre"]
     )
 
+    volver_a = request.GET.get("from", "list")
+
     return render(request, "control/control_generado.html", {
         "turno":            turno,
         "lecturas":         lecturas,
@@ -3856,6 +4385,7 @@ def generar_control(request, turno_id):
         "resumen_servidor":  resumen_servidor,
         "resumen_juego":     resumen_juego,
         "resumen_caja":      resumen_caja,
+        "volver_a":          volver_a,
     })
 
 @login_required
@@ -3973,7 +4503,8 @@ def guardar_control(request, turno_id):
     control.save(update_fields=["total_general"])
 
     messages.success(request, "Control guardado correctamente.")
-    return redirect("control:controles_detail", pk=control.pk)
+    volver_a = request.POST.get("from", "list")
+    return redirect(f"{reverse('control:controles_detail', args=[control.pk])}?from={volver_a}")
 
 
 @login_required
@@ -4065,6 +4596,7 @@ def lectura_edit_from_control(request, linea_pk, control_pk):
         form = _Form(request.POST, instance=lectura, turno=lectura.turno)
         if form.is_valid():
             form.save()
+            lectura.refresh_from_db()  # obtener campos recalculados (entrada_dia, salida_dia, total)
             # Sync control line
             linea.entrada_historica = int(lectura.entrada or 0)
             linea.salida_historica  = int(lectura.salida or 0)
@@ -4105,14 +4637,9 @@ def controles_list(request):
         qs = qs.filter(fecha_trabajo__gte=fecha_desde)
     if fecha_hasta:
         qs = qs.filter(fecha_trabajo__lte=fecha_hasta)
-    if request.user.role == 'supervisor':
-        sucursales_qs = request.user.sucursales.filter(is_active=True).order_by("nombre")
-        qs = qs.filter(sucursal__in=sucursales_qs)
-    else:
-        sucursales_qs = Sucursal.objects.filter(is_active=True).order_by("nombre")
 
     from django.core.paginator import Paginator
-    paginator = Paginator(qs, 25)
+    paginator = Paginator(qs, 15)
     controles_page = paginator.get_page(request.GET.get("page", 1))
     return render(request, "controles/list.html", {
         "controles": controles_page,
@@ -4123,6 +4650,7 @@ def controles_list(request):
 
 @login_required
 def controles_detail(request, pk):
+    from collections import defaultdict
     control = (
         ControlLecturas.objects
         .select_related("sucursal", "turno", "creado_por")
@@ -4134,29 +4662,110 @@ def controles_detail(request, pk):
     total_entrada_parcial = sum(l.entrada_parcial or 0 for l in lineas)
     total_salida_parcial  = sum(l.salida_parcial  or 0 for l in lineas)
 
-    # Agrupar por zona para mostrar tabs
-    zonas_dict = {}
-    for linea in lineas:
-        zona_nombre = linea.zona.nombre if linea.zona else "Sin Zona"
-        zona_id     = linea.zona.id     if linea.zona else 0
-        if zona_id not in zonas_dict:
-            zonas_dict[zona_id] = {
-                "zona_nombre": zona_nombre,
-                "zona_id": zona_id,
-                "lineas": [],
-                "total": 0,
-            }
-        zonas_dict[zona_id]["lineas"].append(linea)
-        zonas_dict[zona_id]["total"] += linea.total or 0
+    # Resumen por servidor y juego
+    serv_map  = defaultdict(lambda: {"cant": 0, "entrada": 0, "salida": 0, "total": 0})
+    juego_map = defaultdict(lambda: {"cant": 0, "entrada": 0, "salida": 0, "total": 0})
+    for l in lineas:
+        srv = l.servidor or "—"
+        jue = l.juego    or "—"
+        for m, key in ((serv_map, srv), (juego_map, jue)):
+            m[key]["cant"]    += 1
+            m[key]["entrada"] += l.entrada_parcial or 0
+            m[key]["salida"]  += l.salida_parcial  or 0
+            m[key]["total"]   += l.total           or 0
 
-    zonas_agrupadas = list(zonas_dict.values())
+    def add_rtp(d):
+        result = []
+        for name, v in sorted(d.items()):
+            rtp = round(v["salida"] / v["entrada"] * 100, 1) if v["entrada"] > 0 else 0
+            result.append({"nombre": name, "rtp": rtp, **v})
+        return result
+
+    resumen_servidor = add_rtp(serv_map)
+    resumen_juego    = add_rtp(juego_map)
+
+    # Resumen caja desde el turno asociado
+    movimientos = {}
+    caja_prestamos = caja_retiros = caja_redbank = 0
+    billetes_malos = descuadre_total = 0
+    if control.turno_id:
+        try:
+            for mov in control.turno.cierre.movimientos.all():
+                movimientos[mov.tipo] = movimientos.get(mov.tipo, 0) + mov.monto
+        except Exception:
+            pass
+        asig = AsignacionTurnoZona.objects.filter(turno_id=control.turno_id)
+        caja_prestamos = asig.aggregate(s=Sum("prestamo"))["s"] or 0
+        caja_retiros   = asig.aggregate(s=Sum("retiros"))["s"]  or 0
+        caja_redbank   = asig.aggregate(s=Sum("banano"))["s"]   or 0
+        billetes_malos = CuadraturaCajaDiaria.objects.filter(turno_id=control.turno_id).aggregate(s=Sum("ef_billetes_malos"))["s"] or 0
+        descuadre_total = CuadraturaCajaDiaria.objects.filter(turno_id=control.turno_id).aggregate(s=Sum("descuadre_dia"))["s"] or 0
+
+    resumen_caja = {
+        "numeral":        control.total_general,
+        "prestamos":      caja_prestamos,
+        "retiros":        caja_retiros,
+        "redbank":        caja_redbank,
+        "transferencias": movimientos.get("TRANSFER", 0),
+        "sueldo_extra":   movimientos.get("SUELDO_B", 0),
+        "sorteos":        movimientos.get("SORTEOS", 0),
+        "gastos":         movimientos.get("GASTOS", 0),
+        "regalos":        movimientos.get("REGALOS", 0),
+        "jugados":        movimientos.get("JUGADOS", 0),
+        "billetes_malos": billetes_malos,
+        "descuadre":      descuadre_total,
+    }
+    resumen_caja["total"] = (
+        resumen_caja["numeral"]
+        + resumen_caja["prestamos"]
+        - resumen_caja["retiros"]
+        - resumen_caja["redbank"]
+        - resumen_caja["transferencias"]
+        - resumen_caja["sueldo_extra"]
+        - resumen_caja["sorteos"]
+        - resumen_caja["gastos"]
+        - resumen_caja["regalos"]
+        - resumen_caja["jugados"]
+        - resumen_caja["billetes_malos"]
+        - resumen_caja["descuadre"]
+    )
+
+    # Navegación anterior / siguiente dentro del mismo local
+    _base = ControlLecturas.objects.filter(sucursal=control.sucursal).exclude(pk=control.pk)
+    anterior = (
+        _base
+        .filter(
+            Q(fecha_trabajo__lt=control.fecha_trabajo) |
+            Q(fecha_trabajo=control.fecha_trabajo, id__lt=control.pk)
+        )
+        .order_by("-fecha_trabajo", "-id")
+        .only("id", "fecha_trabajo")
+        .first()
+    )
+    siguiente = (
+        _base
+        .filter(
+            Q(fecha_trabajo__gt=control.fecha_trabajo) |
+            Q(fecha_trabajo=control.fecha_trabajo, id__gt=control.pk)
+        )
+        .order_by("fecha_trabajo", "id")
+        .only("id", "fecha_trabajo")
+        .first()
+    )
+
+    volver_a = request.GET.get("from", "list")  # "list" | "dashboard"
 
     return render(request, "controles/detail.html", {
-        "control": control,
-        "lineas": lineas,
-        "zonas_agrupadas": zonas_agrupadas,
+        "control":               control,
+        "lineas":                lineas,
         "total_entrada_parcial": total_entrada_parcial,
         "total_salida_parcial":  total_salida_parcial,
+        "resumen_servidor":      resumen_servidor,
+        "resumen_juego":         resumen_juego,
+        "resumen_caja":          resumen_caja,
+        "anterior":              anterior,
+        "siguiente":             siguiente,
+        "volver_a":              volver_a,
     })
 
 @login_required
@@ -4165,6 +4774,74 @@ def turno_asistente_redirect(request):
     if turno:
         return redirect("control:cuadratura_zona", turno_id=turno.id)
     return redirect("control:turno")
+
+# ============================================
+# REGISTRO DE ACTIVIDAD — Audit log
+# ============================================
+
+@login_required
+@role_required('admin', 'gerente')
+def movimientos_list(request):
+    from django.core.paginator import Paginator
+    from .models import RegistroActividad
+
+    qs = RegistroActividad.objects.select_related('usuario', 'sucursal').order_by('-fecha_hora')
+
+    # ── Filtros ────────────────────────────────────────────────
+    tipo_fil        = request.GET.get('tipo', '')
+    usuario_id      = request.GET.get('usuario', '')
+    sucursal_id     = request.GET.get('sucursal', '')
+    fecha_desde     = request.GET.get('fecha_desde', '')
+    fecha_hasta     = request.GET.get('fecha_hasta', '')
+    modulo_fil      = request.GET.get('modulo', '')
+    buscar          = request.GET.get('buscar', '')
+
+    if tipo_fil:
+        qs = qs.filter(tipo=tipo_fil)
+    if usuario_id:
+        qs = qs.filter(usuario_id=usuario_id)
+    if sucursal_id:
+        qs = qs.filter(sucursal_id=sucursal_id)
+    if fecha_desde:
+        qs = qs.filter(fecha_hora__date__gte=fecha_desde)
+    if fecha_hasta:
+        qs = qs.filter(fecha_hora__date__lte=fecha_hasta)
+    if modulo_fil:
+        qs = qs.filter(modulo=modulo_fil)
+    if buscar:
+        qs = qs.filter(
+            Q(nombre_usuario__icontains=buscar) |
+            Q(objeto_str__icontains=buscar)     |
+            Q(descripcion__icontains=buscar)
+        )
+
+    paginator = Paginator(qs, 15)
+    page_obj  = paginator.get_page(request.GET.get('page', 1))
+
+    modulos_disponibles = (
+        RegistroActividad.objects
+        .values_list('modulo', flat=True)
+        .distinct()
+        .order_by('modulo')
+    )
+
+    return render(request, 'movimientos/list.html', {
+        'page_obj':   page_obj,
+        'tipos':      RegistroActividad.TIPO_CHOICES,
+        'usuarios':   Usuario.objects.filter(is_active=True).order_by('nombre'),
+        'sucursales': Sucursal.objects.filter(is_active=True).order_by('nombre'),
+        'modulos':    modulos_disponibles,
+        'filtros': {
+            'tipo':        tipo_fil,
+            'usuario':     usuario_id,
+            'sucursal':    sucursal_id,
+            'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta,
+            'modulo':      modulo_fil,
+            'buscar':      buscar,
+        },
+    })
+
 
 # ============================================
 # SESIONES ADMIN
@@ -4195,7 +4872,7 @@ def sesiones_admin(request):
         qs = qs.filter(hora_cierre__isnull=False)
 
     from django.core.paginator import Paginator
-    paginator = Paginator(qs, 50)
+    paginator = Paginator(qs, 15)
     page = request.GET.get("page", 1)
     sesiones = paginator.get_page(page)
 

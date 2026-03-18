@@ -68,15 +68,16 @@
             <div class="mb-4"></div>
           {% endif %}
 
-          <div class="d-flex gap-2">
-            <button type="submit" name="guardar" class="btn btn-primary">
-              <i class="bi bi-save"></i> Guardar
-            </button>
-
-            <button type="submit" name="guardar_otro" class="btn btn-success">
-              <i class="bi bi-plus-circle"></i> Guardar y agregar otra
-            </button>
-
+          <div class="d-flex gap-2 flex-wrap">
+            {% if title == "Crear Sucursal" %}
+              <button type="submit" name="guardar_zona" class="btn btn-primary">
+                <i class="bi bi-geo-alt"></i> Guardar y agregar zona
+              </button>
+            {% else %}
+              <button type="submit" name="guardar" class="btn btn-primary">
+                <i class="bi bi-save"></i> Guardar
+              </button>
+            {% endif %}
             <a href="{% url 'control:sucursales_list' %}" class="btn btn-secondary">
               Cancelar
             </a>

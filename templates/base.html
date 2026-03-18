@@ -270,10 +270,65 @@
 
         .alert { border-radius: 8px; font-size: 0.875rem; }
 
+        /* ── RESPONSIVE MÓVIL / TABLET ─────────────────────────────────── */
         @media (max-width: 768px) {
-            .sidebar { width: 100%; position: relative; }
-            .main-content { margin-left: 0; }
+            /* Sidebar oculto por defecto, desliza desde la izquierda */
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+                z-index: 1050;
+                width: 260px;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            /* Overlay oscuro detrás del sidebar */
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.55);
+                z-index: 1040;
+            }
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            /* Contenido ocupa todo el ancho */
+            .main-content {
+                margin-left: 0;
+            }
+
+            /* Top bar con botón hamburguesa */
+            .top-bar {
+                padding: 0.65rem 1rem;
+            }
+            .hamburger-btn {
+                display: flex !important;
+            }
+
+            .content-area {
+                padding: 1rem;
+            }
         }
+
+        /* Desktop: overlay y hamburger ocultos */
+        .sidebar-overlay { display: none; }
+        .hamburger-btn {
+            display: none;
+            align-items: center; justify-content: center;
+            width: 34px; height: 34px;
+            border: 1px solid #e6e3de;
+            border-radius: 7px;
+            background: #fff;
+            cursor: pointer;
+            color: #374151;
+            font-size: 1rem;
+            flex-shrink: 0;
+            transition: background .15s;
+        }
+        .hamburger-btn:hover { background: #f9fafb; }
     </style>
 
     {% block extra_css %}{% endblock %}
@@ -283,7 +338,10 @@
 
 {% if user.is_authenticated %}
 
-    <aside class="sidebar">
+    <!-- Overlay para cerrar sidebar en móvil -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <aside class="sidebar" id="sidebar">
 
         <div class="sidebar-brand">
             <a href="{% url 'control:dashboard' %}" class="brand-logo">
@@ -336,6 +394,9 @@
 
     <div class="main-content">
         <div class="top-bar">
+            <button class="hamburger-btn" onclick="openSidebar()" aria-label="Menú">
+                <i class="bi bi-list"></i>
+            </button>
             <div class="top-bar-icon"></div>
             <span class="top-bar-title">{% block page_title %}{% endblock %}</span>
         </div>
@@ -401,6 +462,22 @@
     {% block login_content %}{% endblock %}
 {% endif %}
 
+<script>
+function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebarOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+}
+// Cerrar sidebar al navegar a otra página
+document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+    link.addEventListener('click', closeSidebar);
+});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% block extra_js %}{% endblock %}
 </body>

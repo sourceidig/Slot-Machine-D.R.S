@@ -31,7 +31,6 @@ urlpatterns = [
     path("registro/", views.registro_view, name="registro"),
     path("lectura/<int:pk>/editar/", LecturaEditView.as_view(), name="lectura_edit"),
     path("lecturas/<int:pk>/editar-ajax/", views.lectura_edit_ajax, name="lectura_edit_ajax"),
-    path("sesiones/", views.sesiones_admin, name="sesiones_admin"),
 
     # -------------------------
     # Cuadratura Caja Diaria (EXCEL GRANDE - GERENCIA)
@@ -79,6 +78,7 @@ urlpatterns = [
     # AJAX / API
     # -------------------------
     path("ajax/maquinas/<int:zona_id>/", views.get_maquinas_ajax, name="get_maquinas_ajax"),
+    path("ajax/maquina/<int:pk>/referencia/", views.get_referencia_maquina_ajax, name="get_referencia_maquina_ajax"),
     path("ajax/zonas/<int:sucursal_id>/", views.get_zonas_ajax, name="get_zonas_ajax"),
     path("ajax/cuadratura-mensual-data/", views.ajax_cuadratura_mensual_data, name="ajax_cuadratura_mensual_data"),
     path("ajax/zonas/", views.zonas_por_sucursal, name="ajax_zonas"),
@@ -89,6 +89,8 @@ urlpatterns = [
     path("api/ocr/procesar/", views.ocr_lectura, name="ocr_procesar"),
     path("api/ia/capturar/", views.ia_capturar_dummy, name="ia_capturar"),
     path("api/ocr-lectura/", views.ocr_lectura, name="ocr_lectura"),
+    path("sesiones/", views.sesiones_admin, name="sesiones_admin"),
+    path("api/ocr/debug/", views.ocr_debug, name="ocr_debug"),
 
     # -------------------------
     # CRUD Sucursales / Zonas / Máquinas / Usuarios
@@ -136,7 +138,8 @@ urlpatterns = [
     path("turnos/<int:turno_id>/cuadratura-zona/", views.cuadratura_zona_view, name="cuadratura_zona"),
     path("turnos/<int:turno_id>/cuadratura-zona/<int:zona_id>/guardar/", views.guardar_cuadratura_zona, name="guardar_cuadratura_zona"),
 
-    path('seleccionar-sucursal/', views.seleccionar_sucursal_view, name='seleccionar_sucursal')
+    path('seleccionar-sucursal/', views.seleccionar_sucursal_view, name='seleccionar_sucursal'),
+    path('movimientos/', views.movimientos_list, name='movimientos_list'),
 
 
 ]

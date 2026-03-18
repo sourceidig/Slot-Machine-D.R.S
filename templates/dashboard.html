@@ -4,201 +4,410 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<div style="padding:20px 24px;max-width:1400px;">
+<div class="db-wrap">
 
-  <!-- ── CABECERA ─────────────────────────────────────────────────────────── -->
-  <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:28px;">
-    <div style="font-size:28px;font-weight:800;color:#111827;letter-spacing:-1px;">
+  <!-- ── CABECERA ──────────────────────────────────────────────────────────── -->
+  <div class="db-header">
+    <div class="db-fecha">
       {{ hoy|date:"d" }} <span style="color:#9ca3af;">{{ hoy|date:"F Y" }}</span>
     </div>
-    <div style="font-size:13px;color:#9ca3af;font-weight:500;">{{ hoy|date:"l" }}</div>
+    <div class="db-dia">{{ hoy|date:"l" }}</div>
   </div>
 
-  <!-- ── KPIs GLOBALES ────────────────────────────────────────────────────── -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:32px;">
-
-    <div class="kpi">
-      <div class="kpi-l">Entrada Total</div>
-      <div class="kpi-v kpi-green">${{ global_kpis.total_entrada|intcomma }}</div>
-      <div class="kpi-s">acumulado todas las máquinas</div>
+  <!-- ── CUADRO 1: Métricas financieras ──────────────────────────────────── -->
+  <div class="fin-summary">
+    <div class="fin-item">
+      <div class="fin-label">Entrada Total</div>
+      <div class="fin-val fin-green">${{ global_kpis.total_entrada|intcomma }}</div>
+      <div class="fin-sub">acumulado histór.</div>
     </div>
-
-    <div class="kpi">
-      <div class="kpi-l">Salida Total</div>
-      <div class="kpi-v kpi-amber">${{ global_kpis.total_salida|intcomma }}</div>
-      <div class="kpi-s">acumulado todas las máquinas</div>
+    <div class="fin-sep"></div>
+    <div class="fin-item">
+      <div class="fin-label">Salida Total</div>
+      <div class="fin-val fin-amber">${{ global_kpis.total_salida|intcomma }}</div>
+      <div class="fin-sub">acumulado histór.</div>
     </div>
-
-    <div class="kpi">
-      <div class="kpi-l">Neto Total</div>
-      <div class="kpi-v {% if global_kpis.total_neto >= 0 %}kpi-blue{% else %}kpi-red{% endif %}">
+    <div class="fin-sep"></div>
+    <div class="fin-item">
+      <div class="fin-label">Neto Total</div>
+      <div class="fin-val {% if global_kpis.total_neto >= 0 %}fin-blue{% else %}fin-red{% endif %}">
         ${{ global_kpis.total_neto|intcomma }}
       </div>
-      <div class="kpi-s">entrada − salida</div>
+      <div class="fin-sub">entrada − salida</div>
+    </div>
+  </div>
+
+  <!-- ── CUADRO 2: KPIs desplegables ─────────────────────────────────────── -->
+  <div class="kpi-expand-grid">
+
+    <!-- RTP Global -->
+    <div class="kpi-exp">
+      <div class="kpi-exp-header" onclick="toggleKpiExp('rtp')">
+        <div class="kpi-exp-main">
+          <div class="kpi-l">RTP Global</div>
+          <div class="kpi-v kpi-purple">{{ global_kpis.rtp_global }}%</div>
+          <div class="kpi-s">retorno al jugador</div>
+        </div>
+        <div class="kpi-arrow" id="arrow-rtp">▼</div>
+      </div>
+      <div class="kpi-exp-body" id="body-rtp">
+        <table class="kpi-detail-table">
+          <thead><tr><th>Local</th><th>Últ. Turno</th><th>Histórico</th></tr></thead>
+          <tbody>
+            {% for d in detalles_kpi %}
+            <tr>
+              <td>{{ d.sucursal.nombre }}</td>
+              <td class="{% if d.rtp_turno %}{% if d.rtp_turno >= 80 %}td-green{% elif d.rtp_turno >= 60 %}td-amber{% else %}td-red{% endif %}{% endif %}">
+                {% if d.rtp_turno %}{{ d.rtp_turno }}%{% else %}—{% endif %}
+              </td>
+              <td class="{% if d.rtp_hist %}{% if d.rtp_hist >= 80 %}td-green{% elif d.rtp_hist >= 60 %}td-amber{% else %}td-red{% endif %}{% endif %}">
+                {% if d.rtp_hist %}{{ d.rtp_hist }}%{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="td-empty">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="kpi">
-      <div class="kpi-l">RTP Global</div>
-      <div class="kpi-v kpi-purple">{{ global_kpis.rtp_global }}%</div>
-      <div class="kpi-s">retorno al jugador acumulado</div>
+    <!-- Máquinas Malas -->
+    <div class="kpi-exp">
+      <div class="kpi-exp-header" onclick="toggleKpiExp('maq')">
+        <div class="kpi-exp-main">
+          <div class="kpi-l">Máquinas en Mant.</div>
+          <div class="kpi-v kpi-amber">{{ total_maquinas_malas }}</div>
+          <div class="kpi-s">mant. + retiradas</div>
+        </div>
+        <div class="kpi-arrow" id="arrow-maq">▼</div>
+      </div>
+      <div class="kpi-exp-body" id="body-maq">
+        {% if maquinas_malas %}
+        <table class="kpi-detail-table">
+          <thead><tr><th>Máquina</th><th>Juego</th><th>Local</th><th>Zona</th></tr></thead>
+          <tbody>
+            {% for m in maquinas_malas %}
+            <tr>
+              <td><strong>M{{ m.numero_maquina|stringformat:"02d" }}</strong></td>
+              <td>{{ m.nombre_juego }}</td>
+              <td>{{ m.sucursal.nombre }}</td>
+              <td>{{ m.zona.nombre|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="kpi-empty">Sin máquinas en mantenimiento</div>
+        {% endif %}
+      </div>
     </div>
 
-    <div class="kpi">
-      <div class="kpi-l">Retiros / Préstamos</div>
-      <div class="kpi-v kpi-slate">${{ total_retiros|intcomma }}</div>
-      <div class="kpi-s">préstamos: ${{ total_prestamos|intcomma }}</div>
+    <!-- Retiros / Préstamos -->
+    <div class="kpi-exp">
+      <div class="kpi-exp-header" onclick="toggleKpiExp('ret')">
+        <div class="kpi-exp-main">
+          <div class="kpi-l">Retiros / Préstamos</div>
+          <div class="kpi-v kpi-slate">${{ total_retiros|intcomma }}</div>
+          <div class="kpi-s">préstamos: ${{ total_prestamos|intcomma }}</div>
+        </div>
+        <div class="kpi-arrow" id="arrow-ret">▼</div>
+      </div>
+      <div class="kpi-exp-body" id="body-ret">
+        <table class="kpi-detail-table">
+          <thead><tr><th>Local</th><th>Retiros</th><th>Préstamos</th></tr></thead>
+          <tbody>
+            {% for d in detalles_kpi %}
+            <tr>
+              <td>{{ d.sucursal.nombre }}</td>
+              <td>${{ d.retiros|intcomma }}</td>
+              <td>${{ d.prestamos|intcomma }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="td-empty">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Redbank Transferencias -->
+    <div class="kpi-exp">
+      <div class="kpi-exp-header" onclick="toggleKpiExp('rb')">
+        <div class="kpi-exp-main">
+          <div class="kpi-l">Redbank</div>
+          <div class="kpi-v kpi-blue">${{ total_redbank|intcomma }}</div>
+          <div class="kpi-s">transferencias acumuladas</div>
+        </div>
+        <div class="kpi-arrow" id="arrow-rb">▼</div>
+      </div>
+      <div class="kpi-exp-body" id="body-rb">
+        <table class="kpi-detail-table">
+          <thead><tr><th>Local</th><th>Total Redbank</th></tr></thead>
+          <tbody>
+            {% for d in detalles_kpi %}
+            <tr>
+              <td>{{ d.sucursal.nombre }}</td>
+              <td>${{ d.redbank|intcomma }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="td-empty">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div>
 
-  <!-- ── RTP TOP / BOTTOM ─────────────────────────────────────────────────── -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px;">
+  <!-- ── RTP TOP / BOTTOM DE LOCALES ──────────────────────────────────────── -->
+  <div class="section-label" style="margin-bottom:10px;">Ranking RTP por Local</div>
 
-    {% for lista, titulo, color in rtp_tables %}
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-      <div style="padding:12px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:8px;">
-        <div style="width:8px;height:8px;border-radius:50%;background:{{ color }};"></div>
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#6b7280;">{{ titulo }}</span>
+  <div class="rtp-local-wrap">
+    <div class="rtp-local-grid">
+
+      <!-- Columna MEJORES -->
+      <div class="rtp-local-col">
+        <div class="rtp-col-label rtp-green">▲ Mejores</div>
+
+        <div class="rtp-subtitulo" style="color:#6b7280;">Último Turno</div>
+        <table class="rtp-table">
+          <tbody>
+            {% for loc in rtp_por_local.turno_top %}
+            <tr>
+              <td class="td-num">{{ forloop.counter }}</td>
+              <td class="td-local-nombre">{{ loc.sucursal.nombre }}</td>
+              <td class="rtp-val rtp-green">{{ loc.rtp_turno }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="td-empty">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="rtp-subtitulo" style="color:#6b7280;margin-top:12px;">Histórico</div>
+        <table class="rtp-table">
+          <tbody>
+            {% for loc in rtp_por_local.hist_top %}
+            <tr>
+              <td class="td-num">{{ forloop.counter }}</td>
+              <td class="td-local-nombre">{{ loc.sucursal.nombre }}</td>
+              <td class="rtp-val rtp-green">{{ loc.rtp_hist }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="td-empty">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-        <thead>
-          <tr style="background:#fafafa;">
-            <th style="padding:7px 16px;text-align:left;color:#9ca3af;font-weight:600;font-size:11px;">#</th>
-            <th style="padding:7px 8px;text-align:left;color:#9ca3af;font-weight:600;font-size:11px;">Máquina</th>
-            <th style="padding:7px 8px;text-align:left;color:#9ca3af;font-weight:600;font-size:11px;">Local</th>
-            <th style="padding:7px 16px;text-align:right;color:#9ca3af;font-weight:600;font-size:11px;">RTP</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for m in lista %}
-          <tr style="border-top:1px solid #f3f4f6;">
-            <td style="padding:7px 16px;color:#d1d5db;font-weight:700;">{{ forloop.counter }}</td>
-            <td style="padding:7px 8px;">
-              <span style="font-weight:700;color:#111827;">M{{ m.maquina.numero_maquina|stringformat:"02d" }}</span>
-              <span style="color:#9ca3af;margin-left:4px;">{{ m.maquina.nombre_juego }}</span>
-            </td>
-            <td style="padding:7px 8px;color:#6b7280;font-size:12px;">{{ m.maquina.sucursal.nombre }}</td>
-            <td style="padding:7px 16px;text-align:right;font-weight:700;color:{{ color }};">{{ m.rtp }}%</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="4" style="padding:20px;text-align:center;color:#9ca3af;">Sin datos</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% endfor %}
 
+      <div class="rtp-divider"></div>
+
+      <!-- Columna PEORES -->
+      <div class="rtp-local-col">
+        <div class="rtp-col-label rtp-red">▼ Peores</div>
+
+        <div class="rtp-subtitulo" style="color:#6b7280;">Último Turno</div>
+        <table class="rtp-table">
+          <tbody>
+            {% for loc in rtp_por_local.turno_bottom %}
+            <tr>
+              <td class="td-num">{{ forloop.counter }}</td>
+              <td class="td-local-nombre">{{ loc.sucursal.nombre }}</td>
+              <td class="rtp-val rtp-red">{{ loc.rtp_turno }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="td-empty">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="rtp-subtitulo" style="color:#6b7280;margin-top:12px;">Histórico</div>
+        <table class="rtp-table">
+          <tbody>
+            {% for loc in rtp_por_local.hist_bottom %}
+            <tr>
+              <td class="td-num">{{ forloop.counter }}</td>
+              <td class="td-local-nombre">{{ loc.sucursal.nombre }}</td>
+              <td class="rtp-val rtp-red">{{ loc.rtp_hist }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="td-empty">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
   </div>
 
   <!-- ── LOCALES ───────────────────────────────────────────────────────────── -->
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;margin-bottom:12px;">Locales</div>
+  <div class="section-label">Locales</div>
 
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+  <div class="locales-btns">
     {% for item in sucursales_data %}
     <button onclick="toggleLocal('loc-{{ item.sucursal.id }}')"
             id="btn-{{ item.sucursal.id }}"
-            style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:13px;font-weight:600;color:#374151;cursor:pointer;transition:all .15s;" class="local-btn">
-      <span style="width:7px;height:7px;border-radius:50%;background:{% if item.turno_activo %}#22c55e{% else %}#d1d5db{% endif %};{% if item.turno_activo %}animation:blink 1.5s infinite;{% endif %}"></span>
-      {{ item.sucursal.nombre }}
+            class="local-btn">
+      <div class="local-btn-top">
+        <span class="dot {% if item.turno_activo %}dot-on{% endif %}"></span>
+        <span class="local-btn-nombre">{{ item.sucursal.nombre }}</span>
+      </div>
+      {% if item.btn_numeral is not None %}
+      <div class="local-btn-stats">
+        <div class="lbs-col">
+          <div class="lbs-label">Numeral</div>
+          <div class="lbs-val lbs-green">${{ item.btn_numeral|intcomma }}</div>
+        </div>
+        <div class="lbs-sep"></div>
+        <div class="lbs-col">
+          <div class="lbs-label">Ganancia</div>
+          <div class="lbs-val {% if item.btn_ganancia >= 0 %}lbs-blue{% else %}lbs-red{% endif %}">${{ item.btn_ganancia|intcomma }}</div>
+        </div>
+        <div class="lbs-sep"></div>
+        <div class="lbs-col">
+          <div class="lbs-label">RTP</div>
+          <div class="lbs-val lbs-purple">{{ item.btn_rtp }}%</div>
+        </div>
+      </div>
+      {% endif %}
     </button>
     {% endfor %}
   </div>
 
-  <!-- Paneles -->
+  <!-- Paneles de locales -->
   {% for item in sucursales_data %}
-  <div id="loc-{{ item.sucursal.id }}" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:12px;">
+  <div id="loc-{{ item.sucursal.id }}" class="local-panel" style="display:none;">
 
-    <!-- Header -->
-    <div style="padding:16px 20px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
-      <div>
-        <div style="font-size:18px;font-weight:800;color:#111827;letter-spacing:-0.5px;">{{ item.sucursal.nombre }}</div>
-        {% if item.turno_activo %}
-          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-            <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:blink 1.5s infinite;"></span>
-            <span style="font-size:12px;color:#16a34a;font-weight:600;">Turno abierto — {{ item.turno_activo.tipo_turno }}</span>
-            {% if item.turno_activo.usuario %}
-              <span style="font-size:12px;color:#9ca3af;">·</span>
-              <span style="font-size:12px;color:#6b7280;">{{ item.turno_activo.usuario.get_full_name|default:item.turno_activo.usuario.username }}</span>
-            {% endif %}
-          </div>
-        {% else %}
-          <div style="font-size:12px;color:#9ca3af;margin-top:4px;">Sin turno activo</div>
+    <!-- Header del panel -->
+    <div class="panel-header">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div>
+          <div class="panel-nombre">{{ item.sucursal.nombre }}</div>
+          {% if item.turno_activo %}
+            <div class="panel-turno-activo">
+              <span class="dot dot-on" style="width:6px;height:6px;"></span>
+              Turno abierto — {{ item.turno_activo.tipo_turno }}
+              {% if item.turno_activo.usuario %}
+                · {{ item.turno_activo.usuario.get_full_name|default:item.turno_activo.usuario.username }}
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="panel-turno-inactivo">Sin turno activo</div>
+          {% endif %}
+        </div>
+        {% if item.ultimo_control %}
+        <a href="{% url 'control:controles_detail' item.ultimo_control.pk %}?from=dashboard"
+           class="panel-detalle-btn"
+           title="Control {{ item.ultimo_control.fecha_trabajo|date:'d/m/Y' }}">
+          <i class="bi bi-table"></i> Detalle
+        </a>
         {% endif %}
       </div>
 
-      <!-- Hora apertura / cierre -->
-      <div style="display:flex;gap:20px;">
-        <div style="text-align:center;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;">Apertura</div>
+      <div class="panel-horas">
+        <div class="hora-col">
+          <div class="hora-label">Apertura</div>
           {% if item.ultima_sesion %}
-            <div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.5px;">{{ item.ultima_sesion.hora_inicio|date:"H:i" }}</div>
-            <div style="font-size:11px;color:#9ca3af;">{{ item.ultima_sesion.hora_inicio|date:"d/m/Y" }}</div>
+            <div class="hora-val">{{ item.ultima_sesion.hora_inicio|date:"H:i" }}</div>
+            <div class="hora-sub">{{ item.ultima_sesion.hora_inicio|date:"d/m/Y" }}</div>
           {% else %}
-            <div style="font-size:22px;font-weight:800;color:#d1d5db;">—</div>
-            <div style="font-size:11px;color:#d1d5db;">sin sesión</div>
+            <div class="hora-val" style="color:#d1d5db;">—</div>
+            <div class="hora-sub">sin sesión</div>
           {% endif %}
         </div>
-        <div style="text-align:center;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;">Cierre</div>
+        <div class="hora-col">
+          <div class="hora-label">Cierre</div>
           {% if item.turno_activo %}
-            <div style="font-size:22px;font-weight:800;color:#22c55e;letter-spacing:-0.5px;">En curso</div>
-            <div style="font-size:11px;color:#9ca3af;">turno abierto</div>
+            <div class="hora-val" style="color:#22c55e;">En curso</div>
+            <div class="hora-sub">turno abierto</div>
           {% elif item.ultima_sesion and item.ultima_sesion.hora_cierre %}
-            <div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.5px;">{{ item.ultima_sesion.hora_cierre|date:"H:i" }}</div>
-            <div style="font-size:11px;color:#9ca3af;">duración: {{ item.ultima_sesion.duracion }}</div>
+            <div class="hora-val">{{ item.ultima_sesion.hora_cierre|date:"H:i" }}</div>
+            <div class="hora-sub">{{ item.ultima_sesion.duracion }}</div>
           {% else %}
-            <div style="font-size:22px;font-weight:800;color:#d1d5db;">—</div>
+            <div class="hora-val" style="color:#d1d5db;">—</div>
+            <div class="hora-sub"></div>
           {% endif %}
         </div>
       </div>
     </div>
 
     <!-- Body -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid #f3f4f6;">
+    <div class="panel-body">
 
       <!-- Turno actual -->
-      <div style="padding:16px 20px;border-right:1px solid #f3f4f6;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:12px;">Turno actual</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          {% if item.turno_ent %}<div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Entrada</div><div style="font-size:15px;font-weight:700;color:#16a34a;">${{ item.turno_ent|intcomma }}</div></div>{% endif %}
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Salida</div><div style="font-size:15px;font-weight:700;color:#d97706;">${{ item.turno_sal|intcomma }}</div></div>
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Total</div><div style="font-size:15px;font-weight:700;color:#2563eb;">${{ item.turno_tot|intcomma }}</div></div>
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">RTP Día</div><div style="font-size:15px;font-weight:700;color:#7c3aed;">{{ item.rtp_dia }}%</div></div>
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Retiros</div><div style="font-size:15px;font-weight:700;color:#0891b2;">${{ item.retiros_turno|intcomma }}</div></div>
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Préstamos</div><div style="font-size:15px;font-weight:700;color:#ea580c;">${{ item.prestamos_turno|intcomma }}</div></div>
+      <div class="panel-section">
+        <div class="panel-section-title">Turno actual</div>
+        <div class="stats-grid">
+          {% if item.turno_ent %}
+          <div class="stat-card">
+            <div class="stat-label">Entrada</div>
+            <div class="stat-val" style="color:#16a34a;">${{ item.turno_ent|intcomma }}</div>
+          </div>
+          {% endif %}
+          <div class="stat-card">
+            <div class="stat-label">Salida</div>
+            <div class="stat-val" style="color:#d97706;">${{ item.turno_sal|intcomma }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total</div>
+            <div class="stat-val" style="color:#2563eb;">${{ item.turno_tot|intcomma }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">RTP Día</div>
+            <div class="stat-val" style="color:#7c3aed;">{{ item.rtp_dia }}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Retiros</div>
+            <div class="stat-val" style="color:#0891b2;">${{ item.retiros_turno|intcomma }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Préstamos</div>
+            <div class="stat-val" style="color:#ea580c;">${{ item.prestamos_turno|intcomma }}</div>
+          </div>
         </div>
       </div>
 
       <!-- Acumulado -->
-      <div style="padding:16px 20px;border-right:1px solid #f3f4f6;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:12px;">Acumulado histórico</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Entrada</div><div style="font-size:15px;font-weight:700;color:#16a34a;">${{ item.acum_ent|intcomma }}</div></div>
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Salida</div><div style="font-size:15px;font-weight:700;color:#d97706;">${{ item.acum_sal|intcomma }}</div></div>
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">Total</div><div style="font-size:15px;font-weight:700;color:#2563eb;">${{ item.acum_tot|intcomma }}</div></div>
-          <div style="background:#f9fafb;border-radius:6px;padding:8px 10px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;font-weight:600;margin-bottom:2px;">RTP Acum.</div><div style="font-size:15px;font-weight:700;color:#7c3aed;">{{ item.rtp_acum }}%</div></div>
+      <div class="panel-section">
+        <div class="panel-section-title">Acumulado histórico</div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Entrada</div>
+            <div class="stat-val" style="color:#16a34a;">${{ item.acum_ent|intcomma }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Salida</div>
+            <div class="stat-val" style="color:#d97706;">${{ item.acum_sal|intcomma }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total</div>
+            <div class="stat-val" style="color:#2563eb;">${{ item.acum_tot|intcomma }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">RTP Acum.</div>
+            <div class="stat-val" style="color:#7c3aed;">{{ item.rtp_acum }}%</div>
+          </div>
         </div>
       </div>
 
       <!-- Máquinas -->
-      <div style="padding:16px 20px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:12px;">
-          Máquinas ({{ item.maquinas|length }})
-        </div>
-        <div style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+      <div class="panel-section panel-section-maq">
+        <div class="panel-section-title">Máquinas ({{ item.maquinas|length }})</div>
+        <div class="maq-list">
           {% for maq in item.maquinas %}
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:6px;background:#f9fafb;">
-            <div style="font-size:12px;">
-              <span style="font-weight:700;color:#111827;">M{{ maq.numero_maquina|stringformat:"02d" }}</span>
-              <span style="color:#6b7280;margin-left:4px;">{{ maq.nombre_juego }}</span>
+          <div class="maq-row">
+            <div class="maq-info">
+              <span class="maq-num">M{{ maq.numero_maquina|stringformat:"02d" }}</span>
+              <span class="maq-name">{{ maq.nombre_juego }}</span>
             </div>
-            <div style="display:flex;gap:4px;align-items:center;">
+            <div class="maq-badges">
               {% if maq.rtp_objetivo %}
-              <span style="font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;background:{% if maq.rtp_objetivo > 80 %}#dcfce7;color:#166534{% elif maq.rtp_objetivo > 50 %}#fef9c3;color:#854d0e{% else %}#fee2e2;color:#991b1b{% endif %};">
+              <span class="badge {% if maq.rtp_objetivo > 80 %}badge-green{% elif maq.rtp_objetivo > 50 %}badge-yellow{% else %}badge-red{% endif %}">
                 {{ maq.rtp_objetivo }}%
               </span>
               {% endif %}
-              <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:{% if maq.estado == 'Operativa' %}#dcfce7;color:#166534{% elif maq.estado == 'Mantenimiento' %}#fef9c3;color:#854d0e{% else %}#fee2e2;color:#991b1b{% endif %};">
+              <span class="badge {% if maq.estado == 'Operativa' %}badge-green{% elif maq.estado == 'Mantenimiento' %}badge-yellow{% else %}badge-red{% endif %}">
                 {{ maq.estado }}
               </span>
             </div>
@@ -214,24 +423,188 @@
 </div>
 
 <style>
-.kpi {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 14px 16px;
-}
-.kpi-l  { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:6px; }
-.kpi-v  { font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1; }
-.kpi-s  { font-size:11px;color:#9ca3af;margin-top:4px; }
-.kpi-green  { color:#16a34a; }
-.kpi-amber  { color:#d97706; }
-.kpi-blue   { color:#2563eb; }
-.kpi-red    { color:#dc2626; }
-.kpi-purple { color:#7c3aed; }
-.kpi-slate  { color:#475569; }
+/* ── Base ─────────────────────────────────────────────────────────────── */
+.db-wrap      { padding:16px 20px; max-width:1400px; }
+.db-header    { display:flex; align-items:baseline; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.db-fecha     { font-size:26px; font-weight:800; color:#111827; letter-spacing:-1px; }
+.db-dia       { font-size:13px; color:#9ca3af; font-weight:500; }
 
-.local-btn:hover { background:#f9fafb !important; border-color:#d1d5db !important; }
-.local-btn.open  { border-color:#3b82f6 !important; background:#eff6ff !important; }
+/* ── Colores KPI ──────────────────────────────────────────────────────── */
+.kpi-l    { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#9ca3af; margin-bottom:4px; }
+.kpi-v    { font-size:20px; font-weight:800; letter-spacing:-0.5px; line-height:1.1; }
+.kpi-s    { font-size:11px; color:#9ca3af; margin-top:4px; }
+.kpi-green  { color:#16a34a; } .kpi-amber { color:#d97706; } .kpi-blue  { color:#2563eb; }
+.kpi-red    { color:#dc2626; } .kpi-purple{ color:#7c3aed; } .kpi-slate { color:#475569; }
+
+/* ── Cuadro 1: Métricas financieras ──────────────────────────────────── */
+.fin-summary { display:flex; align-items:center; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 20px; margin-bottom:12px; flex-wrap:wrap; gap:0; }
+.fin-item    { flex:1; min-width:110px; padding:4px 16px; }
+.fin-item:first-child { padding-left:0; }
+.fin-item:last-child  { padding-right:0; }
+.fin-sep     { width:1px; background:#e5e7eb; align-self:stretch; margin:0 4px; }
+.fin-label   { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#9ca3af; margin-bottom:4px; }
+.fin-val     { font-size:22px; font-weight:800; letter-spacing:-0.5px; line-height:1.1; }
+.fin-sub     { font-size:11px; color:#9ca3af; margin-top:3px; }
+.fin-green   { color:#16a34a; } .fin-amber { color:#d97706; }
+.fin-blue    { color:#2563eb; } .fin-red   { color:#dc2626; }
+
+/* ── Cuadro 2: KPIs desplegables ─────────────────────────────────────── */
+.kpi-expand-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+.kpi-exp         { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+.kpi-exp-header  { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; cursor:pointer; user-select:none; transition:background .12s; }
+.kpi-exp-header:hover { background:#f9fafb; }
+.kpi-exp-header.open  { background:#f0f9ff; border-bottom:1px solid #e0f2fe; }
+.kpi-exp-main    { flex:1; }
+.kpi-arrow       { font-size:12px; color:#9ca3af; margin-left:8px; transition:transform .2s; flex-shrink:0; }
+.kpi-arrow.open  { transform:rotate(180deg); }
+.kpi-exp-body    { display:none; padding:0 14px 12px; }
+.kpi-detail-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+.kpi-detail-table th { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#9ca3af; padding:4px 6px; border-bottom:1px solid #f3f4f6; text-align:left; }
+.kpi-detail-table td { padding:5px 6px; border-top:1px solid #f9fafb; color:#374151; }
+.kpi-detail-table tbody tr:hover td { background:#f9fafb; }
+.td-green { color:#16a34a; font-weight:700; } .td-amber { color:#d97706; font-weight:700; } .td-red { color:#dc2626; font-weight:700; }
+.kpi-empty { padding:12px; text-align:center; color:#9ca3af; font-size:12px; }
+
+/* ── RTP por local ────────────────────────────────────────────────────── */
+.rtp-local-wrap    { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; margin-bottom:12px; }
+.rtp-local-header  { padding:10px 16px; border-bottom:1px solid #f3f4f6; }
+.rtp-local-nombre  { font-size:13px; font-weight:700; color:#111827; }
+.rtp-local-grid    { display:grid; grid-template-columns:1fr 1px 1fr; }
+.rtp-divider       { background:#f3f4f6; }
+.rtp-local-col     { padding:12px 16px; }
+.rtp-col-label     { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#9ca3af; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.rtp-turno-badge   { font-size:10px; font-weight:600; background:#f3f4f6; color:#374151; padding:2px 6px; border-radius:4px; text-transform:none; letter-spacing:0; }
+.rtp-subtitulo     { font-size:10px; font-weight:700; margin-bottom:4px; }
+.rtp-green         { color:#16a34a; }
+.rtp-red           { color:#dc2626; }
+.rtp-val           { text-align:right; font-weight:700; white-space:nowrap; }
+.rtp-table         { width:100%; border-collapse:collapse; font-size:12.5px; }
+.rtp-table td      { padding:5px 8px; border-top:1px solid #f3f4f6; }
+.td-num            { color:#d1d5db; font-weight:700; width:20px; }
+.td-empty          { padding:12px; text-align:center; color:#9ca3af; font-size:11px; }
+.maq-num           { font-weight:700; color:#111827; }
+.maq-name          { color:#9ca3af; margin-left:4px; font-size:11px; }
+.td-local-nombre   { font-weight:600; color:#111827; font-size:12.5px; }
+.card              { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+.card-header       { padding:10px 14px; border-bottom:1px solid #f3f4f6; display:flex; align-items:center; gap:8px; }
+.card-title        { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#6b7280; }
+
+/* ── Locales ──────────────────────────────────────────────────────────── */
+.section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:#9ca3af; margin-bottom:10px; }
+.locales-btns  { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.local-btn {
+  display:flex; flex-direction:column; gap:5px;
+  padding:9px 14px; border-radius:8px;
+  border:1px solid #e5e7eb; background:#fff;
+  font-size:13px; font-weight:600; color:#374151;
+  cursor:pointer; transition:all .15s; text-align:left;
+}
+.local-btn:hover { background:#f9fafb; border-color:#d1d5db; }
+.local-btn.open  { border-color:#3b82f6; background:#eff6ff; }
+.local-btn-top   { display:flex; align-items:center; gap:8px; }
+.local-btn-nombre{ font-size:13px; font-weight:600; color:#111827; }
+.local-btn-stats { display:flex; align-items:center; gap:10px; padding-left:15px; }
+.lbs-col   { display:flex; flex-direction:column; gap:1px; }
+.lbs-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#9ca3af; }
+.lbs-val   { font-size:12px; font-weight:700; white-space:nowrap; }
+.lbs-sep   { width:1px; height:28px; background:#e5e7eb; flex-shrink:0; }
+.lbs-green { color:#16a34a; }
+.lbs-blue  { color:#2563eb; }
+.lbs-red   { color:#dc2626; }
+.lbs-purple{ color:#7c3aed; }
+.panel-detalle-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; border-radius:7px;
+  background:#f1f5f9; border:1px solid #e2e8f0;
+  color:#374151; font-size:12px; font-weight:600;
+  text-decoration:none; transition:background .15s, color .15s;
+  white-space:nowrap;
+}
+.panel-detalle-btn:hover { background:#dbeafe; border-color:#93c5fd; color:#1d4ed8; }
+.dot    { display:inline-block; width:7px; height:7px; border-radius:50%; background:#d1d5db; flex-shrink:0; }
+.dot-on { background:#22c55e; animation:blink 1.5s infinite; }
+
+/* ── Panel local ──────────────────────────────────────────────────────── */
+.local-panel { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; margin-bottom:12px; }
+.panel-header{ padding:14px 18px; border-bottom:1px solid #f3f4f6; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; }
+.panel-nombre{ font-size:17px; font-weight:800; color:#111827; }
+.panel-turno-activo  { display:flex; align-items:center; gap:6px; margin-top:4px; font-size:12px; color:#16a34a; font-weight:600; flex-wrap:wrap; }
+.panel-turno-inactivo{ font-size:12px; color:#9ca3af; margin-top:4px; }
+.panel-horas { display:flex; gap:18px; }
+.hora-col    { text-align:center; }
+.hora-label  { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#9ca3af; font-weight:600; }
+.hora-val    { font-size:20px; font-weight:800; color:#111827; letter-spacing:-0.5px; }
+.hora-sub    { font-size:11px; color:#9ca3af; }
+
+.panel-body  { display:grid; grid-template-columns:1fr 1fr 1fr; }
+.panel-section { padding:14px 16px; border-right:1px solid #f3f4f6; }
+.panel-section:last-child { border-right:none; }
+.panel-section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#9ca3af; margin-bottom:10px; }
+
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.stat-card  { background:#f9fafb; border-radius:6px; padding:7px 9px; }
+.stat-label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#9ca3af; font-weight:600; margin-bottom:2px; }
+.stat-val   { font-size:14px; font-weight:700; }
+
+.maq-list   { display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto; }
+.maq-row    { display:flex; justify-content:space-between; align-items:center; padding:5px 8px; border-radius:6px; background:#f9fafb; }
+.maq-info   { display:flex; align-items:center; gap:4px; min-width:0; }
+.maq-badges { display:flex; gap:4px; flex-shrink:0; }
+.badge        { font-size:11px; font-weight:600; padding:2px 6px; border-radius:4px; white-space:nowrap; }
+.badge-green  { background:#dcfce7; color:#166534; }
+.badge-yellow { background:#fef9c3; color:#854d0e; }
+.badge-red    { background:#fee2e2; color:#991b1b; }
+
+/* ── TABLET (≤900px) ──────────────────────────────────────────────────── */
+@media (max-width:900px) {
+  .kpi-expand-grid { grid-template-columns:repeat(2,1fr); }
+  .panel-body { grid-template-columns:1fr 1fr; }
+  .panel-section:nth-child(2) { border-right:none; }
+  .panel-section-maq { grid-column:span 2; border-top:1px solid #f3f4f6; border-right:none; }
+}
+
+/* ── MÓVIL (≤600px) ───────────────────────────────────────────────────── */
+@media (max-width:600px) {
+  .db-wrap    { padding:10px 12px; }
+  .db-fecha   { font-size:20px; }
+
+  .kpi-expand-grid { grid-template-columns:1fr 1fr; gap:8px; }
+  .fin-summary     { flex-direction:column; gap:10px; }
+  .fin-sep         { width:100%; height:1px; margin:0; }
+  .fin-item        { padding:0 !important; }
+  .fin-val         { font-size:18px; }
+  .kpi-v      { font-size:17px; }
+  .kpi-s      { font-size:10px; }
+
+  .rtp-local-grid { grid-template-columns:1fr; }
+  .rtp-divider    { width:100%; height:1px; }
+  .col-local  { display:none; }
+
+  .local-btn  { padding:7px 10px; font-size:12px; }
+
+  .panel-header { padding:12px 14px; }
+  .panel-nombre { font-size:15px; }
+  .hora-val     { font-size:17px; }
+  .panel-horas  { gap:14px; }
+
+  .panel-body   { grid-template-columns:1fr; }
+  .panel-section { border-right:none; border-top:1px solid #f3f4f6; }
+  .panel-section:first-child { border-top:none; }
+  .panel-section-maq { grid-column:auto; }
+
+  .stats-grid { grid-template-columns:repeat(3,1fr); gap:6px; }
+  .stat-val   { font-size:13px; }
+  .stat-label { font-size:9px; }
+
+  .maq-list   { max-height:none; }
+  .maq-name   { display:none; } /* solo número en móvil muy pequeño */
+}
+
+/* ── MÓVIL PEQUEÑO (≤380px) ───────────────────────────────────────────── */
+@media (max-width:380px) {
+  .stats-grid      { grid-template-columns:1fr 1fr; }
+  .kpi-expand-grid { grid-template-columns:1fr 1fr; }
+}
 
 @keyframes blink {
   0%,100% { opacity:1; }
@@ -240,6 +613,16 @@
 </style>
 
 <script>
+function toggleKpiExp(key) {
+  const body   = document.getElementById('body-' + key);
+  const arrow  = document.getElementById('arrow-' + key);
+  const header = arrow ? arrow.closest('.kpi-exp-header') : null;
+  const open   = body.style.display === 'block';
+  body.style.display  = open ? 'none' : 'block';
+  if (arrow)  arrow.classList.toggle('open',  !open);
+  if (header) header.classList.toggle('open', !open);
+}
+
 function toggleLocal(id) {
   const panel = document.getElementById(id);
   const sucId = id.replace('loc-', '');
@@ -252,7 +635,7 @@ function toggleLocal(id) {
   if (!open) {
     panel.style.display = 'block';
     btn.classList.add('open');
-    panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    setTimeout(() => panel.scrollIntoView({ behavior:'smooth', block:'nearest' }), 50);
   }
 }
 </script>

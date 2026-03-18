@@ -67,19 +67,30 @@
                 <div class="card-body">
                     <form method="post" id="lecturaForm" {% if not tiene_asignacion %}style="pointer-events:none;opacity:0.5;" aria-disabled="true"{% endif %}>
                         {% csrf_token %}
-                        
+                        <input type="hidden" name="reportar_maquina" id="reportar_maquina_form" value="0">
+                        <input type="hidden" name="numeral_visible"  id="numeral_visible_form"  value="1">
+                        <input type="hidden" name="observacion_reporte" id="observacion_reporte_form" value="">
+
                         <!-- Sección: Selección de Zona y Máquina -->
                         <h6 class="mb-3 text-primary">Datos de la Máquina</h6>
-                        
+
                         <!-- Agregado campo de zona antes de máquina -->
                         <div class="mb-3">
                             <label for="id_zona" class="form-label">Zona</label>
                             {{ form.zona }}
                         </div>
-                        
+
                         <div class="mb-3">
                             <label for="id_maquina" class="form-label">Seleccionar Máquina</label>
                             {{ form.maquina }}
+                        </div>
+
+                        <!-- Botón Reportar Máquina -->
+                        <div class="mb-3">
+                            <button type="button" id="btnReportarMaquina" class="btn btn-warning" disabled
+                                    data-bs-toggle="modal" data-bs-target="#reportarModal">
+                                <i class="bi bi-tools"></i> Reportar Máquina
+                            </button>
                         </div>
                         
                         <div id="maquinaInfo" class="mb-4" style="display: none;">
@@ -130,16 +141,6 @@
                             </small>
                         </div>
                         
-                        <!-- Botón IA Dummy (mantener por compatibilidad) -->
-                      <!--  <div class="d-grid gap-2 mb-3">
-                            <button type="button" class="btn btn-warning btn-lg-tablet" id="btnIA">
-                                <i class="bi bi-robot"></i> Simulación IA (Datos Dummy)
-                            </button>
-                            <small class="text-muted text-center">
-                                <i class="bi bi-info-circle"></i> Genera datos de prueba
-                            </small>
-                        </div>-->
-                        
                         <hr>
                         
                         <!-- Botón Guardar -->
@@ -149,7 +150,7 @@
                             </button>
                             {% if turno_abierto %}
                                 <a class="btn btn-primary w-100 mt-2"
-                                    href="{% url 'control:generar_control' turno_abierto.id %}">
+                                    href="{% url 'control:generar_control' turno_abierto.id %}?from=registro">
                                     Generar control
                                 </a>
                             {% endif %}
@@ -160,6 +161,75 @@
             </div>
         {% endif %}
         
+    </div>
+</div>
+
+<!-- Modal Reportar Máquina -->
+<div class="modal fade" id="reportarModal" tabindex="-1" aria-labelledby="reportarModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="reportarModalLabel">
+                    <i class="bi bi-tools"></i> Reportar Máquina para Mantenimiento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Paso 1: ¿Se ve el numeral? -->
+                <div id="reportePaso1">
+                    <p class="fw-semibold">¿Se ve el numeral (entrada/salida) en la pantalla de la máquina?</p>
+                    <div class="d-flex gap-3 mt-3">
+                        <button type="button" class="btn btn-success flex-fill" id="btnNumeralSi">
+                            <i class="bi bi-check-circle"></i> Sí, se ve
+                        </button>
+                        <button type="button" class="btn btn-danger flex-fill" id="btnNumeralNo">
+                            <i class="bi bi-x-circle"></i> No se ve
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Paso 2A: Numeral visible -->
+                <div id="reportePaso2Si" style="display:none;">
+                    <div class="alert alert-info py-2">
+                        <i class="bi bi-info-circle"></i>
+                        Ingresa la lectura normalmente. La máquina quedará en <strong>Mantenimiento</strong>.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Observación <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="obsReporteSi" rows="2" placeholder="Describe el problema..."></textarea>
+                        <div id="errObsSi" class="text-danger small mt-1" style="display:none;">La observación es obligatoria.</div>
+                    </div>
+                    <button type="button" class="btn btn-warning w-100" id="btnConfirmarReporteSi">
+                        <i class="bi bi-check2-circle"></i> Confirmar Reporte
+                    </button>
+                </div>
+
+                <!-- Paso 2B: Numeral NO visible -->
+                <div id="reportePaso2No" style="display:none;">
+                    <div class="alert alert-warning py-2">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        Al guardar se usará el <strong>último numeral registrado</strong> para esta máquina.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Observación <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="obsReporteNo" rows="2" placeholder="Describe el problema..."></textarea>
+                        <div id="errObsNo" class="text-danger small mt-1" style="display:none;">La observación es obligatoria.</div>
+                    </div>
+                    <div class="mb-2 text-muted small">
+                        Último numeral: Entrada <strong id="refEntrada">—</strong> / Salida <strong id="refSalida">—</strong>
+                    </div>
+                    <button type="button" class="btn btn-warning w-100" id="btnConfirmarReporteNo">
+                        <i class="bi bi-check2-circle"></i> Confirmar Reporte
+                    </button>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                        id="btnCancelarReporte">Cancelar</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -301,7 +371,93 @@
     }
     document.getElementById('id_maquina').addEventListener('change', function() {
         actualizarInfoMaquina(this);
+        // Habilitar/deshabilitar botón Reportar y limpiar reporte anterior
+        const btnReportar = document.getElementById('btnReportarMaquina');
+        btnReportar.disabled = !this.value;
+        // Resetear reporte si cambia la máquina
+        resetearReporte();
     });
+
+    // ── Lógica del modal Reportar Máquina ────────────────────────────────────
+    function resetearReporte() {
+        document.getElementById('reportar_maquina_form').value = '0';
+        document.getElementById('numeral_visible_form').value  = '1';
+        document.getElementById('observacion_reporte_form').value = '';
+        document.getElementById('reporteActivoBadge').style.display = 'none';
+        // Volver a mostrar campos entrada/salida
+        document.getElementById('id_entrada').closest('.mb-3').style.display = '';
+        document.getElementById('id_salida').closest('.mb-3').style.display  = '';
+        document.getElementById('id_total').closest('.mb-3').style.display   = '';
+    }
+
+    // Al abrir el modal, resetear pasos
+    document.getElementById('reportarModal').addEventListener('show.bs.modal', function () {
+        document.getElementById('reportePaso1').style.display   = '';
+        document.getElementById('reportePaso2Si').style.display = 'none';
+        document.getElementById('reportePaso2No').style.display = 'none';
+        document.getElementById('obsReporteSi').value = '';
+        document.getElementById('obsReporteNo').value = '';
+        document.getElementById('errObsSi').style.display = 'none';
+        document.getElementById('errObsNo').style.display = 'none';
+    });
+
+    // Sí, se ve el numeral
+    document.getElementById('btnNumeralSi').addEventListener('click', function () {
+        document.getElementById('reportePaso1').style.display   = 'none';
+        document.getElementById('reportePaso2Si').style.display = '';
+    });
+
+    // No se ve el numeral
+    document.getElementById('btnNumeralNo').addEventListener('click', function () {
+        document.getElementById('reportePaso1').style.display   = 'none';
+        document.getElementById('reportePaso2No').style.display = '';
+        // Consultar último numeral para mostrarlo
+        const maqId = document.getElementById('id_maquina').value;
+        if (maqId) {
+            fetch(`/ajax/maquina/${maqId}/referencia/`, { headers: {"X-Requested-With": "XMLHttpRequest"} })
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('refEntrada').textContent = d.entrada_anterior.toLocaleString();
+                    document.getElementById('refSalida').textContent  = d.salida_anterior.toLocaleString();
+                })
+                .catch(() => {});
+        }
+    });
+
+    // Confirmar reporte CON numeral visible
+    document.getElementById('btnConfirmarReporteSi').addEventListener('click', function () {
+        const obs = document.getElementById('obsReporteSi').value.trim();
+        if (!obs) {
+            document.getElementById('errObsSi').style.display = '';
+            return;
+        }
+        document.getElementById('errObsSi').style.display = 'none';
+        document.getElementById('reportar_maquina_form').value    = '1';
+        document.getElementById('numeral_visible_form').value     = '1';
+        document.getElementById('observacion_reporte_form').value = obs;
+        bootstrap.Modal.getInstance(document.getElementById('reportarModal')).hide();
+    });
+
+    // Confirmar reporte SIN numeral visible
+    document.getElementById('btnConfirmarReporteNo').addEventListener('click', function () {
+        const obs = document.getElementById('obsReporteNo').value.trim();
+        if (!obs) {
+            document.getElementById('errObsNo').style.display = '';
+            return;
+        }
+        document.getElementById('errObsNo').style.display = 'none';
+        document.getElementById('reportar_maquina_form').value    = '1';
+        document.getElementById('numeral_visible_form').value     = '0';
+        document.getElementById('observacion_reporte_form').value = obs;
+        // Ocultar campos de entrada/salida (el servidor usará el último numeral)
+        document.getElementById('id_entrada').closest('.mb-3').style.display = 'none';
+        document.getElementById('id_salida').closest('.mb-3').style.display  = 'none';
+        document.getElementById('id_total').closest('.mb-3').style.display   = 'none';
+        bootstrap.Modal.getInstance(document.getElementById('reportarModal')).hide();
+    });
+
+    // Cancelar reporte
+    document.getElementById('btnCancelarReporte').addEventListener('click', resetearReporte);
     
     // Calcular total automáticamente
     function calcularTotal() {
