@@ -97,22 +97,27 @@ urlpatterns = [
     # -------------------------
     path("sucursales/", views.sucursales_list, name="sucursales_list"),
     path("sucursales/create/", views.sucursal_create, name="sucursal_create"),
+    path("sucursales/<int:pk>/", views.sucursal_detail, name="sucursal_detail"),
     path("sucursales/edit/<int:pk>/", views.sucursal_edit, name="sucursal_edit"),
     path("sucursales/delete/<int:pk>/", views.sucursal_delete, name="sucursal_delete"),
 
     path("zonas/", views.zonas_list, name="zonas_list"),
     path("zonas/create/", views.zona_create, name="zona_create"),
+    path("zonas/<int:pk>/", views.zona_detail, name="zona_detail"),
     path("zonas/edit/<int:pk>/", views.zona_edit, name="zona_edit"),
     path("zonas/delete/<int:pk>/", views.zona_delete, name="zona_delete"),
 
     path("maquinas/", views.maquinas_list, name="maquinas_list"),
     path("maquinas/create/", views.maquina_create, name="maquina_create"),
+    path("maquinas/<int:pk>/", views.maquina_detail, name="maquina_detail"),
     path("maquinas/edit/<int:pk>/", views.maquina_edit, name="maquina_edit"),
     path("maquinas/delete/<int:pk>/", views.maquina_delete, name="maquina_delete"),
     path("maquinas/<int:pk>/estado/", views.maquina_update_estado, name="maquina_estado"),
+    path("maquinas/<int:pk>/cerrar/", views.cerrar_maquina, name="cerrar_maquina"),
 
     path("usuarios/", views.usuarios_list, name="usuarios_list"),
     path("usuarios/create/", views.usuario_create, name="usuario_create"),
+    path("usuarios/<int:pk>/", views.usuario_detail, name="usuario_detail"),
     path("usuarios/edit/<int:pk>/", views.usuario_edit, name="usuario_edit"),
     path("usuarios/delete/<int:pk>/", views.usuario_delete, name="usuario_delete"),
 

@@ -462,6 +462,16 @@ input[readonly]{
           <h6 class="mb-0">Resumen</h6>
         </div>
         <div class="card-body">
+
+          <!-- Alerta de retiro recomendado -->
+          <div id="alerta_retiro" class="alert mb-3 d-flex align-items-start gap-3" style="display:none !important; border-radius:10px; background:#fff7ed; border:1.5px solid #fb923c; color:#9a3412;">
+            <i class="bi bi-cash-coin fs-4 flex-shrink-0" style="color:#f97316; margin-top:2px;"></i>
+            <div>
+              <div class="fw-bold" style="font-size:.95rem;">Se recomienda realizar un retiro</div>
+              <div class="small mt-1">La ganancia actual supera <strong>$1.000</strong>. Considera ingresar un retiro antes de cerrar la caja.</div>
+            </div>
+          </div>
+
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label fw-bold">Descuadre</label>
@@ -706,6 +716,17 @@ function recalcUI() {
   // Se guarda en BD como: total_efectivo = desglose - retiro
   // y aparece restado en "Caja anterior" del día siguiente.
   setVal(totalEfectivoEl, desglose);
+
+  // Alerta de retiro recomendado
+  const alertaRetiro = document.getElementById("alerta_retiro");
+  if (alertaRetiro) {
+    if (ganancia > 1000) {
+      alertaRetiro.style.removeProperty("display");
+      alertaRetiro.style.display = "flex";
+    } else {
+      alertaRetiro.style.display = "none";
+    }
+  }
 }
 
   // ========= 5) Hidden detalles (para backend) =========

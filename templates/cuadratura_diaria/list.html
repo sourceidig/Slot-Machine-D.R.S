@@ -20,6 +20,7 @@
   </div>
 
   <div class="card-body">
+    {% if not es_encargado %}
     <form method="get" class="row g-2 mb-4 align-items-end">
       <div class="col-md-4">
         <label class="form-label fw-semibold">Local</label>
@@ -43,6 +44,7 @@
         <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-secondary btn-sm w-100"><i class="bi bi-x-circle"></i> Limpiar</a>
       </div>
     </form>
+    {% endif %}
 
     <div class="table-responsive">
       <table class="table table-hover table-bordered align-middle mb-0" style="font-size:0.88rem;">
@@ -92,8 +94,9 @@
             </td>
             <td class="text-center text-nowrap">
               <a href="{% url 'control:cuadratura_diaria_detail' cuad.id %}" class="btn btn-sm btn-info text-white" title="Ver detalle"><i class="bi bi-eye"></i></a>
+              {% if not es_encargado %}
               <a href="{% url 'control:cuadratura_diaria_edit' cuad.id %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
-              <a href="{% url 'control:cuadratura_diaria_delete' cuad.id %}" class="btn btn-sm btn-danger" title="Borrar"><i class="bi bi-trash"></i></a>
+              {% endif %}
             </td>
           </tr>
           {% empty %}

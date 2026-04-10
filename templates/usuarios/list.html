@@ -27,9 +27,7 @@
                         <th>Sucursal(es)</th>
                         <th>Estado</th>
                         <th>Fecha Registro</th>                       
-                        {% if user.role == 'admin'%}
-                            <th>Acciones</th>
-                        {% endif %}
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -78,16 +76,12 @@
                                 {% endif %}
                             </td>
                             <td>{{ usuario.date_joined|date:"d/m/Y" }}</td>
-                            {% if user.role == 'admin'%}
-                                <td>
-                                    <a href="{% url 'control:usuario_edit' usuario.pk %}" class="btn btn-sm btn-warning" title="Editar">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <a href="{% url 'control:usuario_delete' usuario.pk %}" class="btn btn-sm btn-danger" title="Eliminar">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
-                                </td>
-                            {% endif %}
+                            <td>
+                                <a href="{% url 'control:usuario_detail' usuario.pk %}" class="btn btn-sm btn-info text-white" title="Ver"><i class="bi bi-eye"></i></a>
+                                {% if user.role == 'admin' %}
+                                <a href="{% url 'control:usuario_edit' usuario.pk %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+                                {% endif %}
+                            </td>
                         </tr>
                     {% empty %}
                         <tr>

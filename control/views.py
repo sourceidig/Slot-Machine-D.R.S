@@ -48,12 +48,14 @@ from .models import (
     ProgramacionRecaudacion,
     CuadraturaZona,
     RegistroSesion,
+    CierreMaquina,
 )
 
 from .forms import (
     TurnoForm, LecturaMaquinaForm, SucursalForm, ZonaForm,
     MaquinaForm, UsuarioForm, UsuarioEditForm,
-    CuadraturaCajaDiariaForm, EncuadreCajaAdminForm
+    CuadraturaCajaDiariaForm, EncuadreCajaAdminForm,
+    CierreMaquinaForm,
 )
 
 from .decorators import (role_required, readonly_for,
@@ -213,13 +215,35 @@ def informe_recaudacion_detail(request, pk):
     for d in por_zona.values():
         d["rtp"] = round(d["salida"] / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
 
+    # Cuadraturas diarias del ciclo para el detalle desplegable
+    cuadraturas_ciclo = list(
+        CuadraturaCajaDiaria.objects.filter(
+            sucursal=informe.sucursal,
+            fecha__gte=informe.fecha_inicio,
+            fecha__lte=informe.fecha_cierre,
+        ).order_by("fecha")
+    )
+
+    # Descuadres de caja zona (solo informativos, no afectan el resumen)
+    descuadres_zona = list(
+        CierreTurnoZona.objects.filter(
+            cierre__sucursal=informe.sucursal,
+            cierre__fecha__gte=informe.fecha_inicio,
+            cierre__fecha__lte=informe.fecha_cierre,
+        ).exclude(descuadre=0)
+        .select_related("zona", "cierre")
+        .order_by("cierre__fecha")
+    )
+
     return render(request, "recaudacion/informe_detail.html", {
         "informe": informe,
         "lineas": lineas,
         "caja": caja,
-        "por_servidor": dict(sorted(por_servidor.items())),
-        "por_juego":    dict(sorted(por_juego.items())),
-        "por_zona":     dict(sorted(por_zona.items())),
+        "por_servidor":      dict(sorted(por_servidor.items())),
+        "por_juego":         dict(sorted(por_juego.items())),
+        "por_zona":          dict(sorted(por_zona.items())),
+        "cuadraturas_ciclo": cuadraturas_ciclo,
+        "descuadres_zona":   descuadres_zona,
     })
 
 
@@ -1273,23 +1297,26 @@ def cuadratura_diaria_create(request):
 @login_required
 @role_required(*ROLES_CUADRATURA)
 def cuadratura_diaria_list(request):
-    cuadraturas = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario")
+    es_encargado = request.user.role == "encargado"
+    cuadraturas  = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario")
 
-    # -------------------------
-    # Filtros (GET)
-    # -------------------------
-    fecha_desde = request.GET.get("fecha_desde")
-    fecha_hasta = request.GET.get("fecha_hasta")
-    sucursal_id = request.GET.get("sucursal")
-
-    if sucursal_id:
-        cuadraturas = cuadraturas.filter(sucursal_id=sucursal_id)
-
-    if fecha_desde:
-        cuadraturas = cuadraturas.filter(fecha__gte=fecha_desde)
-
-    if fecha_hasta:
-        cuadraturas = cuadraturas.filter(fecha__lte=fecha_hasta)
+    if es_encargado:
+        # Encargado: solo ve la caja de hoy de su sucursal activa, sin filtros
+        suc_id = request.session.get("sucursal_activa_id")
+        cuadraturas = cuadraturas.filter(
+            sucursal_id=suc_id,
+            fecha=timezone.localdate(),
+        )
+    else:
+        fecha_desde = request.GET.get("fecha_desde")
+        fecha_hasta = request.GET.get("fecha_hasta")
+        sucursal_id = request.GET.get("sucursal")
+        if sucursal_id:
+            cuadraturas = cuadraturas.filter(sucursal_id=sucursal_id)
+        if fecha_desde:
+            cuadraturas = cuadraturas.filter(fecha__gte=fecha_desde)
+        if fecha_hasta:
+            cuadraturas = cuadraturas.filter(fecha__lte=fecha_hasta)
 
     cuadraturas = cuadraturas.order_by("-fecha", "-creado_el")
 
@@ -1301,9 +1328,10 @@ def cuadratura_diaria_list(request):
         request,
         "cuadratura_diaria/list.html",
         {
-            "cuadraturas": page_obj,
-            "page_obj": page_obj,
-            "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
+            "cuadraturas":  page_obj,
+            "page_obj":     page_obj,
+            "sucursales":   Sucursal.objects.filter(is_active=True).order_by("nombre"),
+            "es_encargado": es_encargado,
         },
     )
 
@@ -1328,6 +1356,7 @@ def cuadratura_diaria_detail(request, pk):
         "hora_apertura": hora_apertura,
     })
 @login_required
+@role_required('admin', 'gerente', 'supervisor')
 def cuadratura_diaria_edit(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
 
@@ -1731,24 +1760,47 @@ def dashboard_view(request):
     # ── Desglose por sucursal para KPIs desplegables ────────────────────────
     detalles_kpi = []
     for suc in Sucursal.objects.filter(is_active=True).order_by("nombre"):
-        ret_suc = AsignacionTurnoZona.objects.filter(
-            turno__sucursal=suc
-        ).aggregate(s=Sum("retiros"))["s"] or 0
-        prest_suc = AsignacionTurnoZona.objects.filter(
-            turno__sucursal=suc
-        ).aggregate(s=Sum("prestamo"))["s"] or 0
-        rb_suc = CierreTurno.objects.filter(
-            sucursal=suc
-        ).aggregate(s=Sum("redbank_retiros"))["s"] or 0
-        # RTP histórico ya está en locales_rtp
+        # Último turno con asignaciones de zona para retiros/préstamos
+        ultimo_turno_con_asig = (
+            Turno.objects.filter(sucursal=suc, asignaciones_zona__isnull=False)
+            .order_by("-fecha", "-created_at")
+            .first()
+        )
+        if ultimo_turno_con_asig:
+            agg_ret = AsignacionTurnoZona.objects.filter(
+                turno=ultimo_turno_con_asig
+            ).aggregate(ret=Sum("retiros"), prest=Sum("prestamo"))
+            ret_suc   = agg_ret["ret"]   or 0
+            prest_suc = agg_ret["prest"] or 0
+            ultimo_turno_fecha = ultimo_turno_con_asig.fecha
+        else:
+            ret_suc   = 0
+            prest_suc = 0
+            ultimo_turno_fecha = None
+
+        # Último cierre de turno para redbank
+        ultimo_cierre = (
+            CierreTurno.objects.filter(sucursal=suc)
+            .order_by("-turno__fecha", "-turno__id")
+            .first()
+        )
+        if ultimo_cierre:
+            rb_suc             = int(ultimo_cierre.redbank_retiros or 0)
+            ultimo_cierre_fecha = ultimo_cierre.turno.fecha
+        else:
+            rb_suc             = 0
+            ultimo_cierre_fecha = None
+
         rtp_entry = next((x for x in locales_rtp if x["sucursal"].pk == suc.pk), None)
         detalles_kpi.append({
-            "sucursal":  suc,
-            "retiros":   ret_suc,
-            "prestamos": prest_suc,
-            "redbank":   rb_suc,
-            "rtp_turno": rtp_entry["rtp_turno"] if rtp_entry else None,
-            "rtp_hist":  rtp_entry["rtp_hist"]  if rtp_entry else None,
+            "sucursal":           suc,
+            "retiros":            ret_suc,
+            "prestamos":          prest_suc,
+            "ultimo_turno_fecha": ultimo_turno_fecha,
+            "redbank":            rb_suc,
+            "ultimo_cierre_fecha": ultimo_cierre_fecha,
+            "rtp_turno":          rtp_entry["rtp_turno"] if rtp_entry else None,
+            "rtp_hist":           rtp_entry["rtp_hist"]  if rtp_entry else None,
         })
 
     # ── Data por sucursal ───────────────────────────────────────────────────
@@ -3297,6 +3349,19 @@ def export_excel(request):
 
 @login_required
 @role_required(*ROLES_CONFIG_VER)
+def sucursal_detail(request, pk):
+    sucursal = get_object_or_404(Sucursal, pk=pk)
+    zonas    = sucursal.zonas.filter(is_active=True).order_by("orden", "nombre")
+    usuarios = sucursal.usuarios_asignados.filter(is_active=True).order_by("nombre")
+    return render(request, "sucursales/detail.html", {
+        "sucursal": sucursal,
+        "zonas":    zonas,
+        "usuarios": usuarios,
+        "puede_editar": request.user.role in ("admin", "tecnico"),
+    })
+
+@login_required
+@role_required(*ROLES_CONFIG_VER)
 def sucursales_list(request):
     query  = request.GET.get("q")
     role   = request.user.role
@@ -3373,6 +3438,17 @@ def sucursal_delete(request, pk):
 # ============================================
 # CRUD ZONAS (ADMIN)
 # ============================================
+
+@login_required
+@role_required(*ROLES_CONFIG_VER)
+def zona_detail(request, pk):
+    zona     = get_object_or_404(Zona.objects.select_related("sucursal"), pk=pk)
+    maquinas = zona.maquinas.filter(is_active=True).order_by("numero_maquina")
+    return render(request, "zonas/detail.html", {
+        "zona":        zona,
+        "maquinas":    maquinas,
+        "puede_editar": request.user.role in ("admin", "tecnico"),
+    })
 
 @login_required
 @role_required(*ROLES_CONFIG_VER)
@@ -3478,13 +3554,44 @@ def zona_delete(request, pk):
 
 @login_required
 @role_required(*ROLES_CONFIG_VER)
+def maquina_detail(request, pk):
+    maquina = get_object_or_404(Maquina.objects.select_related("sucursal", "zona"), pk=pk)
+    ultima_lectura = (LecturaMaquina.objects
+                     .filter(maquina=maquina)
+                     .select_related("turno")
+                     .order_by("-fecha_trabajo", "-id")
+                     .first())
+    return render(request, "maquinas/detail.html", {
+        "maquina":       maquina,
+        "ultima_lectura": ultima_lectura,
+        "puede_editar":  request.user.role in ("admin", "tecnico"),
+    })
+
+@login_required
+@role_required(*ROLES_CONFIG_VER)
+def usuario_detail(request, pk):
+    usuario = get_object_or_404(Usuario, pk=pk)
+    sucursales_asignadas = usuario.sucursales.filter(is_active=True).order_by("nombre")
+    return render(request, "usuarios/detail.html", {
+        "usuario": usuario,
+        "sucursales_asignadas": sucursales_asignadas,
+        "puede_editar": request.user.role == "admin",
+    })
+
+
+@login_required
+@role_required(*ROLES_CONFIG_VER)
 def maquinas_list(request):
     sucursal_id = request.GET.get("sucursal")
     zona_id     = request.GET.get("zona")
     estado      = request.GET.get("estado", "Mantenimiento")
     role        = request.user.role
 
-    maquinas      = Maquina.objects.filter(sucursal__is_active=True, zona__is_active=True).select_related("sucursal", "zona").annotate(estado_ord=_estado_ord()).order_by("estado_ord", "sucursal__nombre", "zona__orden", "numero_maquina")
+    from django.db.models import Exists, OuterRef
+    maquinas      = Maquina.objects.filter(sucursal__is_active=True, zona__is_active=True).select_related("sucursal", "zona").annotate(
+        estado_ord=_estado_ord(),
+        tiene_cierre=Exists(CierreMaquina.objects.filter(maquina=OuterRef("pk")))
+    ).order_by("estado_ord", "sucursal__nombre", "zona__orden", "numero_maquina")
     sucursales_qs = Sucursal.objects.filter(is_active=True)
 
     if role in ('supervisor', 'encargado'):
@@ -3520,8 +3627,9 @@ def maquinas_list(request):
 def maquina_create(request):
     sucursal_id = request.GET.get("sucursal_id") or request.POST.get("_sucursal_id")
     zona_id     = request.GET.get("zona_id")     or request.POST.get("_zona_id")
+    es_tecnico  = request.user.role == "tecnico"
     if request.method == "POST":
-        form = MaquinaForm(request.POST)
+        form = MaquinaForm(request.POST, es_tecnico=es_tecnico)
         if form.is_valid():
             maquina = form.save()
             if "guardar_otro" in request.POST:
@@ -3537,30 +3645,36 @@ def maquina_create(request):
             initial["sucursal"] = sucursal_id
         if zona_id:
             initial["zona"] = zona_id
-        form = MaquinaForm(initial=initial)
+        form = MaquinaForm(initial=initial, es_tecnico=es_tecnico)
 
     return render(request, "maquinas/form.html", {
         "form": form,
         "title": "Crear Máquina",
         "preselect_sucursal": sucursal_id,
         "preselect_zona": zona_id,
+        "es_tecnico": es_tecnico,
     })
 
 
 @login_required
 @role_required(*ROLES_CONFIG_EDIT)
 def maquina_edit(request, pk):
-    maquina = get_object_or_404(Maquina, pk=pk)
+    maquina    = get_object_or_404(Maquina, pk=pk)
+    es_tecnico = request.user.role == "tecnico"
     if request.method == "POST":
-        form = MaquinaForm(request.POST, instance=maquina)
+        form = MaquinaForm(request.POST, instance=maquina, es_tecnico=es_tecnico)
         if form.is_valid():
             form.save()
             messages.success(request, "Máquina actualizada exitosamente.")
             return redirect("control:maquinas_list")
     else:
-        form = MaquinaForm(instance=maquina)
+        form = MaquinaForm(instance=maquina, es_tecnico=es_tecnico)
 
-    return render(request, "maquinas/form.html", {"form": form, "title": "Editar Máquina"})
+    return render(request, "maquinas/form.html", {
+        "form": form,
+        "title": "Editar Máquina",
+        "es_tecnico": es_tecnico,
+    })
 
 
 @login_required
@@ -3594,6 +3708,109 @@ def maquina_update_estado(request, pk):
 
     messages.success(request, f"Estado actualizado a: {nuevo_estado}")
     return redirect("control:maquinas_list")
+
+
+@login_required
+@role_required(*ROLES_CONFIG_EDIT)
+def cerrar_maquina(request, pk):
+    """Captura el numeral final de una máquina retirada y opcionalmente crea una de reemplazo."""
+    from .utils import get_referencia_anterior
+    from django.db.models import Exists, OuterRef
+
+    maquina = get_object_or_404(
+        Maquina.objects.select_related("sucursal", "zona"), pk=pk
+    )
+
+    if maquina.estado != "Retirada":
+        messages.error(request, "La máquina debe estar en estado 'Retirada' para ser cerrada.")
+        return redirect("control:maquinas_list")
+
+    if CierreMaquina.objects.filter(maquina=maquina).exists():
+        messages.warning(request, "Esta máquina ya tiene un cierre registrado.")
+        return redirect("control:maquinas_list")
+
+    if request.method == "POST":
+        form = CierreMaquinaForm(request.POST)
+        if form.is_valid():
+            fecha         = form.cleaned_data["fecha"]
+            entrada_final = form.cleaned_data["entrada_final"]
+            salida_final  = form.cleaned_data["salida_final"]
+            action        = request.POST.get("action", "guardar")
+
+            # Calcular delta (igual que LecturaMaquina.save)
+            ent_ant, sal_ant, _ = get_referencia_anterior(maquina, fecha)
+            entrada_dia = entrada_final - int(ent_ant or 0)
+            salida_dia  = salida_final  - int(sal_ant or 0)
+            numeral     = entrada_dia - salida_dia
+
+            with transaction.atomic():
+                # 1) Registrar cierre de máquina
+                cierre = CierreMaquina.objects.create(
+                    maquina=maquina,
+                    sucursal=maquina.sucursal,
+                    zona=maquina.zona,
+                    fecha=fecha,
+                    entrada_final=entrada_final,
+                    salida_final=salida_final,
+                    numeral=numeral,
+                    registrado_por=request.user,
+                )
+
+                # 2) Sumar el numeral al ControlLecturas del día
+                #    para que calcular_numerales_caja lo incluya en numeral_dia
+                control, _ = ControlLecturas.objects.get_or_create(
+                    sucursal=maquina.sucursal,
+                    fecha_trabajo=fecha,
+                    defaults={"turno": None, "creado_por": request.user, "total_general": 0},
+                )
+                control.total_general = (control.total_general or 0) + numeral
+                control.save(update_fields=["total_general"])
+
+                # 3) Liberar la constraint (zona, numero_maquina) marcando el número como negativo
+                #    y desactivar la máquina retirada
+                Maquina.objects.filter(pk=maquina.pk).update(
+                    numero_maquina=-maquina.numero_maquina,
+                    is_active=False,
+                )
+
+                # 4) Crear máquina de reemplazo si se solicitó
+                if action == "guardar_y_nueva":
+                    nueva = Maquina.objects.create(
+                        sucursal=maquina.sucursal,
+                        zona=maquina.zona,
+                        numero_maquina=maquina.numero_maquina,
+                        nombre_juego=form.cleaned_data.get("nueva_nombre_juego") or maquina.nombre_juego,
+                        codigo_interno=form.cleaned_data.get("nueva_codigo_interno") or "",
+                        modelo=form.cleaned_data.get("nueva_modelo") or "",
+                        numero_serie=form.cleaned_data.get("nueva_numero_serie") or "",
+                        contador_inicial_entrada=form.cleaned_data.get("nueva_contador_inicial_entrada") or 0,
+                        contador_inicial_salida=form.cleaned_data.get("nueva_contador_inicial_salida") or 0,
+                        rtp_creacion=form.cleaned_data.get("nueva_rtp_creacion"),
+                        estado="Operativa",
+                        is_active=True,
+                    )
+                    cierre.maquina_reemplazo = nueva
+                    cierre.save(update_fields=["maquina_reemplazo"])
+                    messages.success(
+                        request,
+                        f"Máquina cerrada. Se creó máquina de reemplazo M{nueva.numero_maquina:02d} "
+                        f"({nueva.nombre_juego}) con contadores iniciales propios."
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"Máquina M{maquina.numero_maquina:02d} cerrada. "
+                        f"Numeral de retiro ${numeral:,} sumado a la cuadratura del {fecha}."
+                    )
+
+            return redirect("control:maquinas_list")
+    else:
+        form = CierreMaquinaForm(initial={"fecha": timezone.localdate()})
+
+    return render(request, "maquinas/cerrar.html", {
+        "form": form,
+        "maquina": maquina,
+    })
 
 
 # ============================================
@@ -4621,30 +4838,40 @@ def lectura_edit_from_control(request, linea_pk, control_pk):
 @login_required
 @role_required(*ROLES_CONTROLES)
 def controles_list(request):
+    es_encargado = request.user.role == "encargado"
     qs = (
         ControlLecturas.objects
         .select_related("sucursal", "turno", "creado_por")
         .order_by("-fecha_trabajo", "-id")
     )
 
-    sucursal_id  = request.GET.get("sucursal")
-    fecha_desde  = request.GET.get("fecha_desde")
-    fecha_hasta  = request.GET.get("fecha_hasta")
-
-    if sucursal_id:
-        qs = qs.filter(sucursal_id=sucursal_id)
-    if fecha_desde:
-        qs = qs.filter(fecha_trabajo__gte=fecha_desde)
-    if fecha_hasta:
-        qs = qs.filter(fecha_trabajo__lte=fecha_hasta)
+    if es_encargado:
+        # Encargado: solo ve el control del turno activo de su sucursal
+        suc_id       = request.session.get("sucursal_activa_id")
+        turno_activo = Turno.objects.filter(sucursal_id=suc_id, estado="Abierto").first()
+        if turno_activo:
+            qs = qs.filter(turno=turno_activo)
+        else:
+            qs = qs.none()
+    else:
+        sucursal_id = request.GET.get("sucursal")
+        fecha_desde = request.GET.get("fecha_desde")
+        fecha_hasta = request.GET.get("fecha_hasta")
+        if sucursal_id:
+            qs = qs.filter(sucursal_id=sucursal_id)
+        if fecha_desde:
+            qs = qs.filter(fecha_trabajo__gte=fecha_desde)
+        if fecha_hasta:
+            qs = qs.filter(fecha_trabajo__lte=fecha_hasta)
 
     from django.core.paginator import Paginator
     paginator = Paginator(qs, 15)
     controles_page = paginator.get_page(request.GET.get("page", 1))
     return render(request, "controles/list.html", {
-        "controles": controles_page,
-        "page_obj":  controles_page,
-        "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
+        "controles":    controles_page,
+        "page_obj":     controles_page,
+        "sucursales":   Sucursal.objects.filter(is_active=True).order_by("nombre"),
+        "es_encargado": es_encargado,
     })
 
 

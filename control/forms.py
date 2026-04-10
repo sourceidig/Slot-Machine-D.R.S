@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, date
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -302,7 +302,7 @@ class MaquinaForm(forms.ModelForm):
         model = Maquina
         fields = [
             "sucursal", "zona", "numero_maquina", "codigo_interno",
-            "nombre_juego", "modelo", "numero_serie", "rtp_objetivo",
+            "nombre_juego", "modelo", "numero_serie", "rtp_creacion",
             "ubicacion_detalle", "contador_inicial_entrada", "contador_inicial_salida", "servidor"
         ]
         widgets = {
@@ -316,15 +316,20 @@ class MaquinaForm(forms.ModelForm):
             "nombre_juego": forms.TextInput(attrs={"class": "form-control"}),
             "modelo": forms.TextInput(attrs={"class": "form-control"}),
             "numero_serie": forms.TextInput(attrs={"class": "form-control"}),
-            "rtp_objetivo": forms.NumberInput(attrs={"class": "form-control", "min": "0", "max": "100", "step": "0.01", "placeholder": "ej: 92.50"}),
+            "rtp_creacion": forms.NumberInput(attrs={"class": "form-control", "min": "0", "max": "100", "step": "0.01", "placeholder": "ej: 92.50"}),
             "ubicacion_detalle": forms.TextInput(attrs={"class": "form-control"}),
         }
 
     def __init__(self, *args, **kwargs):
+        es_tecnico = kwargs.pop("es_tecnico", False)
         super().__init__(*args, **kwargs)
 
         self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True)
         self.fields["zona"].queryset = Zona.objects.filter(is_active=True, sucursal__is_active=True).order_by("orden", "nombre")
+
+        if es_tecnico:
+            self.fields["contador_inicial_entrada"].disabled = True
+            self.fields["contador_inicial_salida"].disabled = True
 
         if "sucursal" in self.data:
             try:
@@ -536,3 +541,79 @@ CierreTurnoZonaFormSet = inlineformset_factory(
     extra=0,
     can_delete=False,
 )
+
+
+# ==========================
+# CIERRE DE MÁQUINA (RETIRO)
+# ==========================
+class CierreMaquinaForm(forms.Form):
+    fecha = forms.DateField(
+        label="Fecha",
+        initial=date.today,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+    entrada_final = forms.IntegerField(
+        label="Contador entrada final",
+        min_value=0,
+        widget=forms.NumberInput(attrs={"class": "form-control", "placeholder": "ej: 1234567"}),
+    )
+    salida_final = forms.IntegerField(
+        label="Contador salida final",
+        min_value=0,
+        widget=forms.NumberInput(attrs={"class": "form-control", "placeholder": "ej: 1234567"}),
+    )
+
+    # --- Campos para la máquina de reemplazo (opcionales) ---
+    nueva_nombre_juego = forms.CharField(
+        label="Nombre del juego",
+        required=False,
+        max_length=120,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    nueva_codigo_interno = forms.CharField(
+        label="Código interno",
+        required=False,
+        max_length=80,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    nueva_modelo = forms.CharField(
+        label="Modelo",
+        required=False,
+        max_length=80,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    nueva_numero_serie = forms.CharField(
+        label="N° Serie",
+        required=False,
+        max_length=120,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    nueva_contador_inicial_entrada = forms.IntegerField(
+        label="Contador inicial entrada",
+        required=False,
+        min_value=0,
+        initial=0,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+    )
+    nueva_contador_inicial_salida = forms.IntegerField(
+        label="Contador inicial salida",
+        required=False,
+        min_value=0,
+        initial=0,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+    )
+    nueva_rtp_creacion = forms.DecimalField(
+        label="RTP de ingreso (%)",
+        required=False,
+        min_value=0,
+        max_value=100,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "placeholder": "ej: 92.50"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.data.get("action") == "guardar_y_nueva":
+            if not cleaned.get("nueva_nombre_juego"):
+                self.add_error("nueva_nombre_juego", "Requerido para crear la máquina de reemplazo.")
+        return cleaned

@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block page_title %}Cerrar Máquina{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'control:maquinas_list' %}">Máquinas</a></li>
+      <li class="breadcrumb-item active">Cerrar M{{ maquina.numero_maquina|stringformat:"02d" }}</li>
+    </ol>
+  </nav>
+  <a href="{% url 'control:maquinas_list' %}" class="btn btn-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Volver
+  </a>
+</div>
+
+<!-- Info de la máquina retirada -->
+<div class="alert alert-danger d-flex align-items-center gap-3 mb-4">
+  <i class="bi bi-x-octagon-fill fs-3"></i>
+  <div>
+    <strong>Máquina Retirada:</strong>
+    M{{ maquina.numero_maquina|stringformat:"02d" }} — {{ maquina.nombre_juego }}
+    <span class="text-muted ms-2">{{ maquina.zona.nombre }} / {{ maquina.sucursal.nombre }}</span>
+  </div>
+</div>
+
+<form method="post" id="form-cierre">
+  {% csrf_token %}
+
+  <!-- ===================== NUMERALES DE RETIRO ===================== -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-dark text-white">
+      <h6 class="mb-0"><i class="bi bi-calculator me-2"></i>Numerales de Retiro</h6>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.fecha.label }}</label>
+          {{ form.fecha }}
+          {% if form.fecha.errors %}<div class="text-danger small">{{ form.fecha.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.entrada_final.label }}</label>
+          {{ form.entrada_final }}
+          {% if form.entrada_final.errors %}<div class="text-danger small">{{ form.entrada_final.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.salida_final.label }}</label>
+          {{ form.salida_final }}
+          {% if form.salida_final.errors %}<div class="text-danger small">{{ form.salida_final.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Vista previa del numeral -->
+      <div class="mt-3 p-3 bg-light rounded border" id="preview-numeral" style="display:none;">
+        <div class="row text-center">
+          <div class="col-4">
+            <div class="text-muted small">Entrada día</div>
+            <div class="fw-bold fs-5" id="prev-entrada-dia">—</div>
+          </div>
+          <div class="col-4">
+            <div class="text-muted small">Salida día</div>
+            <div class="fw-bold fs-5" id="prev-salida-dia">—</div>
+          </div>
+          <div class="col-4">
+            <div class="text-muted small">Numeral de retiro</div>
+            <div class="fw-bold fs-5" id="prev-numeral">—</div>
+          </div>
+        </div>
+        <div class="text-center mt-2 text-muted small">
+          Este numeral se sumará a la cuadratura del día seleccionado.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MÁQUINA DE REEMPLAZO ===================== -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center"
+         style="cursor:pointer;" onclick="toggleReemplazo()">
+      <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Máquina de Reemplazo <span class="badge bg-light text-dark ms-2">Opcional</span></h6>
+      <i class="bi bi-chevron-down" id="icon-reemplazo"></i>
+    </div>
+    <div class="card-body" id="seccion-reemplazo" style="display:none;">
+      <p class="text-muted small mb-3">
+        Se creará una nueva máquina en la misma zona (M{{ maquina.numero_maquina|stringformat:"02d" }}, {{ maquina.zona.nombre }})
+        con sus propios contadores iniciales.
+      </p>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ form.nueva_nombre_juego.label }}</label>
+          {{ form.nueva_nombre_juego }}
+          {% if form.nueva_nombre_juego.errors %}<div class="text-danger small">{{ form.nueva_nombre_juego.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">{{ form.nueva_codigo_interno.label }}</label>
+          {{ form.nueva_codigo_interno }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">{{ form.nueva_modelo.label }}</label>
+          {{ form.nueva_modelo }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.nueva_numero_serie.label }}</label>
+          {{ form.nueva_numero_serie }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.nueva_contador_inicial_entrada.label }}</label>
+          {{ form.nueva_contador_inicial_entrada }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.nueva_contador_inicial_salida.label }}</label>
+          {{ form.nueva_contador_inicial_salida }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">{{ form.nueva_rtp_creacion.label }}</label>
+          {{ form.nueva_rtp_creacion }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== BOTONES ===================== -->
+  <div class="d-flex gap-3">
+    <button type="submit" name="action" value="guardar" class="btn btn-danger px-4">
+      <i class="bi bi-x-octagon me-1"></i> Cerrar Máquina
+    </button>
+    <button type="submit" name="action" value="guardar_y_nueva" class="btn btn-primary px-4"
+            onclick="document.getElementById('seccion-reemplazo').style.display='block';">
+      <i class="bi bi-plus-circle me-1"></i> Guardar y agregar máquina nueva
+    </button>
+    <a href="{% url 'control:maquinas_list' %}" class="btn btn-secondary">Cancelar</a>
+  </div>
+</form>
+
+<script>
+// Referencia anterior (contadores) de la máquina — vendrán del servidor si se necesita
+// En este caso solo mostramos una previsualización básica (sin referencia anterior del servidor)
+function toggleReemplazo() {
+  const sec = document.getElementById('seccion-reemplazo');
+  const icon = document.getElementById('icon-reemplazo');
+  const visible = sec.style.display !== 'none';
+  sec.style.display = visible ? 'none' : 'block';
+  icon.className = visible ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+}
+
+function actualizarPreview() {
+  const ef = parseInt(document.getElementById('id_entrada_final').value) || null;
+  const sf = parseInt(document.getElementById('id_salida_final').value) || null;
+  const preview = document.getElementById('preview-numeral');
+
+  if (ef !== null && sf !== null) {
+    preview.style.display = 'block';
+    // Nota: el numeral real incluye delta desde el contador anterior.
+    // Aquí mostramos una estimación basada en los valores ingresados vs 0 si no hay referencia.
+    document.getElementById('prev-entrada-dia').textContent = '$' + ef.toLocaleString('es-CL');
+    document.getElementById('prev-salida-dia').textContent  = '$' + sf.toLocaleString('es-CL');
+    const numeral = ef - sf;
+    const el = document.getElementById('prev-numeral');
+    el.textContent = '$' + numeral.toLocaleString('es-CL');
+    el.className = 'fw-bold fs-5 ' + (numeral >= 0 ? 'text-success' : 'text-danger');
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+document.getElementById('id_entrada_final').addEventListener('input', actualizarPreview);
+document.getElementById('id_salida_final').addEventListener('input',  actualizarPreview);
+
+// Al hacer click en "Guardar y agregar máquina nueva", expandir la sección de reemplazo
+document.querySelector('button[value="guardar_y_nueva"]').addEventListener('click', function() {
+  const sec = document.getElementById('seccion-reemplazo');
+  const icon = document.getElementById('icon-reemplazo');
+  sec.style.display = 'block';
+  icon.className = 'bi bi-chevron-up';
+});
+</script>
+{% endblock %}

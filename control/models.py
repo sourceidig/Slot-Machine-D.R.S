@@ -121,6 +121,12 @@ class Maquina(models.Model):
 
     modelo = models.CharField(max_length=80, blank=True, verbose_name="Modelo")
     numero_serie = models.CharField(max_length=120, blank=True, verbose_name="Número de Serie")
+    rtp_creacion = models.DecimalField(
+        max_digits=7, decimal_places=2,
+        null=True, blank=True,
+        verbose_name="RTP de Ingreso (%)",
+        help_text="RTP registrado al momento de ingresar la máquina. Solo informativo, no se modifica."
+    )
     rtp_objetivo = models.DecimalField(
         max_digits=7, decimal_places=2,
         null=True, blank=True,
@@ -148,6 +154,38 @@ class Maquina(models.Model):
         if self.zona_id and self.sucursal_id:
             if self.zona.sucursal_id != self.sucursal_id:
                 raise ValidationError({"sucursal": "La sucursal debe coincidir con la sucursal de la zona seleccionada."})
+
+
+# ==========================
+# CIERRE DE MÁQUINA (RETIRO)
+# ==========================
+class CierreMaquina(models.Model):
+    """Registro del último numeral capturado cuando una máquina es retirada."""
+    maquina       = models.OneToOneField(
+        'Maquina', on_delete=models.CASCADE, related_name="cierre_maquina",
+        verbose_name="Máquina"
+    )
+    sucursal      = models.ForeignKey(Sucursal, on_delete=models.CASCADE)
+    zona          = models.ForeignKey('Zona', on_delete=models.CASCADE)
+    fecha         = models.DateField(verbose_name="Fecha")
+    entrada_final = models.PositiveBigIntegerField(default=0, verbose_name="Contador entrada final")
+    salida_final  = models.PositiveBigIntegerField(default=0, verbose_name="Contador salida final")
+    numeral       = models.BigIntegerField(default=0, verbose_name="Numeral de retiro")
+    maquina_reemplazo = models.ForeignKey(
+        'Maquina', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="reemplaza_a", verbose_name="Máquina de reemplazo"
+    )
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    creado_en     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Cierre de Máquina"
+        verbose_name_plural = "Cierres de Máquinas"
+
+    def __str__(self):
+        return f"Cierre M{self.maquina.numero_maquina} - {self.fecha}"
 
 
 # ==========================

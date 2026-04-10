@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block page_title %}Detalle Zona{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'control:zonas_list' %}">Zonas</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'control:sucursal_detail' zona.sucursal.pk %}">{{ zona.sucursal.nombre }}</a></li>
+      <li class="breadcrumb-item active">{{ zona.nombre }}</li>
+    </ol>
+  </nav>
+  <div class="d-flex gap-2">
+    {% if puede_editar %}
+    <a href="{% url 'control:zona_edit' zona.pk %}" class="btn btn-warning btn-sm">
+      <i class="bi bi-pencil"></i> Editar
+    </a>
+    {% endif %}
+    <a href="{% url 'control:zonas_list' %}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Volver
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Info principal -->
+  <div class="col-md-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-grid-3x3 me-2"></i>{{ zona.nombre }}</h6>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><th class="text-muted" style="width:45%">Sucursal</th><td>{{ zona.sucursal.nombre }}</td></tr>
+          <tr><th class="text-muted">Orden</th><td>{{ zona.orden }}</td></tr>
+          <tr><th class="text-muted">Creada</th><td>{{ zona.created_at|date:"d/m/Y" }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Máquinas en la zona -->
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-controller me-2"></i>Máquinas ({{ maquinas|length }})</h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-secondary">
+            <tr><th>#</th><th>Modelo</th><th>Serie</th><th>Estado</th><th class="text-center">Acciones</th></tr>
+          </thead>
+          <tbody>
+            {% for maq in maquinas %}
+            <tr>
+              <td class="fw-semibold">{{ maq.numero_maquina }}</td>
+              <td>{{ maq.modelo|default:"—" }}</td>
+              <td class="text-muted small">{{ maq.numero_serie|default:"—" }}</td>
+              <td>
+                {% if maq.estado == "Activa" %}
+                  <span class="badge bg-success">{{ maq.estado }}</span>
+                {% elif maq.estado == "Inactiva" %}
+                  <span class="badge bg-danger">{{ maq.estado }}</span>
+                {% else %}
+                  <span class="badge bg-warning text-dark">{{ maq.estado }}</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <a href="{% url 'control:maquina_detail' maq.pk %}" class="btn btn-sm btn-info text-white" title="Ver"><i class="bi bi-eye"></i></a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Sin máquinas registradas</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

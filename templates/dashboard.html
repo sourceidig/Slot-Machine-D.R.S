@@ -115,16 +115,17 @@
       </div>
       <div class="kpi-exp-body" id="body-ret">
         <table class="kpi-detail-table">
-          <thead><tr><th>Local</th><th>Retiros</th><th>Préstamos</th></tr></thead>
+          <thead><tr><th>Local</th><th>Retiros</th><th>Préstamos</th><th class="td-muted">Turno</th></tr></thead>
           <tbody>
             {% for d in detalles_kpi %}
             <tr>
               <td>{{ d.sucursal.nombre }}</td>
-              <td>${{ d.retiros|intcomma }}</td>
-              <td>${{ d.prestamos|intcomma }}</td>
+              <td>{% if d.retiros %}${{ d.retiros|intcomma }}{% else %}<span class="td-empty-inline">—</span>{% endif %}</td>
+              <td>{% if d.prestamos %}${{ d.prestamos|intcomma }}{% else %}<span class="td-empty-inline">—</span>{% endif %}</td>
+              <td class="td-muted">{% if d.ultimo_turno_fecha %}{{ d.ultimo_turno_fecha|date:"d/m" }}{% else %}—{% endif %}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="3" class="td-empty">Sin datos</td></tr>
+            <tr><td colspan="4" class="td-empty">Sin datos</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -143,15 +144,16 @@
       </div>
       <div class="kpi-exp-body" id="body-rb">
         <table class="kpi-detail-table">
-          <thead><tr><th>Local</th><th>Total Redbank</th></tr></thead>
+          <thead><tr><th>Local</th><th>Últ. Redbank</th><th class="td-muted">Fecha</th></tr></thead>
           <tbody>
             {% for d in detalles_kpi %}
             <tr>
               <td>{{ d.sucursal.nombre }}</td>
-              <td>${{ d.redbank|intcomma }}</td>
+              <td>{% if d.redbank %}${{ d.redbank|intcomma }}{% else %}<span class="td-empty-inline">—</span>{% endif %}</td>
+              <td class="td-muted">{% if d.ultimo_cierre_fecha %}{{ d.ultimo_cierre_fecha|date:"d/m" }}{% else %}—{% endif %}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="2" class="td-empty">Sin datos</td></tr>
+            <tr><td colspan="3" class="td-empty">Sin datos</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -449,7 +451,7 @@
 .fin-blue    { color:#2563eb; } .fin-red   { color:#dc2626; }
 
 /* ── Cuadro 2: KPIs desplegables ─────────────────────────────────────── */
-.kpi-expand-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+.kpi-expand-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; align-items:start; }
 .kpi-exp         { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
 .kpi-exp-header  { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; cursor:pointer; user-select:none; transition:background .12s; }
 .kpi-exp-header:hover { background:#f9fafb; }
@@ -463,6 +465,8 @@
 .kpi-detail-table td { padding:5px 6px; border-top:1px solid #f9fafb; color:#374151; }
 .kpi-detail-table tbody tr:hover td { background:#f9fafb; }
 .td-green { color:#16a34a; font-weight:700; } .td-amber { color:#d97706; font-weight:700; } .td-red { color:#dc2626; font-weight:700; }
+.td-muted { color:#d1d5db; font-size:11px; }
+.td-empty-inline { color:#d1d5db; }
 .kpi-empty { padding:12px; text-align:center; color:#9ca3af; font-size:12px; }
 
 /* ── RTP por local ────────────────────────────────────────────────────── */
@@ -557,7 +561,7 @@
 
 /* ── TABLET (≤900px) ──────────────────────────────────────────────────── */
 @media (max-width:900px) {
-  .kpi-expand-grid { grid-template-columns:repeat(2,1fr); }
+  .kpi-expand-grid { grid-template-columns:repeat(2,1fr); align-items:start; }
   .panel-body { grid-template-columns:1fr 1fr; }
   .panel-section:nth-child(2) { border-right:none; }
   .panel-section-maq { grid-column:span 2; border-top:1px solid #f3f4f6; border-right:none; }

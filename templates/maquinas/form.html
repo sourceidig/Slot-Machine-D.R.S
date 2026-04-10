@@ -67,12 +67,13 @@
         {{ form.servidor }}
       </div>
       <div class="col-md-3">
-        <label class="pg-label">RTP</label>
-        {{ form.numero_serie }}
+        <label class="pg-label">RTP Ingreso <span style="font-size:10px;color:#9ca3af;">(referencia)</span></label>
+        {{ form.rtp_creacion }}
       </div>
     </div>
 
     <!-- Contadores -->
+    {% if not es_tecnico %}
     <div class="pg-section-title">Contadores iniciales</div>
     <div class="row g-3 mb-1">
       <div class="col-md-6">
@@ -84,6 +85,7 @@
         {{ form.contador_inicial_salida }}
       </div>
     </div>
+    {% endif %}
 
     <div class="pg-form-footer">
       <button type="submit" name="guardar" class="btn-pg-primary" style="border:none;cursor:pointer;">

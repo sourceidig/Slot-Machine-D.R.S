@@ -8,7 +8,8 @@
   </div>
 
   <div class="card-body">
-    <!-- Filtros -->
+    <!-- Filtros (solo roles con acceso amplio) -->
+    {% if not es_encargado %}
     <form method="get" class="row g-2 mb-4 align-items-end">
       <div class="col-md-4">
         <label class="form-label fw-semibold">Sucursal</label>
@@ -38,6 +39,7 @@
         </a>
       </div>
     </form>
+    {% endif %}
 
     <!-- Tabla -->
     <div class="table-responsive">

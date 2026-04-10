@@ -35,7 +35,7 @@
                         <th>Nombre</th>
                         <th>Orden</th>
                         <th>Fecha Creación</th>
-                        {% if puede_editar %}<th width="120">Acciones</th>{% endif %}
+                        <th width="120">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -45,20 +45,16 @@
                             <td><strong>{{ zona.nombre }}</strong></td>
                             <td>{{ zona.orden }}</td>
                             <td>{{ zona.created_at|date:"d/m/Y" }}</td>
-                            {% if puede_editar %}
                             <td>
-                                <a href="{% url 'control:zona_edit' zona.pk %}" class="btn btn-sm btn-warning">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <a href="{% url 'control:zona_delete' zona.pk %}" class="btn btn-sm btn-danger">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+                                <a href="{% url 'control:zona_detail' zona.pk %}" class="btn btn-sm btn-info text-white" title="Ver"><i class="bi bi-eye"></i></a>
+                                {% if puede_editar %}
+                                <a href="{% url 'control:zona_edit' zona.pk %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+                                {% endif %}
                             </td>
-                            {% endif %}
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="{% if puede_editar %}5{% else %}4{% endif %}" class="text-center text-muted">No hay zonas registradas</td>
+                            <td colspan="5" class="text-center text-muted">No hay zonas registradas</td>
                         </tr>
                     {% endfor %}
                 </tbody>

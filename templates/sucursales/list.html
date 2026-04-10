@@ -29,7 +29,7 @@
                         <th>Dirección</th>
                         <th>Teléfono</th>
                         <th>Fecha Creación</th>
-                        {% if puede_editar %}<th width="120">Acciones</th>{% endif %}
+                        <th width="120">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -39,20 +39,16 @@
                             <td>{{ sucursal.direccion|default:"-" }}</td>
                             <td>{{ sucursal.telefono|default:"-" }}</td>
                             <td>{{ sucursal.created_at|date:"d/m/Y" }}</td>
-                            {% if user.role == 'admin' or user.role == 'tecnico'%}
                             <td>
-                                <a href="{% url 'control:sucursal_edit' sucursal.pk %}" class="btn btn-sm btn-warning">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <a href="{% url 'control:sucursal_delete' sucursal.pk %}" class="btn btn-sm btn-danger">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+                                <a href="{% url 'control:sucursal_detail' sucursal.pk %}" class="btn btn-sm btn-info text-white" title="Ver"><i class="bi bi-eye"></i></a>
+                                {% if user.role == 'admin' or user.role == 'tecnico' %}
+                                <a href="{% url 'control:sucursal_edit' sucursal.pk %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+                                {% endif %}
                             </td>
-                            {% endif %}
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="{% if puede_editar %}5{% else %}4{% endif %}" class="text-center text-muted">No hay sucursales registradas</td>
+                            <td colspan="5" class="text-center text-muted">No hay sucursales registradas</td>
                         </tr>
                     {% endfor %}
                 </tbody>

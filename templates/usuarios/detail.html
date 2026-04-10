@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block page_title %}Detalle Usuario{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'control:usuarios_list' %}">Usuarios</a></li>
+      <li class="breadcrumb-item active">{{ usuario.nombre }}</li>
+    </ol>
+  </nav>
+  <div class="d-flex gap-2">
+    {% if puede_editar %}
+    <a href="{% url 'control:usuario_edit' usuario.pk %}" class="btn btn-warning btn-sm">
+      <i class="bi bi-pencil"></i> Editar
+    </a>
+    {% endif %}
+    <a href="{% url 'control:usuarios_list' %}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Volver
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-person-circle me-2"></i>{{ usuario.nombre }}</h6>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><th class="text-muted" style="width:45%">Usuario</th><td>{{ usuario.username }}</td></tr>
+          <tr><th class="text-muted">Email</th><td>{{ usuario.email|default:"—" }}</td></tr>
+          <tr><th class="text-muted">Rol</th>
+            <td>
+              {% if usuario.role == 'admin' %}
+                <span class="badge" style="background:#6f42c1;">{{ usuario.get_role_display }}</span>
+              {% elif usuario.role == 'gerente' %}
+                <span class="badge" style="background:#0d6efd;">{{ usuario.get_role_display }}</span>
+              {% elif usuario.role == 'supervisor' %}
+                <span class="badge" style="background:#0dcaf0;color:#000;">{{ usuario.get_role_display }}</span>
+              {% elif usuario.role == 'tecnico' %}
+                <span class="badge" style="background:#fd7e14;">{{ usuario.get_role_display }}</span>
+              {% elif usuario.role == 'encargado' %}
+                <span class="badge" style="background:#198754;">{{ usuario.get_role_display }}</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ usuario.get_role_display }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr><th class="text-muted">Estado</th>
+            <td>
+              {% if usuario.is_active %}
+                <span class="badge bg-success">Activo</span>
+              {% else %}
+                <span class="badge bg-danger">Inactivo</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr><th class="text-muted">Registro</th><td>{{ usuario.date_joined|date:"d/m/Y" }}</td></tr>
+          <tr><th class="text-muted">Últ. acceso</th><td>{{ usuario.last_login|date:"d/m/Y H:i"|default:"—" }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-building me-2"></i>Sucursales Asignadas ({{ sucursales_asignadas|length }})</h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-secondary">
+            <tr><th>Nombre</th><th>Dirección</th><th class="text-center">Acciones</th></tr>
+          </thead>
+          <tbody>
+            {% for suc in sucursales_asignadas %}
+            <tr>
+              <td><strong>{{ suc.nombre }}</strong></td>
+              <td class="text-muted small">{{ suc.direccion|default:"—" }}</td>
+              <td class="text-center">
+                <a href="{% url 'control:sucursal_detail' suc.pk %}" class="btn btn-sm btn-info text-white" title="Ver"><i class="bi bi-eye"></i></a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-3">Sin sucursales asignadas</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -83,9 +83,7 @@
             <th>Juego</th>
             <th>Modelo</th>
             <th>Estado</th>
-            {% if user.role == 'admin' or user.role == 'tecnico' %}
-              <th>Acciones</th>
-            {% endif %}
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -118,20 +116,21 @@
                   {% endif %}
                 {% endif %}
               </td>
-              {% if user.role == 'admin' or user.role == 'tecnico' %}
-                <td>
-                  <a href="{% url 'control:maquina_edit' maquina.pk %}" class="btn btn-sm btn-warning" title="Editar">
-                    <i class="bi bi-pencil"></i>
-                  </a>
-                  <a href="{% url 'control:maquina_delete' maquina.pk %}" class="btn btn-sm btn-danger" title="Eliminar">
-                    <i class="bi bi-trash"></i>
-                  </a>
-                </td>
-              {% endif %}
+              <td>
+                <a href="{% url 'control:maquina_detail' maquina.pk %}" class="btn btn-sm btn-info text-white" title="Ver"><i class="bi bi-eye"></i></a>
+                {% if user.role == 'admin' or user.role == 'tecnico' %}
+                <a href="{% url 'control:maquina_edit' maquina.pk %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+                {% if maquina.estado == 'Retirada' and not maquina.tiene_cierre %}
+                <a href="{% url 'control:cerrar_maquina' maquina.pk %}" class="btn btn-sm btn-danger" title="Cerrar Máquina">
+                  <i class="bi bi-x-octagon"></i>
+                </a>
+                {% endif %}
+                {% endif %}
+              </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="{% if puede_editar %}8{% else %}7{% endif %}" class="text-center text-muted">No hay máquinas registradas</td>
+              <td colspan="8" class="text-center text-muted">No hay máquinas registradas</td>
             </tr>
           {% endfor %}
         </tbody>

@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block page_title %}Detalle Sucursal{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'control:sucursales_list' %}">Sucursales</a></li>
+      <li class="breadcrumb-item active">{{ sucursal.nombre }}</li>
+    </ol>
+  </nav>
+  <div class="d-flex gap-2">
+    {% if puede_editar %}
+    <a href="{% url 'control:sucursal_edit' sucursal.pk %}" class="btn btn-warning btn-sm">
+      <i class="bi bi-pencil"></i> Editar
+    </a>
+    {% endif %}
+    <a href="{% url 'control:sucursales_list' %}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Volver
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Info principal -->
+  <div class="col-md-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-building me-2"></i>{{ sucursal.nombre }}</h6>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><th class="text-muted" style="width:40%">Dirección</th><td>{{ sucursal.direccion|default:"—" }}</td></tr>
+          <tr><th class="text-muted">Teléfono</th><td>{{ sucursal.telefono|default:"—" }}</td></tr>
+          <tr><th class="text-muted">Estado</th>
+            <td>
+              {% if sucursal.is_active %}
+                <span class="badge bg-success">Activa</span>
+              {% else %}
+                <span class="badge bg-danger">Inactiva</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr><th class="text-muted">Creada</th><td>{{ sucursal.created_at|date:"d/m/Y" }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zonas -->
+  <div class="col-md-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-grid-3x3 me-2"></i>Zonas ({{ zonas|length }})</h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-secondary">
+            <tr><th>Nombre</th><th>Orden</th><th class="text-center">Acciones</th></tr>
+          </thead>
+          <tbody>
+            {% for zona in zonas %}
+            <tr>
+              <td>{{ zona.nombre }}</td>
+              <td>{{ zona.orden }}</td>
+              <td class="text-center">
+                <a href="{% url 'control:zona_detail' zona.pk %}" class="btn btn-sm btn-info text-white" title="Ver"><i class="bi bi-eye"></i></a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-3">Sin zonas registradas</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Usuarios asignados -->
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-people me-2"></i>Usuarios Asignados ({{ usuarios|length }})</h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-secondary">
+            <tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th></tr>
+          </thead>
+          <tbody>
+            {% for u in usuarios %}
+            <tr>
+              <td>{{ u.nombre }}</td>
+              <td class="text-muted small">{{ u.username }}</td>
+              <td><span class="badge bg-secondary">{{ u.get_role_display }}</span></td>
+              <td>
+                {% if u.is_active %}
+                  <span class="badge bg-success">Activo</span>
+                {% else %}
+                  <span class="badge bg-danger">Inactivo</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-3">Sin usuarios asignados</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
