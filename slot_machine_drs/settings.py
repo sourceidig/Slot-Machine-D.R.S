@@ -195,3 +195,7 @@ LOGGING = {
     },
 }
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+CSRF_TRUSTED_ORIGINS = [
+    'https://pazagamesdrs.cl',
+    'http://pazagamesdrs.cl',
+]
