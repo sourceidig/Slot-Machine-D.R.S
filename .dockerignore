@@ -6,3 +6,8 @@ __pycache__
 logs/
 *.sqlite3
 .gitignore
+__pycache__/
+*.pyc
+logs/*.log
+logs/*.log.bak
+.claude/

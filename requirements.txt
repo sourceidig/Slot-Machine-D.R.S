@@ -1,7 +1,8 @@
-Django==5.0.2
+Django==4.2.16
 mysqlclient==2.2.4
 openpyxl==3.1.2
 Pillow==10.2.0
 pytesseract==0.3.10
 scikit-image==0.21.0
 numpy==1.26.4
+gunicorn==21.2.0
