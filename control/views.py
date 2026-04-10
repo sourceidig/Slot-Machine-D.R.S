@@ -200,11 +200,11 @@ def informe_recaudacion_detail(request, pk):
 
     # RTP para agrupaciones
     for d in por_servidor.values():
-        d["rtp"] = round(d["salida"] / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
+        d["rtp"] = round((d["entrada"] - d["salida"]) / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
     for d in por_juego.values():
-        d["rtp"] = round(d["salida"] / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
+        d["rtp"] = round((d["entrada"] - d["salida"]) / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
     for d in por_zona.values():
-        d["rtp"] = round(d["salida"] / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
+        d["rtp"] = round((d["entrada"] - d["salida"]) / d["entrada"] * 100, 1) if d["entrada"] > 0 else 0
 
     # Cuadraturas diarias del ciclo para el detalle desplegable
     cuadraturas_ciclo = list(
@@ -716,6 +716,16 @@ def login_view(request):
                 tipo_usuario=user.role,
             )
             request.session['registro_sesion_id'] = registro.pk
+
+            # Mantener solo las últimas 100 sesiones
+            total_sesiones = RegistroSesion.objects.count()
+            if total_sesiones > 100:
+                ids_viejos = list(
+                    RegistroSesion.objects
+                    .order_by('hora_inicio', 'id')
+                    .values_list('id', flat=True)[:total_sesiones - 100]
+                )
+                RegistroSesion.objects.filter(id__in=ids_viejos).delete()
 
             redir = _manejar_sucursal_post_login(request, user)
 
@@ -1611,7 +1621,7 @@ def dashboard_view(request):
 
     if global_kpis["total_entrada"] and global_kpis["total_entrada"] > 0:
         global_kpis["rtp_global"] = round(
-            global_kpis["total_salida"] / global_kpis["total_entrada"] * 100, 2
+            (global_kpis["total_entrada"] - global_kpis["total_salida"]) / global_kpis["total_entrada"] * 100, 2
         )
     else:
         global_kpis["rtp_global"] = 0
@@ -1635,7 +1645,7 @@ def dashboard_view(request):
             )
             t_ent = agg["ent"] or 0
             t_sal = agg["sal"] or 0
-            rtp_turno = round(t_sal / t_ent * 100, 2) if t_ent > 0 else None
+            rtp_turno = round((t_ent - t_sal) / t_ent * 100, 2) if t_ent > 0 else None
         else:
             rtp_turno = None
 
@@ -1645,7 +1655,7 @@ def dashboard_view(request):
         )
         h_ent = agg_h["ent"] or 0
         h_sal = agg_h["sal"] or 0
-        rtp_hist = round(h_sal / h_ent * 100, 2) if h_ent > 0 else None
+        rtp_hist = round((h_ent - h_sal) / h_ent * 100, 2) if h_ent > 0 else None
 
         locales_rtp.append({
             "sucursal":     suc,
@@ -1756,7 +1766,7 @@ def dashboard_view(request):
         turno_ent = lecs_turno.aggregate(s=Sum("entrada_dia"))["s"] or 0
         turno_sal = lecs_turno.aggregate(s=Sum("salida_dia"))["s"] or 0
         turno_tot = lecs_turno.aggregate(s=Sum("total"))["s"] or 0
-        rtp_dia   = round(turno_sal / turno_ent * 100, 2) if turno_ent > 0 else 0
+        rtp_dia   = round((turno_ent - turno_sal) / turno_ent * 100, 2) if turno_ent > 0 else 0
 
         # ── Stats del último turno para el botón (activo o último cerrado) ──
         if turno_activo:
@@ -1777,7 +1787,7 @@ def dashboard_view(request):
                 _sal = _lec["sal"] or 0
                 btn_numeral  = _ent
                 btn_ganancia = _lec["tot"] or 0
-                btn_rtp      = round(_sal / _ent * 100, 2) if _ent > 0 else 0
+                btn_rtp      = round((_ent - _sal) / _ent * 100, 2) if _ent > 0 else 0
             else:
                 btn_numeral = btn_ganancia = btn_rtp = None
 
@@ -1787,7 +1797,7 @@ def dashboard_view(request):
         acum_ent = acum["ent"] or 0
         acum_sal = acum["sal"] or 0
         acum_tot = acum["tot"] or 0
-        rtp_acum = round(acum_sal / acum_ent * 100, 2) if acum_ent > 0 else 0
+        rtp_acum = round((acum_ent - acum_sal) / acum_ent * 100, 2) if acum_ent > 0 else 0
 
         asig_qs = AsignacionTurnoZona.objects.filter(turno=turno_activo) if turno_activo else AsignacionTurnoZona.objects.none()
         retiros_turno   = asig_qs.aggregate(s=Sum("retiros"))["s"] or 0
@@ -4420,7 +4430,7 @@ def generar_control(request, turno_id):
     def add_rtp(d):
         result = []
         for name, v in sorted(d.items()):
-            rtp = round(v["salida"] / v["entrada"] * 100, 1) if v["entrada"] > 0 else 0
+            rtp = round((v["entrada"] - v["salida"]) / v["entrada"] * 100, 1) if v["entrada"] > 0 else 0
             result.append({"nombre": name, "rtp": rtp, **v})
         return result
 
@@ -4794,7 +4804,7 @@ def controles_detail(request, pk):
     def add_rtp(d):
         result = []
         for name, v in sorted(d.items()):
-            rtp = round(v["salida"] / v["entrada"] * 100, 1) if v["entrada"] > 0 else 0
+            rtp = round((v["entrada"] - v["salida"]) / v["entrada"] * 100, 1) if v["entrada"] > 0 else 0
             result.append({"nombre": name, "rtp": rtp, **v})
         return result
 
@@ -4899,19 +4909,18 @@ def turno_asistente_redirect(request):
 @login_required
 @role_required('admin', 'gerente')
 def movimientos_list(request):
-    from django.core.paginator import Paginator
     from .models import RegistroActividad
 
     qs = RegistroActividad.objects.select_related('usuario', 'sucursal').order_by('-fecha_hora')
 
     # ── Filtros ────────────────────────────────────────────────
-    tipo_fil        = request.GET.get('tipo', '')
-    usuario_id      = request.GET.get('usuario', '')
-    sucursal_id     = request.GET.get('sucursal', '')
-    fecha_desde     = request.GET.get('fecha_desde', '')
-    fecha_hasta     = request.GET.get('fecha_hasta', '')
-    modulo_fil      = request.GET.get('modulo', '')
-    buscar          = request.GET.get('buscar', '')
+    tipo_fil    = request.GET.get('tipo', '')
+    usuario_id  = request.GET.get('usuario', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+    modulo_fil  = request.GET.get('modulo', '')
+    buscar      = request.GET.get('buscar', '')
 
     if tipo_fil:
         qs = qs.filter(tipo=tipo_fil)
@@ -4932,7 +4941,8 @@ def movimientos_list(request):
             Q(descripcion__icontains=buscar)
         )
 
-    paginator = Paginator(qs, 15)
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, 20)
     page_obj  = paginator.get_page(request.GET.get('page', 1))
 
     modulos_disponibles = (

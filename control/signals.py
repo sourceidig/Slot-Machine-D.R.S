@@ -88,8 +88,27 @@ def _diff(old_obj, new_obj):
     return cambios
 
 
+LIMITE_ACTIVIDAD = 100
+
+
+def _trim_actividad():
+    """Elimina los registros más antiguos que superen el límite."""
+    try:
+        from control.models import RegistroActividad
+        total = RegistroActividad.objects.count()
+        if total > LIMITE_ACTIVIDAD:
+            ids_viejos = list(
+                RegistroActividad.objects
+                .order_by('fecha_hora', 'id')
+                .values_list('id', flat=True)[:total - LIMITE_ACTIVIDAD]
+            )
+            RegistroActividad.objects.filter(id__in=ids_viejos).delete()
+    except Exception:
+        pass
+
+
 def _log(tipo, modulo, objeto=None, descripcion='', detalles=None, request=None):
-    """Crea un RegistroActividad. Nunca propaga excepciones al flujo principal."""
+    """Crea un RegistroActividad y mantiene el historial en el límite."""
     try:
         from control.models import RegistroActividad
         usuario, nombre, sucursal, nombre_suc, ip = _contexto(request)
@@ -109,6 +128,7 @@ def _log(tipo, modulo, objeto=None, descripcion='', detalles=None, request=None)
             detalles=detalles or None,
             ip=ip,
         )
+        _trim_actividad()
     except Exception:
         pass
 
@@ -173,6 +193,7 @@ def _login(sender, request, user, **kwargs):
             descripcion=f'Inicio de sesión: {nombre}',
             ip=ip,
         )
+        _trim_actividad()
     except Exception:
         pass
 
@@ -192,5 +213,6 @@ def _logout(sender, request, user, **kwargs):
             objeto_str=user.username,
             descripcion=f'Cierre de sesión: {nombre}',
         )
+        _trim_actividad()
     except Exception:
         pass

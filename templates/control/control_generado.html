@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize custom_filters %}
 {% block content %}
 <div class="container-fluid px-3 mt-3" style="max-width:1300px;">
 
@@ -101,11 +101,12 @@
               <!-- RTP -->
               <td class="text-center" id="rtp-{{ l.pk }}">
                 {% if l.entrada_dia > 0 %}
-                  {% widthratio l.salida_dia l.entrada_dia 100 as rtp_val %}
+                  {% with rtp_val=l.entrada_dia|rtp_pct:l.salida_dia %}
                   <span class="badge rounded-pill"
-                    style="font-size:11px;background:{% if rtp_val|add:0 > 90 %}#fee2e2;color:#991b1b{% elif rtp_val|add:0 > 70 %}#fef9c3;color:#854d0e{% else %}#dcfce7;color:#166534{% endif %};">
+                    style="font-size:11px;background:{% if rtp_val > 90 %}#fee2e2;color:#991b1b{% elif rtp_val > 70 %}#fef9c3;color:#854d0e{% else %}#dcfce7;color:#166534{% endif %};">
                     {{ rtp_val }}%
                   </span>
+                  {% endwith %}
                 {% else %}
                   <span class="text-muted">—</span>
                 {% endif %}
@@ -140,8 +141,9 @@
               <td class="text-end {% if total_total < 0 %}text-danger{% else %}text-success{% endif %}" id="total-general">{{ total_total|intcomma }}</td>
               <td class="text-center">
                 {% if total_entrada_dia > 0 %}
-                  {% widthratio total_salida_dia total_entrada_dia 100 as rtp_total %}
+                  {% with rtp_total=total_entrada_dia|rtp_pct:total_salida_dia %}
                   <span class="badge rounded-pill" style="background:#e0e7ff;color:#3730a3;font-size:11px;">{{ rtp_total }}%</span>
+                  {% endwith %}
                 {% endif %}
               </td>
               <td></td>
@@ -367,7 +369,7 @@ function recalcularFila(id, entAnt, salAnt) {
   totalEl.innerHTML = `<span class="${total < 0 ? 'text-danger' : 'text-success'} fw-bold">${total.toLocaleString()}</span>`;
   const rtpEl = document.getElementById(`rtp-${id}`);
   if (entDia > 0) {
-    const rtp = Math.round(salDia / entDia * 100);
+    const rtp = Math.round((entDia - salDia) / entDia * 100);
     const bg  = rtp > 90 ? '#fee2e2;color:#991b1b' : rtp > 70 ? '#fef9c3;color:#854d0e' : '#dcfce7;color:#166534';
     rtpEl.innerHTML = `<span class="badge rounded-pill" style="font-size:11px;background:${bg};">${rtp}%</span>`;
   }

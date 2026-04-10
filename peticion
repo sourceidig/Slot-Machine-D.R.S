@@ -1,16 +1,8 @@
-Necesito dos cambios en el sistema relacionados con la gestión de máquinas:
+Hay un error en el cálculo del RTP en todo el sistema. La fórmula actual es incorrecta:
+python# INCORRECTO (fórmula actual)
+rtp = round(salida / entrada * 100, 1)
 
-1. RESTRINGIR ELIMINACIÓN DE MÁQUINAS
-Actualmente cualquier usuario puede eliminar máquinas. Cambiar para que solo el rol "admin" pueda eliminar máquinas. Para los demás roles, ocultar o deshabilitar el botón de eliminar en la lista y detalle de máquinas.
-
-2. CONFIRMACIÓN DOBLE PARA ELIMINAR MÁQUINA
-Cuando el admin intente eliminar una máquina, en vez del confirm() simple actual, mostrar un modal de confirmación que:
-- Muestre el nombre/número de la máquina a eliminar
-- Pida al usuario escribir el número de interface de la máquina para confirmar
-- Si el campo escrito no coincide exactamente con el número de interface, el botón de confirmar queda deshabilitado
-- Solo cuando coincide se habilita el botón rojo de eliminar
-- Ejemplo: "Para confirmar, escriba el número de interface de esta máquina: 81235"
-
-3. BUG: CÁLCULO CON DATOS ANTIGUOS AL EDITAR MÁQUINA
-Cuando se edita una máquina y se cambian sus datos (contadores, configuración), el sistema sigue calculando con los valores anteriores en el registro de lecturas y controles. 
-Investigar dónde se cachean o se leen esos valores al momento del cálculo y asegurarse que siempre se lean los datos frescos desde la base de datos, no desde objetos en memoria que pueden estar desactualizados. Revisar especialmente el save() de LecturaMaquina y cualquier lugar donde se referencie maquina.contador_inicial u otros campos de Maquina para los cálculos.
+# CORRECTO (fórmula que debe quedar)
+rtp = round((entrada - salida) / entrada * 100, 1) if entrada > 0 else 0
+La fórmula correcta representa la ganancia del local como porcentaje de lo jugado. Positivo = local ganó, negativo = local perdió.
+Busca y reemplaza esta fórmula en TODOS los archivos del proyecto donde aparezca, principalmente en control/views.py (líneas aprox. 203, 205, 207, 1648, 1658, 1769, 1790, 1800, 4433) y también en control/utils.py y cualquier template donde se calcule RTP con JavaScript o Jinja. No dejes ninguna instancia sin corregir.

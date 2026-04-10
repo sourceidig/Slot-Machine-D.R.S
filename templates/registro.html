@@ -87,7 +87,7 @@
 
                         <!-- Botón Reportar Máquina -->
                         <div class="mb-3">
-                            <button type="button" id="btnReportarMaquina" class="btn btn-warning" disabled
+                            <button type="button" id="btnReportarMaquina" class="btn btn-warning"
                                     data-bs-toggle="modal" data-bs-target="#reportarModal">
                                 <i class="bi bi-tools"></i> Reportar Máquina
                             </button>
@@ -369,14 +369,19 @@
             document.getElementById('maquinaInfo').style.display = 'none';
         }
     }
-    document.getElementById('id_maquina').addEventListener('change', function() {
+    const selectMaquina = document.getElementById('id_maquina');
+
+    selectMaquina.addEventListener('change', function() {
         actualizarInfoMaquina(this);
-        // Habilitar/deshabilitar botón Reportar y limpiar reporte anterior
-        const btnReportar = document.getElementById('btnReportarMaquina');
-        btnReportar.disabled = !this.value;
-        // Resetear reporte si cambia la máquina
+        document.getElementById('btnReportarMaquina').disabled = !this.value;
         resetearReporte();
     });
+
+    // Estado inicial correcto según lo que haya en el select al cargar
+    document.getElementById('btnReportarMaquina').disabled = !selectMaquina.value;
+    if (selectMaquina.value) {
+        actualizarInfoMaquina(selectMaquina);
+    }
 
     // ── Lógica del modal Reportar Máquina ────────────────────────────────────
     function resetearReporte() {

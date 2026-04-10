@@ -11,6 +11,21 @@ def getattribute(obj, attr):
         return None
 
 @register.filter
+def rtp_pct(entrada, salida):
+    """Calcula RTP del local = (entrada - salida) / entrada * 100.
+    Uso: {{ l.entrada_dia|rtp_pct:l.salida_dia }}
+    """
+    try:
+        entrada = int(entrada or 0)
+        salida = int(salida or 0)
+        if entrada <= 0:
+            return 0
+        return round((entrada - salida) / entrada * 100, 1)
+    except (TypeError, ZeroDivisionError):
+        return 0
+
+
+@register.filter
 def get_ef(cz, key):
     """Retorna el valor del campo ef_XXXX o monedas_monto de un CuadraturaZona."""
     if cz is None:

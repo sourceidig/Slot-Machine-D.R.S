@@ -293,11 +293,11 @@ class LecturaMaquina(models.Model):
         super().save(*args, **kwargs)
 
         # 5) Actualizar rtp_objetivo en la máquina con el RTP real de esta lectura
-        #    RTP real = (salida_dia / entrada_dia) * 100  → retorno al jugador
+        #    RTP real = (entrada_dia - salida_dia) / entrada_dia * 100  → ganancia del local
         #    Solo actualiza si entrada_dia > 0 y el valor está en rango razonable
         if self.maquina_id and self.entrada_dia and self.entrada_dia > 0:
             from decimal import Decimal, ROUND_HALF_UP
-            rtp_real = (Decimal(self.salida_dia) / Decimal(self.entrada_dia) * 100).quantize(
+            rtp_real = ((Decimal(self.entrada_dia) - Decimal(self.salida_dia)) / Decimal(self.entrada_dia) * 100).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
             # No guardar si excede el rango del campo (max_digits=7, decimal_places=2 → max 99999.99)
@@ -719,7 +719,7 @@ class InformeRecaudacion(models.Model):
     @property
     def rtp(self):
         if self.total_entrada and self.total_entrada > 0:
-            return round(self.total_salida / self.total_entrada * 100, 1)
+            return round((self.total_entrada - self.total_salida) / self.total_entrada * 100, 1)
         return 0
 
 
@@ -752,7 +752,7 @@ class InformeRecaudacionLinea(models.Model):
     @property
     def rtp(self):
         if self.parcial_entrada and self.parcial_entrada > 0:
-            return round(self.parcial_salida / self.parcial_entrada * 100, 1)
+            return round((self.parcial_entrada - self.parcial_salida) / self.parcial_entrada * 100, 1)
         return 0
 
 

@@ -172,16 +172,16 @@ class LecturaMaquinaCalculosTest(TestCase):
     def test_rtp_actualizado_en_maquina(self):
         """
         Cuando entrada_dia > 0, save() actualiza Maquina.rtp_objetivo
-        con (salida_dia / entrada_dia * 100) redondeado a 2 decimales.
+        con (entrada_dia - salida_dia) / entrada_dia * 100 redondeado a 2 decimales.
         """
         maquina = make_maquina(self.sucursal, self.zona,
                                contador_entrada=1_000, contador_salida=800)
         make_lectura(self.turno, maquina, self.usuario,
                      entrada=1_500, salida=1_200)
-        # entrada_dia=500, salida_dia=400  →  rtp = 400/500*100 = 80.00
+        # entrada_dia=500, salida_dia=400  →  rtp = (500-400)/500*100 = 20.00
 
         maquina.refresh_from_db()
-        self.assertEqual(maquina.rtp_objetivo, Decimal("80.00"))
+        self.assertEqual(maquina.rtp_objetivo, Decimal("20.00"))
 
     def test_rtp_no_se_actualiza_cuando_entrada_dia_es_cero(self):
         """
@@ -1367,7 +1367,7 @@ class CuadraturaCajaDiariaCalculosTest(TestCase):
 
 class InformeRecaudacionRtpTest(TestCase):
     """
-    La propiedad rtp calcula salida/entrada*100 redondeado a 1 decimal.
+    La propiedad rtp calcula (entrada-salida)/entrada*100 redondeado a 1 decimal.
     Devuelve 0 cuando entrada es 0 (evita división por cero).
     """
 
@@ -1384,21 +1384,21 @@ class InformeRecaudacionRtpTest(TestCase):
         )
 
     def test_rtp_calculado_correctamente(self):
-        """850 salida / 1000 entrada * 100 = 85.0."""
-        self.assertEqual(self._informe(1_000, 850).rtp, 85.0)
+        """(1000 - 850) / 1000 * 100 = 15.0."""
+        self.assertEqual(self._informe(1_000, 850).rtp, 15.0)
 
     def test_rtp_cuando_entrada_es_cero_retorna_cero(self):
         """División por cero evitada → rtp == 0."""
         self.assertEqual(self._informe(0, 500).rtp, 0)
 
     def test_rtp_redondeado_a_un_decimal(self):
-        """333 / 1000 * 100 = 33.3."""
-        self.assertEqual(self._informe(1_000, 333).rtp, 33.3)
+        """(1000 - 333) / 1000 * 100 = 66.7."""
+        self.assertEqual(self._informe(1_000, 333).rtp, 66.7)
 
 
 class InformeRecaudacionLineaRtpTest(TestCase):
     """
-    InformeRecaudacionLinea.rtp calcula sobre parcial_entrada / parcial_salida.
+    InformeRecaudacionLinea.rtp calcula (parcial_entrada - parcial_salida) / parcial_entrada * 100.
     """
 
     def setUp(self):
@@ -1418,8 +1418,8 @@ class InformeRecaudacionLineaRtpTest(TestCase):
         )
 
     def test_rtp_linea_calculado(self):
-        """400/500 * 100 = 80.0."""
-        self.assertEqual(self._linea(500, 400).rtp, 80.0)
+        """(500 - 400) / 500 * 100 = 20.0."""
+        self.assertEqual(self._linea(500, 400).rtp, 20.0)
 
     def test_rtp_linea_entrada_cero_retorna_cero(self):
         self.assertEqual(self._linea(0, 100).rtp, 0)
