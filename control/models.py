@@ -263,18 +263,22 @@ class LecturaMaquina(models.Model):
         if self.turno_id and not self.fecha_trabajo:
             self.fecha_trabajo = self.turno.fecha
 
-        # 2) copiar datos fijos desde la máquina
+        # 2) copiar datos fijos desde la máquina — siempre leer desde DB para
+        #    evitar usar datos en caché de objetos editados en la misma sesión.
         if self.maquina_id:
-            self.numero_maquina = self.maquina.numero_maquina
-            self.nombre_juego = self.maquina.nombre_juego
-            self.sucursal = self.maquina.sucursal
-            self.zona = self.maquina.zona
+            maquina_fresca = Maquina.objects.select_related('sucursal', 'zona').get(pk=self.maquina_id)
+            self.numero_maquina = maquina_fresca.numero_maquina
+            self.nombre_juego = maquina_fresca.nombre_juego
+            self.sucursal = maquina_fresca.sucursal
+            self.zona = maquina_fresca.zona
+        else:
+            maquina_fresca = None
 
         # 3) Al CREAR: obtener referencia anterior desde historial
         if not self.pk:
             from .utils import get_referencia_anterior
             entrada_ant, salida_ant, fuente = get_referencia_anterior(
-                self.maquina,
+                maquina_fresca,
                 self.fecha_trabajo
             )
             self.entrada_anterior = int(entrada_ant or 0)

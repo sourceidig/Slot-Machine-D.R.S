@@ -3,16 +3,14 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
-from django.db.models import Sum, Count, Case, When, Value, IntegerField
+from django.db.models import Sum, Count, Case, When, Value, IntegerField, Q
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
-from django.utils import timezone
-from django.http import HttpResponse
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, date
 from decimal import Decimal
 
 from control.utils import calcular_numerales_caja, get_inicio_ciclo
@@ -21,10 +19,7 @@ from .forms import CierreTurnoForm, CierreTurnoZonaFormSet, CierreTurnoMovimient
 from .models import CuadraturaDetalle
 from django.views.generic.edit import UpdateView
 from django.urls import reverse_lazy, reverse
-from django.db import transaction
-from django.db.models import Q
 import calendar
-from datetime import date
 import json
 import re
 import base64
@@ -35,9 +30,6 @@ import numpy as np
 from PIL import Image, ImageOps
 import pytesseract
 from pytesseract import Output
-
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
 
 from .models import (
     Usuario, Sucursal, Zona, Maquina, Turno, LecturaMaquina,
@@ -61,8 +53,7 @@ from .forms import (
 from .decorators import (role_required, readonly_for,
     ROLES_DASHBOARD, ROLES_TURNO, ROLES_OPERACIONES, ROLES_REGISTRO,
     ROLES_RECAUDACION, ROLES_CONTROLES, ROLES_CONFIG_VER, ROLES_CONFIG_EDIT,
-    ROLES_USUARIOS,ROLES_VER_USUARIOS ,ROLES_READONLY, ROLES_CUADRATURA, ROLES_CUADRATURA_DIARIA, ROLES_CUADRATURA_ZONA)
-from django.shortcuts import render
+    ROLES_USUARIOS, ROLES_VER_USUARIOS, ROLES_READONLY, ROLES_CUADRATURA, ROLES_CUADRATURA_DIARIA)
 
 def _estado_ord():
     """Anotación para ordenar máquinas: Mantenimiento → Retirada → Operativa."""
@@ -1009,30 +1000,6 @@ def ajax_cuadratura_mensual_data(request):
         })
 
     return JsonResponse({"ok": True, "zonas": data})
-# ============================================
-# CUADRATURA CAJA DIARIA (ATENDEDORAS)
-# ============================================
-@login_required
-def cuadratura_create(request, turno_id):
-    turno = get_object_or_404(Turno, id=turno_id)
-
-    # Aquí renderizas el TEMPLATE DE "columna roja"
-    # OJO: debe existir templates/cuadratura/create_turno.html  (o create.html si así lo llamas)
-    return render(request, "cuadratura/create_turno.html", {
-        "turno": turno,
-        "sucursal": turno.sucursal,
-        # "zonas": ...
-        # "lecturas": ...
-    })
-
-@login_required
-def cuadratura_list(request):
-    return render(request, "cuadratura/list.html")
-
-@login_required
-def cuadratura_detail(request, pk):
-    return render(request, "cuadratura/detail.html", {"pk": pk})
-
 def _parse_detalles_from_post(post):
     """
     Lee inputs hidden con formato:
@@ -1467,50 +1434,6 @@ def cuadratura_diaria_delete(request, pk):
 
     return render(request, "cuadratura_diaria/delete.html", {"cuadratura": cuadratura})
 
-
-
-@login_required
-def cuadratura_diaria_recalcular_todo(request):
-    """
-    Recalcula total_efectivo y ganancia de TODAS las cuadraturas en orden cronológico.
-    Esto propaga correctamente la cadena: caja_anterior → ganancia → total_efectivo → siguiente día.
-    Solo accesible para admins.
-    """
-    if request.user.role != "admin":
-        messages.error(request, "Solo los administradores pueden recalcular.")
-        return redirect("control:cuadratura_diaria_list")
-
-    if request.method != "POST":
-        total = CuadraturaCajaDiaria.objects.count()
-        return render(request, "cuadratura_diaria/recalcular.html", {"total": total})
-
-    # Procesar en orden cronológico para que cada día vea el total_efectivo correcto del día anterior
-    cuadraturas = CuadraturaCajaDiaria.objects.select_related("sucursal").order_by("fecha", "creado_el")
-    actualizadas = 0
-
-    for c in cuadraturas:
-        try:
-            _recalcular_totales(c)
-            c.actualizado_el = timezone.now()
-            c.save()
-            actualizadas += 1
-        except Exception as e:
-            messages.warning(request, f"Error en {c.sucursal} {c.fecha}: {e}")
-
-    messages.success(request, f"✅ {actualizadas} cuadraturas recalculadas correctamente.")
-    return redirect("control:cuadratura_diaria_list")
-
-@login_required
-def cuadratura_diaria_delete(request, pk):
-    cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
-
-    if request.method == "POST":
-        cuadratura.delete()
-        messages.success(request, "Cuadratura eliminada.")
-        return redirect("control:cuadratura_diaria_list")
-
-    return render(request, "cuadratura_diaria/delete.html", {"cuadratura": cuadratura})
-
 @login_required
 def cuadratura_diaria_export_excel(request):
     qs = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario")
@@ -1603,9 +1526,6 @@ def cuadratura_diaria_export_excel(request):
 # ============================================
 # ENCUADRE CAJA (SOLO ADMIN)
 # ============================================
-from django.db.models import Q
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
 
 
 
@@ -3562,9 +3482,10 @@ def maquina_detail(request, pk):
                      .order_by("-fecha_trabajo", "-id")
                      .first())
     return render(request, "maquinas/detail.html", {
-        "maquina":       maquina,
+        "maquina":        maquina,
         "ultima_lectura": ultima_lectura,
-        "puede_editar":  request.user.role in ("admin", "tecnico"),
+        "puede_editar":   request.user.role in ("admin", "tecnico"),
+        "puede_eliminar": request.user.role == "admin",
     })
 
 @login_required
@@ -3678,7 +3599,7 @@ def maquina_edit(request, pk):
 
 
 @login_required
-@role_required(*ROLES_CONFIG_EDIT)
+@role_required('admin')
 def maquina_delete(request, pk):
     maquina = get_object_or_404(Maquina, pk=pk)
     if request.method == "POST":
@@ -3896,37 +3817,9 @@ def _seed_cierre_defaults(cierre: CierreTurno):
     for d in monedas:
         CierreTurnoDenominacion.objects.get_or_create(cierre=cierre, tipo="MONEDA", denominacion=d)
 
-from django.db import transaction
-
 # ==========================
 # CIERRE TURNO (COLUMNA ROJA)
 # ==========================
-
-def _recalcular_totales_cierre(cierre: CierreTurno):
-    zonas_qs = cierre.zonas.all()
-    movs_qs = cierre.movimientos.all()
-    dens_qs = cierre.denominaciones.all()
-
-    total_numeral = sum((x.numeral or 0) for x in zonas_qs)
-    total_gastos = sum((m.monto or 0) for m in movs_qs)
-    total_efectivo = sum((d.cantidad or 0) for d in dens_qs)
-    total_redbank = cierre.pagos.filter(tipo="REDBANK").aggregate(s=Sum("monto"))["s"] or 0
-
-    cierre.total_numeral = int(total_numeral)
-    cierre.total_gastos = int(total_gastos)
-    cierre.total_efectivo_contado = int(total_efectivo)
-
-    # Si tu modelo tiene campo total_pagos, lo guardas. Si no, lo ignoras.
-
-
-    cierre.total_esperado = int(
-        (cierre.caja_base or 0)
-        + total_numeral
-        + (cierre.redbank_retiros or 0)      # ✅ se suma
-        + (cierre.prestamos_salida or 0)     # ⚠️ por ahora lo sumo; confirma si debe restar
-        - (total_gastos + (cierre.retiro_diario or 0))
-    )
-    cierre.descuadre = int((cierre.total_efectivo_contado or 0) - cierre.total_esperado)
 
 def _autollenar_numerales_por_zona(cierre, turno):
     sums = (
@@ -3977,9 +3870,6 @@ def _recalcular_totales_cierre(cierre: CierreTurno):
     )
     cierre.descuadre = int((cierre.total_efectivo_contado or 0) - cierre.total_esperado)
 
-
-from django.db.models import Sum
-from django.utils import timezone
 
 @login_required
 def cierre_turno_create_or_edit(request, turno_id):

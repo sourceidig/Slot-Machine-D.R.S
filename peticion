@@ -1,0 +1,16 @@
+Necesito dos cambios en el sistema relacionados con la gestión de máquinas:
+
+1. RESTRINGIR ELIMINACIÓN DE MÁQUINAS
+Actualmente cualquier usuario puede eliminar máquinas. Cambiar para que solo el rol "admin" pueda eliminar máquinas. Para los demás roles, ocultar o deshabilitar el botón de eliminar en la lista y detalle de máquinas.
+
+2. CONFIRMACIÓN DOBLE PARA ELIMINAR MÁQUINA
+Cuando el admin intente eliminar una máquina, en vez del confirm() simple actual, mostrar un modal de confirmación que:
+- Muestre el nombre/número de la máquina a eliminar
+- Pida al usuario escribir el número de interface de la máquina para confirmar
+- Si el campo escrito no coincide exactamente con el número de interface, el botón de confirmar queda deshabilitado
+- Solo cuando coincide se habilita el botón rojo de eliminar
+- Ejemplo: "Para confirmar, escriba el número de interface de esta máquina: 81235"
+
+3. BUG: CÁLCULO CON DATOS ANTIGUOS AL EDITAR MÁQUINA
+Cuando se edita una máquina y se cambian sus datos (contadores, configuración), el sistema sigue calculando con los valores anteriores en el registro de lecturas y controles. 
+Investigar dónde se cachean o se leen esos valores al momento del cálculo y asegurarse que siempre se lean los datos frescos desde la base de datos, no desde objetos en memoria que pueden estar desactualizados. Revisar especialmente el save() de LecturaMaquina y cualquier lugar donde se referencie maquina.contador_inicial u otros campos de Maquina para los cálculos.

@@ -4,9 +4,10 @@ import io
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import TestCase, RequestFactory
+from django.contrib.auth.models import AnonymousUser
 
 from PIL import Image
 
@@ -15,8 +16,11 @@ from .models import (
     ControlLecturas,
     ControlLecturasLinea,
     CuadraturaCajaDiaria,
+    InformeRecaudacion,
+    InformeRecaudacionLinea,
     LecturaMaquina,
     Maquina,
+    RegistroActividad,
     RegistroSesion,
     Sucursal,
     Turno,
@@ -26,6 +30,7 @@ from .models import (
 from .utils import (
     calcular_numerales_caja,
     es_dia_1_del_ciclo,
+    get_caja_anterior_en_ciclo,
     get_inicio_ciclo,
     get_referencia_anterior,
 )
@@ -1251,3 +1256,524 @@ class CuadraturaCajaDiariaFormTest(TestCase):
         form = CuadraturaCajaDiariaForm(data=data)
         self.assertFalse(form.is_valid())
         self.assertIn("fecha", form.errors)
+
+
+# ─────────────────────────────────────────────
+# Maquina.clean() — validación sucursal vs zona
+# ─────────────────────────────────────────────
+
+class MaquinaCleanTest(TestCase):
+    """
+    Maquina.clean() valida que la zona pertenezca a la sucursal indicada.
+    """
+
+    def setUp(self):
+        self.sucursal_a = make_sucursal("Sucursal A")
+        self.sucursal_b = make_sucursal("Sucursal B")
+        self.zona_a = make_zona(self.sucursal_a)
+        self.zona_b = make_zona(self.sucursal_b)
+
+    def test_zona_de_otra_sucursal_lanza_validation_error(self):
+        """Zona de sucursal B asignada a máquina de sucursal A → ValidationError."""
+        maquina = Maquina(
+            sucursal=self.sucursal_a,
+            zona=self.zona_b,
+            numero_maquina=1,
+            nombre_juego="Test",
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            maquina.clean()
+        self.assertIn("sucursal", ctx.exception.message_dict)
+
+    def test_zona_de_misma_sucursal_es_valida(self):
+        """Zona que pertenece a la sucursal indicada → sin error."""
+        maquina = Maquina(
+            sucursal=self.sucursal_a,
+            zona=self.zona_a,
+            numero_maquina=1,
+            nombre_juego="Test",
+        )
+        maquina.clean()  # no debe lanzar excepción
+
+
+# ─────────────────────────────────────────────
+# CuadraturaCajaDiaria — métodos de cálculo
+# ─────────────────────────────────────────────
+
+class CuadraturaCajaDiariaCalculosTest(TestCase):
+    """
+    Verifica total_gastos_dia() y desglose_efectivo_total.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+
+    def test_total_gastos_dia_suma_todos_los_conceptos(self):
+        """total_gastos_dia() suma los 12 campos _dia."""
+        c = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal,
+            fecha=DATE_CURR,
+            sorteos_dia=1_000,
+            gastos_dia=500,
+            sueldo_b_dia=2_000,
+            redbank_dia=300,
+            regalos_dia=100,
+            taxi_dia=50,
+            jugados_dia=200,
+            transfer_dia=400,
+            otros_1_dia=10,
+            otros_2_dia=20,
+            otros_3_dia=30,
+            descuadre_dia=5,
+        )
+        esperado = 1_000 + 500 + 2_000 + 300 + 100 + 50 + 200 + 400 + 10 + 20 + 30 + 5
+        self.assertEqual(c.total_gastos_dia(), esperado)
+
+    def test_total_gastos_dia_sin_datos_es_cero(self):
+        """Cuadratura vacía → total_gastos_dia() == 0."""
+        c = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal,
+            fecha=DATE_CURR,
+        )
+        self.assertEqual(c.total_gastos_dia(), 0)
+
+    def test_desglose_efectivo_total_suma_todas_las_denominaciones(self):
+        """desglose_efectivo_total suma ef_20000..ef_monedas y ef_billetes_malos."""
+        c = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal,
+            fecha=DATE_CURR,
+            ef_20000=40_000,
+            ef_10000=30_000,
+            ef_5000=15_000,
+            ef_2000=4_000,
+            ef_1000=3_000,
+            ef_monedas=500,
+            ef_billetes_malos=10_000,
+        )
+        self.assertEqual(c.desglose_efectivo_total, 102_500)
+
+    def test_desglose_efectivo_total_vacio_es_cero(self):
+        """Sin valores de efectivo → desglose_efectivo_total == 0."""
+        c = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal,
+            fecha=DATE_CURR,
+        )
+        self.assertEqual(c.desglose_efectivo_total, 0)
+
+
+# ─────────────────────────────────────────────
+# InformeRecaudacion.rtp e InformeRecaudacionLinea.rtp
+# ─────────────────────────────────────────────
+
+class InformeRecaudacionRtpTest(TestCase):
+    """
+    La propiedad rtp calcula salida/entrada*100 redondeado a 1 decimal.
+    Devuelve 0 cuando entrada es 0 (evita división por cero).
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+
+    def _informe(self, entrada, salida):
+        return InformeRecaudacion(
+            sucursal=self.sucursal,
+            fecha_inicio=DATE_PREV,
+            fecha_cierre=DATE_CURR,
+            total_entrada=entrada,
+            total_salida=salida,
+        )
+
+    def test_rtp_calculado_correctamente(self):
+        """850 salida / 1000 entrada * 100 = 85.0."""
+        self.assertEqual(self._informe(1_000, 850).rtp, 85.0)
+
+    def test_rtp_cuando_entrada_es_cero_retorna_cero(self):
+        """División por cero evitada → rtp == 0."""
+        self.assertEqual(self._informe(0, 500).rtp, 0)
+
+    def test_rtp_redondeado_a_un_decimal(self):
+        """333 / 1000 * 100 = 33.3."""
+        self.assertEqual(self._informe(1_000, 333).rtp, 33.3)
+
+
+class InformeRecaudacionLineaRtpTest(TestCase):
+    """
+    InformeRecaudacionLinea.rtp calcula sobre parcial_entrada / parcial_salida.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+        self.informe = InformeRecaudacion.objects.create(
+            sucursal=self.sucursal,
+            fecha_inicio=DATE_PREV,
+            fecha_cierre=DATE_CURR,
+        )
+
+    def _linea(self, parcial_entrada, parcial_salida):
+        return InformeRecaudacionLinea(
+            informe=self.informe,
+            numero_maquina=1,
+            parcial_entrada=parcial_entrada,
+            parcial_salida=parcial_salida,
+        )
+
+    def test_rtp_linea_calculado(self):
+        """400/500 * 100 = 80.0."""
+        self.assertEqual(self._linea(500, 400).rtp, 80.0)
+
+    def test_rtp_linea_entrada_cero_retorna_cero(self):
+        self.assertEqual(self._linea(0, 100).rtp, 0)
+
+
+# ─────────────────────────────────────────────
+# get_caja_anterior_en_ciclo()
+# ─────────────────────────────────────────────
+
+class GetCajaAnteriorEnCicloTest(TestCase):
+    """
+    get_caja_anterior_en_ciclo(sucursal, fecha) devuelve la última
+    CuadraturaCajaDiaria anterior a 'fecha' dentro del ciclo, o un
+    objeto dummy con ceros si no existe ninguna.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+
+    def _make_cuadratura(self, fecha, numeral_acumulado=0):
+        return CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal,
+            fecha=fecha,
+            numeral_acumulado=numeral_acumulado,
+        )
+
+    def test_sin_cuadraturas_retorna_dummy_con_ceros(self):
+        """Sin cuadraturas previas → objeto dummy con caja_total = 0."""
+        resultado = get_caja_anterior_en_ciclo(self.sucursal, DATE_CURR)
+        self.assertEqual(resultado.numeral_dia, 0)
+        self.assertEqual(resultado.prestamos, 0)
+
+    def test_retorna_cuadratura_mas_reciente_antes_de_la_fecha(self):
+        """Hay cuadraturas previas → retorna la más reciente."""
+        c_ayer = self._make_cuadratura(DATE_PREV, numeral_acumulado=5_000)
+        self._make_cuadratura(DATE_PREV2, numeral_acumulado=3_000)
+
+        resultado = get_caja_anterior_en_ciclo(self.sucursal, DATE_CURR)
+        self.assertEqual(resultado.pk, c_ayer.pk)
+
+    def test_cuadratura_del_mismo_dia_no_cuenta(self):
+        """La cuadratura con fecha == fecha_consulta NO es 'anterior'."""
+        self._make_cuadratura(DATE_CURR, numeral_acumulado=9_000)
+        resultado = get_caja_anterior_en_ciclo(self.sucursal, DATE_CURR)
+        # No hay nada antes de DATE_CURR → dummy
+        self.assertEqual(resultado.numeral_dia, 0)
+
+    def test_cuadratura_fuera_del_ciclo_es_ignorada(self):
+        """Con ciclo activo, las cuadraturas anteriores al inicio_ciclo se ignoran."""
+        inicio = DATE_CURR - datetime.timedelta(days=3)
+        CicloRecaudacion.objects.create(
+            sucursal=self.sucursal,
+            inicio_ciclo=inicio,
+        )
+        # Cuadratura antes del ciclo (5 días atrás)
+        self._make_cuadratura(DATE_CURR - datetime.timedelta(days=5), 99_000)
+
+        resultado = get_caja_anterior_en_ciclo(self.sucursal, DATE_CURR)
+        self.assertEqual(resultado.numeral_dia, 0)
+
+
+# ─────────────────────────────────────────────
+# Decoradores
+# ─────────────────────────────────────────────
+
+class RoleRequiredDecoratorTest(TestCase):
+    """
+    @role_required(*roles) permite el acceso solo al rol indicado.
+    Usuarios no autenticados son redirigidos al login.
+    Usuarios con rol incorrecto reciben PermissionDenied.
+    """
+
+    def setUp(self):
+        self.admin = make_usuario("admin_dec")
+        self.admin.role = "admin"
+        self.admin.save()
+
+        self.encargado = make_usuario("encarg_dec")
+        self.encargado.role = "encargado"
+        self.encargado.save()
+
+    def test_rol_correcto_accede_al_dashboard(self):
+        """Admin puede acceder al dashboard (solo rol permitido)."""
+        self.client.force_login(self.admin)
+        response = self.client.get("/dashboard/")
+        self.assertNotEqual(response.status_code, 403)
+
+    def test_rol_incorrecto_recibe_403(self):
+        """Encargado no puede acceder al dashboard → 403."""
+        self.client.force_login(self.encargado)
+        response = self.client.get("/dashboard/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_no_autenticado_redirige_al_login(self):
+        """Usuario anónimo → redirect al login (302)."""
+        response = self.client.get("/dashboard/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response["Location"])
+
+
+class ReadonlyForDecoratorTest(TestCase):
+    """
+    @readonly_for(*roles) bloquea POST para roles de solo lectura.
+    GET siempre pasa. POST bloqueado → PermissionDenied.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+        self.supervisor = make_usuario("sup_dec")
+        self.supervisor.role = "supervisor"
+        self.supervisor.sucursales.add(self.sucursal)
+        self.supervisor.save()
+
+        self.admin = make_usuario("admin_dec2")
+        self.admin.role = "admin"
+        self.admin.save()
+
+    def test_get_permitido_para_rol_readonly(self):
+        """Supervisor puede hacer GET en la vista de registro."""
+        self.client.force_login(self.supervisor)
+        response = self.client.get("/registro/")
+        # Solo verificamos que no sea 403 (el GET debe pasar)
+        self.assertNotEqual(response.status_code, 403)
+
+    def test_post_bloqueado_para_rol_readonly(self):
+        """Supervisor recibe 403 al intentar POST en registro."""
+        self.client.force_login(self.supervisor)
+        response = self.client.post("/registro/", data={})
+        self.assertEqual(response.status_code, 403)
+
+    def test_post_permitido_para_rol_no_readonly(self):
+        """Admin puede POST en registro sin restricción de readonly."""
+        self.client.force_login(self.admin)
+        # Enviamos POST vacío; si falla por validación del form (no por 403) está bien
+        response = self.client.post("/registro/", data={})
+        self.assertNotEqual(response.status_code, 403)
+
+
+# ─────────────────────────────────────────────
+# SucursalEncargadoMiddleware
+# ─────────────────────────────────────────────
+
+class SucursalEncargadoMiddlewareTest(TestCase):
+    """
+    Si el encargado/asistente tiene más de una sucursal y no ha
+    seleccionado una activa en la sesión, el middleware redirige
+    a /seleccionar-sucursal/.
+    """
+
+    def setUp(self):
+        self.suc1 = make_sucursal("Local 1")
+        self.suc2 = make_sucursal("Local 2")
+
+        self.encargado = make_usuario("enc_mw")
+        self.encargado.role = "encargado"
+        self.encargado.sucursales.add(self.suc1, self.suc2)
+        self.encargado.save()
+
+        self.enc_una = make_usuario("enc_una")
+        self.enc_una.role = "encargado"
+        self.enc_una.sucursales.add(self.suc1)
+        self.enc_una.save()
+
+    def test_encargado_con_varias_sucursales_sin_sesion_es_redirigido(self):
+        """Encargado multi-sucursal sin sucursal_activa_id → redirige a seleccionar."""
+        self.client.force_login(self.encargado)
+        response = self.client.get("/turno/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("seleccionar-sucursal", response["Location"])
+
+    def test_encargado_con_una_sucursal_no_es_redirigido(self):
+        """Encargado con solo una sucursal → no pasa por selección."""
+        self.client.force_login(self.enc_una)
+        response = self.client.get("/turno/")
+        self.assertNotEqual(response.status_code, 302)
+        # Cualquier response que no sea redirect al selector está bien
+
+    def test_encargado_con_sucursal_activa_en_sesion_no_es_redirigido(self):
+        """Encargado multi-sucursal con sucursal_activa_id en sesión → accede normal."""
+        self.client.force_login(self.encargado)
+        session = self.client.session
+        session["sucursal_activa_id"] = self.suc1.pk
+        session.save()
+        response = self.client.get("/turno/")
+        self.assertNotEqual(response.status_code, 302)
+
+
+# ─────────────────────────────────────────────
+# Login view
+# ─────────────────────────────────────────────
+
+class LoginViewTest(TestCase):
+    """
+    Tests del flujo de autenticación en /login/.
+    """
+
+    LOGIN_URL = "/login/"
+
+    def setUp(self):
+        self.usuario = make_usuario("login_user")
+        self.usuario.set_password("clave_segura")
+        self.usuario.save()
+
+    def test_get_retorna_200(self):
+        """GET /login/ devuelve el formulario de login."""
+        response = self.client.get(self.LOGIN_URL)
+        self.assertEqual(response.status_code, 200)
+
+    def test_post_credenciales_correctas_redirige(self):
+        """POST con credenciales válidas redirige (302)."""
+        response = self.client.post(self.LOGIN_URL, {
+            "username": "login_user",
+            "password": "clave_segura",
+        })
+        self.assertEqual(response.status_code, 302)
+
+    def test_post_credenciales_incorrectas_retorna_200_con_error(self):
+        """POST con contraseña incorrecta vuelve a mostrar el login."""
+        response = self.client.post(self.LOGIN_URL, {
+            "username": "login_user",
+            "password": "clave_incorrecta",
+        })
+        self.assertEqual(response.status_code, 200)
+
+    def test_usuario_ya_autenticado_es_redirigido(self):
+        """Usuario ya logueado que visita /login/ debe ser redirigido."""
+        self.client.force_login(self.usuario)
+        response = self.client.get(self.LOGIN_URL)
+        self.assertEqual(response.status_code, 302)
+
+
+# ─────────────────────────────────────────────
+# Control de acceso a vistas por rol
+# ─────────────────────────────────────────────
+
+class AccesoVistasRolTest(TestCase):
+    """
+    Verifica que las vistas restrinjan correctamente el acceso según rol.
+    Usa force_login para simular usuarios autenticados.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+
+        self.admin = make_usuario("adm_acc")
+        self.admin.role = "admin"
+        self.admin.save()
+
+        self.gerente = make_usuario("ger_acc")
+        self.gerente.role = "gerente"
+        self.gerente.sucursales.add(self.sucursal)
+        self.gerente.save()
+
+        self.tecnico = make_usuario("tec_acc")
+        self.tecnico.role = "tecnico"
+        self.tecnico.save()
+
+    def test_admin_accede_a_usuarios(self):
+        """/usuarios/ es accesible para admin."""
+        self.client.force_login(self.admin)
+        response = self.client.get("/usuarios/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_gerente_puede_ver_usuarios_pero_no_crearlos(self):
+        """
+        Gerente puede listar usuarios (ROLES_VER_USUARIOS incluye gerente)
+        pero no puede acceder al formulario de creación (ROLES_USUARIOS = solo admin).
+        """
+        self.client.force_login(self.gerente)
+        response_list = self.client.get("/usuarios/")
+        self.assertEqual(response_list.status_code, 200)
+
+        response_create = self.client.get("/usuarios/create/")
+        self.assertEqual(response_create.status_code, 403)
+
+    def test_tecnico_accede_a_maquinas(self):
+        """Técnico puede ver la lista de máquinas."""
+        self.client.force_login(self.tecnico)
+        response = self.client.get("/maquinas/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_no_autenticado_en_maquinas_redirige_al_login(self):
+        """Visitante anónimo en /maquinas/ → redirect a login."""
+        response = self.client.get("/maquinas/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response["Location"])
+
+    def test_admin_accede_a_recaudacion(self):
+        """/recaudacion/ solo para admin."""
+        self.client.force_login(self.admin)
+        response = self.client.get("/recaudacion/")
+        self.assertNotEqual(response.status_code, 403)
+
+    def test_gerente_no_accede_a_recaudacion(self):
+        """Gerente no puede ver recaudación → 403."""
+        self.client.force_login(self.gerente)
+        response = self.client.get("/recaudacion/")
+        self.assertEqual(response.status_code, 403)
+
+
+# ─────────────────────────────────────────────
+# Signal audit log — RegistroActividad
+# ─────────────────────────────────────────────
+
+class RegistroActividadSignalTest(TestCase):
+    """
+    Los signals post_save y post_delete crean entradas en RegistroActividad
+    para los modelos auditados (Sucursal, Maquina, Turno, LecturaMaquina, etc.).
+    """
+
+    def test_crear_sucursal_genera_registro_crear(self):
+        """Al crear una Sucursal se crea un RegistroActividad de tipo CREAR."""
+        antes = RegistroActividad.objects.count()
+        make_sucursal("Sucursal Auditada")
+        self.assertEqual(RegistroActividad.objects.count(), antes + 1)
+        ultimo = RegistroActividad.objects.order_by("-fecha_hora").first()
+        self.assertEqual(ultimo.tipo, "CREAR")
+        self.assertEqual(ultimo.modulo, "Sucursal")
+
+    def test_editar_sucursal_genera_registro_editar(self):
+        """Al modificar una Sucursal se crea un RegistroActividad de tipo EDITAR."""
+        suc = make_sucursal("Suc Edit")
+        antes = RegistroActividad.objects.count()
+        suc.nombre = "Suc Edit Modificada"
+        suc.save()
+        self.assertEqual(RegistroActividad.objects.count(), antes + 1)
+        ultimo = RegistroActividad.objects.order_by("-fecha_hora").first()
+        self.assertEqual(ultimo.tipo, "EDITAR")
+
+    def test_eliminar_turno_genera_registro_eliminar(self):
+        """Al eliminar un Turno se crea un RegistroActividad de tipo ELIMINAR."""
+        suc = make_sucursal()
+        usr = make_usuario("audit_usr")
+        turno = make_turno(suc, usr)
+        antes = RegistroActividad.objects.count()
+        turno.delete()
+        self.assertEqual(RegistroActividad.objects.count(), antes + 1)
+        ultimo = RegistroActividad.objects.order_by("-fecha_hora").first()
+        self.assertEqual(ultimo.tipo, "ELIMINAR")
+        self.assertEqual(ultimo.modulo, "Turno")
+
+    def test_modelos_no_auditados_no_generan_registro(self):
+        """
+        EncuadreCajaAdmin NO está en la lista MODELOS de signals.py
+        → no debe generar RegistroActividad al crearse.
+        """
+        from .models import EncuadreCajaAdmin
+        suc = make_sucursal()
+        turno = make_turno(suc, make_usuario("usr_enc"))
+        antes = RegistroActividad.objects.filter(modulo="Encuadre Admin").count()
+        EncuadreCajaAdmin.objects.create(
+            sucursal=suc,
+            turno=turno,
+            fecha=DATE_CURR,
+        )
+        despues = RegistroActividad.objects.filter(modulo="Encuadre Admin").count()
+        self.assertEqual(antes, despues)

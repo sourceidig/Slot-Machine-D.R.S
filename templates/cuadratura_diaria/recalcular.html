@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <h4>Recalcular Cuadraturas</h4>
+  <p>Se recalcularán <strong>{{ total }}</strong> cuadratura(s) en orden cronológico.</p>
+  <p class="text-muted">Esta acción propaga correctamente la cadena de caja acumulada día a día.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-warning">Recalcular todo</button>
+    <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-secondary ms-2">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

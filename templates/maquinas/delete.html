@@ -8,20 +8,29 @@
     <div class="col-lg-6 mx-auto">
         <div class="card border-danger">
             <div class="card-header bg-danger text-white">
-                <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación</h5>
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Confirmar Eliminación</h5>
             </div>
             <div class="card-body">
-                <p>¿Está seguro de eliminar la máquina <strong>{{ object }}</strong>?</p>
-                <p class="text-danger">Esta acción no se puede deshacer y eliminará todos los datos relacionados.</p>
-                
+                <p>¿Estás seguro de que deseas eliminar la máquina <strong>{{ object }}</strong>?</p>
+                <p class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Esta acción no se puede deshacer y eliminará todos los datos relacionados.</p>
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        Para confirmar, escribe el N° de interface de esta máquina:
+                        <strong class="text-danger">{% if object.codigo_interno %}{{ object.codigo_interno }}{% else %}{{ object.numero_maquina }}{% endif %}</strong>
+                    </label>
+                    <input type="text" id="inputConfirmar" class="form-control" placeholder="Escribe el N° de interface..." autocomplete="off">
+                    <div class="form-text">El código debe coincidir exactamente.</div>
+                </div>
+
                 <form method="post">
                     {% csrf_token %}
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-trash"></i> Sí, eliminar
+                        <button type="submit" id="btnEliminar" class="btn btn-danger" disabled>
+                            <i class="bi bi-trash me-1"></i>Eliminar definitivamente
                         </button>
                         <a href="{% url 'control:maquinas_list' %}" class="btn btn-secondary">
-                            <i class="bi bi-x-circle"></i> Cancelar
+                            <i class="bi bi-x-circle me-1"></i>Cancelar
                         </a>
                     </div>
                 </form>
@@ -29,4 +38,18 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const codigoEsperado = '{% if object.codigo_interno %}{{ object.codigo_interno }}{% else %}{{ object.numero_maquina }}{% endif %}';
+    const input = document.getElementById('inputConfirmar');
+    const btn = document.getElementById('btnEliminar');
+
+    input.focus();
+    input.addEventListener('input', function () {
+        btn.disabled = this.value !== codigoEsperado;
+    });
+})();
+</script>
+
 {% endblock %}

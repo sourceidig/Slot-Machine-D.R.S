@@ -15,6 +15,11 @@
       <i class="bi bi-pencil"></i> Editar
     </a>
     {% endif %}
+    {% if puede_eliminar %}
+    <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalEliminarMaquina">
+      <i class="bi bi-trash"></i> Eliminar
+    </button>
+    {% endif %}
     <a href="{% url 'control:maquinas_list' %}" class="btn btn-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Volver
     </a>
@@ -114,4 +119,60 @@
     {% endif %}
   </div>
 </div>
+
+{% if puede_eliminar %}
+<!-- Modal confirmación eliminar máquina -->
+<div class="modal fade" id="modalEliminarMaquina" tabindex="-1" aria-labelledby="modalEliminarDetLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="modalEliminarDetLabel">
+          <i class="bi bi-exclamation-triangle me-2"></i>Confirmar Eliminación
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro de que deseas eliminar la máquina
+          <strong>M{{ maquina.numero_maquina|stringformat:"02d" }} — {{ maquina.nombre_juego }}</strong>?
+        </p>
+        <p class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Esta acción no se puede deshacer y eliminará todos los datos relacionados.</p>
+        <div class="mb-2">
+          <label class="form-label">
+            Para confirmar, escribe el N° de interface de esta máquina:
+            <strong class="text-danger">{% if maquina.codigo_interno %}{{ maquina.codigo_interno }}{% else %}{{ maquina.numero_maquina }}{% endif %}</strong>
+          </label>
+          <input type="text" id="inputConfirmarCodigoDet" class="form-control" placeholder="Escribe el N° de interface..." autocomplete="off">
+          <div class="form-text">El código debe coincidir exactamente.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form method="post" action="{% url 'control:maquina_delete' maquina.pk %}">
+          {% csrf_token %}
+          <button type="submit" id="btnConfirmarEliminarDet" class="btn btn-danger" disabled>
+            <i class="bi bi-trash me-1"></i>Eliminar definitivamente
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const codigoEsperado = '{% if maquina.codigo_interno %}{{ maquina.codigo_interno }}{% else %}{{ maquina.numero_maquina }}{% endif %}';
+  const input = document.getElementById('inputConfirmarCodigoDet');
+  const btn = document.getElementById('btnConfirmarEliminarDet');
+
+  document.getElementById('modalEliminarMaquina').addEventListener('shown.bs.modal', function () {
+    input.focus();
+  });
+
+  input.addEventListener('input', function () {
+    btn.disabled = this.value !== codigoEsperado;
+  });
+})();
+</script>
+{% endif %}
+
 {% endblock %}

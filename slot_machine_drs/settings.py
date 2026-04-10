@@ -4,7 +4,8 @@ Django settings for slot_machine_drs project.
 
 from pathlib import Path
 import os
-
+from dotenv import load_dotenv
+load_dotenv()  
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,19 +21,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-slot-machine-d
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '*',
-]
-
-ALLOWED_HOSTS = [
-    'localhost',
     '.ngrok-free.app',
-    '*']
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.ngrok-free.app',   
-    'https://*.githubpreview.dev',
-    'https://*.localhost',
-    'http://localhost',
-    'http://127.0.0.1',
+    '*',
 ]
 
 
@@ -194,7 +184,6 @@ LOGGING = {
         },
     },
 }
-STATIC_ROOT = BASE_DIR / 'staticfiles'
 CSRF_TRUSTED_ORIGINS = [
     'https://pazagamesdrs.cl',
     'http://pazagamesdrs.cl',
