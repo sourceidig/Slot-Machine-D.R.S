@@ -1,0 +1,1171 @@
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 687, in login_view
+    registro = RegistroSesion.objects.create(
+        usuario=user,
+        tipo_usuario=user.role,
+        ip_cliente=ip or None,
+    )
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\query.py", line 661, in create
+    obj = self.model(**kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\base.py", line 569, in __init__
+    raise TypeError(
+    ...<2 lines>...
+    )
+TypeError: RegistroSesion() got unexpected keyword arguments: 'ip_cliente'
+"POST /login/ HTTP/1.1" 500 88049
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 687, in login_view
+    registro = RegistroSesion.objects.create(
+        usuario=user,
+        tipo_usuario=user.role,
+        ip_cliente=ip or None,
+    )
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\query.py", line 661, in create
+    obj = self.model(**kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\base.py", line 569, in __init__
+    raise TypeError(
+    ...<2 lines>...
+    )
+TypeError: RegistroSesion() got unexpected keyword arguments: 'ip_cliente'
+"POST /login/ HTTP/1.1" 500 88049
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 687, in login_view
+    registro = RegistroSesion.objects.create(
+        usuario=user,
+        tipo_usuario=user.role,
+        ip_cliente=ip or None,
+    )
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\query.py", line 661, in create
+    obj = self.model(**kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\base.py", line 569, in __init__
+    raise TypeError(
+    ...<2 lines>...
+    )
+TypeError: RegistroSesion() got unexpected keyword arguments: 'ip_cliente'
+"POST /login/ HTTP/1.1" 500 88049
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 687, in login_view
+    registro = RegistroSesion.objects.create(
+        usuario=user,
+        tipo_usuario=user.role,
+        ip_cliente=ip or None,
+    )
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\query.py", line 661, in create
+    obj = self.model(**kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\base.py", line 569, in __init__
+    raise TypeError(
+    ...<2 lines>...
+    )
+TypeError: RegistroSesion() got unexpected keyword arguments: 'ip_cliente'
+"POST /login/ HTTP/1.1" 500 88049
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2270, in registro_view
+    return render(request, "registro.html", context)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\loader.py", line 62, in render_to_string
+    return template.render(context, request)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\backends\django.py", line 107, in render
+    return self.template.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 171, in render
+    return self._render(context)
+           ~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 163, in _render
+    return self.nodelist.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\loader_tags.py", line 159, in render
+    return compiled_parent._render(context)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 163, in _render
+    return self.nodelist.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 327, in render
+    return nodelist.render(context)
+           ~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 243, in render
+    nodelist.append(node.render_annotated(context))
+                    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 243, in render
+    nodelist.append(node.render_annotated(context))
+                    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 480, in render
+    url = reverse(view_name, args=args, kwargs=kwargs, current_app=current_app)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\urls\base.py", line 98, in reverse
+    resolved_url = resolver._reverse_with_prefix(view, prefix, *args, **kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\urls\resolvers.py", line 831, in _reverse_with_prefix
+    raise NoReverseMatch(msg)
+django.urls.exceptions.NoReverseMatch: Reverse for 'sesiones_admin' not found. 'sesiones_admin' is not a valid view function or pattern name.
+"GET /registro/ HTTP/1.1" 500 210278
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2270, in registro_view
+    return render(request, "registro.html", context)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\loader.py", line 62, in render_to_string
+    return template.render(context, request)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\backends\django.py", line 107, in render
+    return self.template.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 171, in render
+    return self._render(context)
+           ~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 163, in _render
+    return self.nodelist.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\loader_tags.py", line 159, in render
+    return compiled_parent._render(context)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 163, in _render
+    return self.nodelist.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 327, in render
+    return nodelist.render(context)
+           ~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 243, in render
+    nodelist.append(node.render_annotated(context))
+                    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 243, in render
+    nodelist.append(node.render_annotated(context))
+                    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 480, in render
+    url = reverse(view_name, args=args, kwargs=kwargs, current_app=current_app)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\urls\base.py", line 98, in reverse
+    resolved_url = resolver._reverse_with_prefix(view, prefix, *args, **kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\urls\resolvers.py", line 831, in _reverse_with_prefix
+    raise NoReverseMatch(msg)
+django.urls.exceptions.NoReverseMatch: Reverse for 'sesiones_admin' not found. 'sesiones_admin' is not a valid view function or pattern name.
+"GET /registro/ HTTP/1.1" 500 210141
+Internal Server Error: /dashboard/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1744, in dashboard_view
+    return render(request, "dashboard.html", {
+        "hoy":             hoy,
+    ...<4 lines>...
+        "sucursales_data": sucursales_data,
+    })
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\loader.py", line 62, in render_to_string
+    return template.render(context, request)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\backends\django.py", line 107, in render
+    return self.template.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 171, in render
+    return self._render(context)
+           ~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 163, in _render
+    return self.nodelist.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\loader_tags.py", line 159, in render
+    return compiled_parent._render(context)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 163, in _render
+    return self.nodelist.render(context)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 327, in render
+    return nodelist.render(context)
+           ~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 1016, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 243, in render
+    nodelist.append(node.render_annotated(context))
+                    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 243, in render
+    nodelist.append(node.render_annotated(context))
+                    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\base.py", line 977, in render_annotated
+    return self.render(context)
+           ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\template\defaulttags.py", line 480, in render
+    url = reverse(view_name, args=args, kwargs=kwargs, current_app=current_app)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\urls\base.py", line 98, in reverse
+    resolved_url = resolver._reverse_with_prefix(view, prefix, *args, **kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\urls\resolvers.py", line 831, in _reverse_with_prefix
+    raise NoReverseMatch(msg)
+django.urls.exceptions.NoReverseMatch: Reverse for 'sesiones_admin' not found. 'sesiones_admin' is not a valid view function or pattern name.
+"GET /dashboard/ HTTP/1.1" 500 320875
+Internal Server Error: /maquinas/create/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 3298, in maquina_create
+    form = MaquinaForm()
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\forms.py", line 322, in __init__
+    self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+KeyError: 'sucursal'
+"GET /maquinas/create/ HTTP/1.1" 500 83527
+Internal Server Error: /maquinas/create/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 3298, in maquina_create
+    form = MaquinaForm()
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\forms.py", line 322, in __init__
+    self.fields["sucursal"].queryset = Sucursal.objects.filter(is_active=True)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+KeyError: 'sucursal'
+"GET /maquinas/create/ HTTP/1.1" 500 83527
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\mysql\base.py", line 76, in execute
+    return self.cursor.execute(query, args)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\cursors.py", line 179, in execute
+    res = self._query(mogrified_query)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\cursors.py", line 330, in _query
+    db.query(q)
+    ~~~~~~~~^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\connections.py", line 280, in query
+    _mysql.connection.query(self, query)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+MySQLdb.DataError: (1264, "Out of range value for column 'rtp_objetivo' at row 1")
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2339, in registro_view
+    lectura.save()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\models.py", line 263, in save
+    Maquina.objects.filter(pk=self.maquina_id).update(rtp_objetivo=rtp_real)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\query.py", line 1261, in update
+    rows = query.get_compiler(self.db).execute_sql(ROW_COUNT)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\sql\compiler.py", line 2060, in execute_sql
+    row_count = super().execute_sql(result_type)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\sql\compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\mysql\base.py", line 76, in execute
+    return self.cursor.execute(query, args)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\cursors.py", line 179, in execute
+    res = self._query(mogrified_query)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\cursors.py", line 330, in _query
+    db.query(q)
+    ~~~~~~~~^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\connections.py", line 280, in query
+    _mysql.connection.query(self, query)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+django.db.utils.DataError: (1264, "Out of range value for column 'rtp_objetivo' at row 1")
+"POST /registro/ HTTP/1.1" 500 175690
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\mysql\base.py", line 76, in execute
+    return self.cursor.execute(query, args)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\cursors.py", line 179, in execute
+    res = self._query(mogrified_query)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\cursors.py", line 330, in _query
+    db.query(q)
+    ~~~~~~~~^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\connections.py", line 280, in query
+    _mysql.connection.query(self, query)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+MySQLdb.DataError: (1264, "Out of range value for column 'rtp_objetivo' at row 1")
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2339, in registro_view
+    lectura.save()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\models.py", line 263, in save
+    Maquina.objects.filter(pk=self.maquina_id).update(rtp_objetivo=rtp_real)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\query.py", line 1261, in update
+    rows = query.get_compiler(self.db).execute_sql(ROW_COUNT)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\sql\compiler.py", line 2060, in execute_sql
+    row_count = super().execute_sql(result_type)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\sql\compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\mysql\base.py", line 76, in execute
+    return self.cursor.execute(query, args)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\cursors.py", line 179, in execute
+    res = self._query(mogrified_query)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\cursors.py", line 330, in _query
+    db.query(q)
+    ~~~~~~~~^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\MySQLdb\connections.py", line 280, in query
+    _mysql.connection.query(self, query)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+django.db.utils.DataError: (1264, "Out of range value for column 'rtp_objetivo' at row 1")
+"POST /registro/ HTTP/1.1" 500 175779
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /api/ocr-lectura/
+Internal Server Error: /cuadratura-diaria/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1298, in cuadratura_diaria_list
+    es_encargado = request.user.rol == "encargado"
+                   ^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rol'. Did you mean: 'role'?
+"GET /cuadratura-diaria/ HTTP/1.1" 500 83676
+Internal Server Error: /cuadratura-diaria/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1298, in cuadratura_diaria_list
+    es_encargado = request.user.rol == "encargado"
+                   ^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rol'. Did you mean: 'role'?
+"GET /cuadratura-diaria/ HTTP/1.1" 500 83539
+Internal Server Error: /cuadratura-diaria/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1298, in cuadratura_diaria_list
+    es_encargado = request.user.rol == "encargado"
+                   ^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rol'. Did you mean: 'role'?
+"GET /cuadratura-diaria/ HTTP/1.1" 500 83536
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87964
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83207
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83205
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87964
+Internal Server Error: /sesiones/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 5080, in sesiones_admin
+    if request.user.rolee != "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /sesiones/ HTTP/1.1" 500 78581
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87960
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83635
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 681, in login_view
+    return _redirect_por_rol(request.user.rolee, request.user)
+                             ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /login/ HTTP/1.1" 500 73570
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83217
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87976
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83217
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83217
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87958
+Internal Server Error: /sesiones/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 5080, in sesiones_admin
+    if request.user.rolee != "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /sesiones/ HTTP/1.1" 500 78577
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87960
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87960
+Internal Server Error: /sesiones/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 5080, in sesiones_admin
+    if request.user.rolee != "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /sesiones/ HTTP/1.1" 500 78577
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83201
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87964
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83205
+Internal Server Error: /sesiones/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 5080, in sesiones_admin
+    if request.user.rolee != "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /sesiones/ HTTP/1.1" 500 78581
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87964
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83205
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83205
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87964
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83205
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83205
+Internal Server Error: /sesiones/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 5080, in sesiones_admin
+    if request.user.rolee != "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /sesiones/ HTTP/1.1" 500 78581
+Internal Server Error: /registro/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 44, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 2320, in registro_view
+    if request.user.rolee == 'asistente' and turno_abierto:
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /registro/ HTTP/1.1" 500 87958
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83199
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83336
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83336
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83336
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83336
+Internal Server Error: /turno/
+Traceback (most recent call last):
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\contrib\auth\decorators.py", line 59, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\decorators.py", line 24, in wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Users\nacho\Desktop\Nueva carpeta\slot_machine_drs\control\views.py", line 1951, in turno_view
+    if request.user.rolee == "admin":
+       ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nacho\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\utils\functional.py", line 253, in inner
+    return func(_wrapped, *args)
+AttributeError: 'Usuario' object has no attribute 'rolee'. Did you mean: 'role'?
+"GET /turno/ HTTP/1.1" 500 83336

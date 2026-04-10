@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block page_title %}Detalle Máquina{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'control:maquinas_list' %}">Máquinas</a></li>
+      <li class="breadcrumb-item active">Máquina #{{ maquina.numero_maquina }}</li>
+    </ol>
+  </nav>
+  <div class="d-flex gap-2">
+    {% if puede_editar %}
+    <a href="{% url 'control:maquina_edit' maquina.pk %}" class="btn btn-warning btn-sm">
+      <i class="bi bi-pencil"></i> Editar
+    </a>
+    {% endif %}
+    <a href="{% url 'control:maquinas_list' %}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Volver
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Información principal -->
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-controller me-2"></i>Máquina #{{ maquina.numero_maquina }}</h6>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><th class="text-muted" style="width:45%">Local</th><td>{{ maquina.sucursal.nombre }}</td></tr>
+          <tr><th class="text-muted">Zona</th><td>{{ maquina.zona.nombre }}</td></tr>
+          <tr><th class="text-muted">Modelo</th><td>{{ maquina.modelo|default:"—" }}</td></tr>
+          <tr><th class="text-muted">N° Serie</th><td>{{ maquina.numero_serie|default:"—" }}</td></tr>
+          <tr><th class="text-muted">Fabricante</th><td>{{ maquina.fabricante|default:"—" }}</td></tr>
+          <tr><th class="text-muted">Servidor</th><td>{{ maquina.servidor|default:"—" }}</td></tr>
+          <tr><th class="text-muted">Juego</th><td>{{ maquina.juego|default:"—" }}</td></tr>
+          <tr><th class="text-muted">Estado</th>
+            <td>
+              {% if maquina.estado == "Activa" %}
+                <span class="badge bg-success">{{ maquina.estado }}</span>
+              {% elif maquina.estado == "Inactiva" %}
+                <span class="badge bg-danger">{{ maquina.estado }}</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">{{ maquina.estado }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr><th class="text-muted">RTP Ingreso</th>
+            <td>
+              {% if maquina.rtp_creacion %}
+                <span class="fw-semibold">{{ maquina.rtp_creacion }}%</span>
+                <small class="text-muted">(referencia)</small>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          <tr><th class="text-muted">RTP Objetivo</th>
+            <td>{% if maquina.rtp_objetivo %}{{ maquina.rtp_objetivo }}%{% else %}—{% endif %}</td>
+          </tr>
+          <tr><th class="text-muted">Creada</th><td>{{ maquina.created_at|date:"d/m/Y" }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contadores y última lectura -->
+  <div class="col-md-6">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-secondary text-white">
+        <h6 class="mb-0"><i class="bi bi-123 me-2"></i>Contadores Iniciales</h6>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr>
+            <th class="text-muted" style="width:55%">Contador inicial entrada</th>
+            <td class="text-end fw-semibold">{{ maquina.contador_inicial_entrada|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th class="text-muted">Contador inicial salida</th>
+            <td class="text-end fw-semibold">{{ maquina.contador_inicial_salida|default:"—" }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    {% if ultima_lectura %}
+    <div class="card shadow-sm">
+      <div class="card-header bg-info text-white">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Última Lectura — {{ ultima_lectura.fecha_trabajo|date:"d/m/Y" }}</h6>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><th class="text-muted" style="width:55%">Entrada</th><td class="text-end">${{ ultima_lectura.entrada|default:0|floatformat:0 }}</td></tr>
+          <tr><th class="text-muted">Salida</th><td class="text-end">${{ ultima_lectura.salida|default:0|floatformat:0 }}</td></tr>
+          <tr><th class="text-muted">Total</th>
+            <td class="text-end fw-bold {% if ultima_lectura.total >= 0 %}text-success{% else %}text-danger{% endif %}">
+              ${{ ultima_lectura.total|default:0|floatformat:0 }}
+            </td>
+          </tr>
+          {% if ultima_lectura.turno %}
+          <tr><th class="text-muted">Turno</th><td class="text-end small text-muted">{{ ultima_lectura.turno }}</td></tr>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body text-center text-muted py-4">
+        <i class="bi bi-inbox fs-3 d-block mb-2"></i>Sin lecturas registradas
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

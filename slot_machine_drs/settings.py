@@ -17,7 +17,11 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-slot-machine-d
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Para producción: setear variable de entorno DJANGO_DEBUG=False
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '*',
+]
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -89,11 +93,11 @@ WSGI_APPLICATION = 'slot_machine_drs.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "bd_prueba",
-        "USER": "root",            
-        "PASSWORD": "1234",           
-        "HOST": "127.0.0.1",
-        "PORT": "3306",
+        "NAME": os.environ.get('DB_NAME', 'bd_plazagames'),
+        "USER": os.environ.get('DB_USER', 'root'),
+        "PASSWORD": os.environ.get('DB_PASSWORD', ''),
+        "HOST": os.environ.get('DB_HOST', '127.0.0.1'),
+        "PORT": os.environ.get('DB_PORT', '3307'),
         "OPTIONS": {
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
         },
@@ -190,3 +194,4 @@ LOGGING = {
         },
     },
 }
+STATIC_ROOT = BASE_DIR / 'staticfiles'
