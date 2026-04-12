@@ -80,6 +80,26 @@ MariaDB 10.3 requerido en producción. MySQL 8.0 en desarrollo local. Config via
 - **Finance:** `CuadraturaCajaDiaria`, `EncuadreCajaAdmin`, `CierreTurno*`
 - **Reporting:** `InformeRecaudacion*`, `ControlLecturas*`, `CicloRecaudacion`
 
+#### Campos RTP en Maquina
+
+`Maquina` tiene dos campos RTP distintos — no confundir:
+
+- **`rtp_creacion`** — dato estático ingresado al crear la máquina. Representa el RTP configurado en fábrica o al momento de ingreso. **No se modifica nunca por código**, es solo referencia informativa.
+- **`rtp_objetivo`** — se actualiza automáticamente en `LecturaMaquina.save()` con cada lectura. Refleja el RTP real calculado de la última lectura.
+
+#### Fórmula RTP
+
+En todo el sistema el RTP representa la **ganancia del local** como porcentaje de lo jugado:
+
+```python
+rtp = (entrada - salida) / entrada * 100
+```
+
+- Positivo → el local ganó
+- Negativo → el local perdió (salida > entrada)
+
+Esta fórmula aplica en: `models.py` (propiedades `.rtp` de `InformeRecaudacion` e `InformeRecaudacionLinea`, y `rtp_objetivo` en `LecturaMaquina.save()`), `views.py` (dashboard, controles, informes), templates (`control_generado.html`, `controles/detail.html` via filtro `rtp_pct`), y JS en `control_generado.html`.
+
 ### Views (`control/views.py` — ~5100 lines)
 
 Archivo monolítico. Contiene:
@@ -116,6 +136,12 @@ Todas las URLs bajo app `control/`, incluidas desde `slot_machine_drs/urls.py`. 
 ### Templates
 
 Todos heredan de `templates/base.html`. Menú dinámico generado por `control/menu.py` según rol del usuario.
+
+Para calcular RTP en templates usar el filtro `rtp_pct` de `custom_filters` (no `widthratio`):
+```django
+{% load custom_filters %}
+{% with rtp_val=l.entrada_dia|rtp_pct:l.salida_dia %}{{ rtp_val }}%{% endwith %}
+```
 
 ### Middleware (orden importa)
 

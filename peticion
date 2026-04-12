@@ -1,8 +1,2 @@
-Hay un error en el cálculo del RTP en todo el sistema. La fórmula actual es incorrecta:
-python# INCORRECTO (fórmula actual)
-rtp = round(salida / entrada * 100, 1)
-
-# CORRECTO (fórmula que debe quedar)
-rtp = round((entrada - salida) / entrada * 100, 1) if entrada > 0 else 0
-La fórmula correcta representa la ganancia del local como porcentaje de lo jugado. Positivo = local ganó, negativo = local perdió.
-Busca y reemplaza esta fórmula en TODOS los archivos del proyecto donde aparezca, principalmente en control/views.py (líneas aprox. 203, 205, 207, 1648, 1658, 1769, 1790, 1800, 4433) y también en control/utils.py y cualquier template donde se calcule RTP con JavaScript o Jinja. No dejes ninguna instancia sin corregir.
+Hay un bug en la vista de cuadratura de caja. En la sección "Resumen" aparece el mensaje "Se recomienda realizar un retiro — La ganancia actual supera $1.000" aunque la ganancia real es 78, no supera 1.000.
+Busca en control/views.py y en el template correspondiente a la cuadratura de caja (cuadratura_caja o similar) la condición que dispara ese aviso. Probablemente está comparando el campo incorrecto (puede estar usando total_efectivo, caja_total u otro valor en vez de ganancia). Corrige la condición para que el aviso solo aparezca cuando la ganancia real supere $1.000.
