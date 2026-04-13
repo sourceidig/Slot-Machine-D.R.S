@@ -1,2 +1,4 @@
-Hay un bug en la vista de cuadratura de caja. En la sección "Resumen" aparece el mensaje "Se recomienda realizar un retiro — La ganancia actual supera $1.000" aunque la ganancia real es 78, no supera 1.000.
-Busca en control/views.py y en el template correspondiente a la cuadratura de caja (cuadratura_caja o similar) la condición que dispara ese aviso. Probablemente está comparando el campo incorrecto (puede estar usando total_efectivo, caja_total u otro valor en vez de ganancia). Corrige la condición para que el aviso solo aparezca cuando la ganancia real supere $1.000.
+En la vista login_view de control/views.py, al principio de la función agregar logout(request) para que si el usuario llega a la página de login con una sesión activa, esta se cierre automáticamente. Así si alguien vuelve atrás al login, queda deslogueado.
+2. Evitar que se salte el login escribiendo la URL directamente
+Verificar que TODAS las vistas protegidas tengan el decorador @login_required o @role_required. Un usuario no autenticado que escriba /dashboard/ directamente debe ser redirigido al login, no entrar al dashboard.
+Revisar especialmente dashboard_view y cualquier vista principal que pueda estar accesible sin autenticación.

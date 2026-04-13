@@ -668,8 +668,10 @@ def _redirect_por_rol(role, user):
 
 
 def login_view(request):
+    # Si llega al login con sesión activa, cerrarla automáticamente.
+    # Así quien retrocede en el navegador queda deslogueado.
     if request.user.is_authenticated:
-        return _redirect_por_rol(request.user.role, request.user)
+        logout(request)
 
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
@@ -2411,6 +2413,7 @@ def _get_caja_anterior(sucursal: Sucursal, fecha):
     caja_ant, _ = _caja_anterior_en_ciclo(sucursal, fecha)
     return caja_ant
 
+@login_required
 def ajax_cuadratura_detalles(request):
     sucursal_id = request.GET.get("sucursal_id")
     fecha = request.GET.get("fecha")
@@ -2740,6 +2743,7 @@ def _extraer_valores_de_texto(texto_plano, filas):
     return entrada, salida, entrada_raw, salida_raw
 
 
+@login_required
 def ocr_lectura(request):
     if request.method != "POST":
         return JsonResponse({"success": False, "error": "Método no permitido"}, status=405)
@@ -2863,6 +2867,7 @@ def ocr_lectura(request):
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
+@login_required
 def ocr_debug(request):
     """
     Endpoint de diagnóstico: recibe una imagen y devuelve las 3 variantes
@@ -4691,6 +4696,7 @@ def lectura_edit_ajax(request, pk):
     })
 
 
+@login_required
 def lectura_edit_from_control(request, linea_pk, control_pk):
     """Editar una LecturaMaquina accediendo desde el detalle del control."""
     from django.shortcuts import get_object_or_404
