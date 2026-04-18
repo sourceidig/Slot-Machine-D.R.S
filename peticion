@@ -1,7 +1,0 @@
-Revertir el cambio que limita a 100 registros en las tablas de Movimientos y Sesiones. El comportamiento correcto es:
-
-Guardar todos los registros sin límite — nunca borrar registros de trazabilidad
-En la vista mostrar los últimos 100 por defecto usando paginación o [:100] en el queryset inicial
-Los filtros existentes (fecha, usuario, sucursal) deben buscar en TODOS los registros, no solo en los últimos 100
-
-Eliminar cualquier lógica que borre o limite la cantidad de registros guardados en la base de datos para estas dos tablas.
