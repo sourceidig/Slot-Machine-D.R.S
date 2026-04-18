@@ -1,4 +1,7 @@
-En la vista login_view de control/views.py, al principio de la función agregar logout(request) para que si el usuario llega a la página de login con una sesión activa, esta se cierre automáticamente. Así si alguien vuelve atrás al login, queda deslogueado.
-2. Evitar que se salte el login escribiendo la URL directamente
-Verificar que TODAS las vistas protegidas tengan el decorador @login_required o @role_required. Un usuario no autenticado que escriba /dashboard/ directamente debe ser redirigido al login, no entrar al dashboard.
-Revisar especialmente dashboard_view y cualquier vista principal que pueda estar accesible sin autenticación.
+Revertir el cambio que limita a 100 registros en las tablas de Movimientos y Sesiones. El comportamiento correcto es:
+
+Guardar todos los registros sin límite — nunca borrar registros de trazabilidad
+En la vista mostrar los últimos 100 por defecto usando paginación o [:100] en el queryset inicial
+Los filtros existentes (fecha, usuario, sucursal) deben buscar en TODOS los registros, no solo en los últimos 100
+
+Eliminar cualquier lógica que borre o limite la cantidad de registros guardados en la base de datos para estas dos tablas.
