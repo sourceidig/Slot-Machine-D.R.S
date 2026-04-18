@@ -21,5 +21,5 @@ EXPOSE 8000
 
 CMD ["gunicorn", "slot_machine_drs.wsgi:application", \
      "--bind", "0.0.0.0:8000", \
-     "--workers", "2", \
+     "--workers", "4", \
      "--timeout", "120"]
