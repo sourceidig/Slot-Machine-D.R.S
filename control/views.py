@@ -2003,6 +2003,21 @@ def _cerrar_sesion_asistentes_sin_asignacion(turno):
     from decimal import Decimal
     from django.db.models import Sum as _Sum
 
+    # Los asistentes siempre están asignados al turno del encargado.
+    # Si quien guardó asignaciones es admin (u otro rol), usar el turno del
+    # encargado de la misma sucursal como referencia para no expulsar asistentes
+    # que están correctamente asignados al encargado.
+    if turno.usuario.role == "encargado":
+        turno_ref = turno
+    else:
+        turno_ref = Turno.objects.filter(
+            sucursal=turno.sucursal,
+            estado="Abierto",
+            usuario__role="encargado"
+        ).first()
+        if turno_ref is None:
+            return  # Sin turno de encargado activo, nada que verificar
+
     turnos_asistentes = Turno.objects.filter(
         sucursal=turno.sucursal,
         estado="Abierto",
@@ -2011,8 +2026,8 @@ def _cerrar_sesion_asistentes_sin_asignacion(turno):
 
     for t in turnos_asistentes:
         asistente = t.usuario
-        tiene_zona = AsignacionTurnoZona.objects.filter(turno=turno, usuario=asistente).exists()
-        tiene_slot = AsignacionTurnoSlot.objects.filter(turno=turno, usuario=asistente).exists()
+        tiene_zona = AsignacionTurnoZona.objects.filter(turno=turno_ref, usuario=asistente).exists()
+        tiene_slot = AsignacionTurnoSlot.objects.filter(turno=turno_ref, usuario=asistente).exists()
 
         if not tiene_zona and not tiene_slot:
             # Cerrar turno
@@ -2243,7 +2258,6 @@ def cerrar_turno(request, turno_id):
 
 @login_required
 @role_required(*ROLES_REGISTRO)
-@readonly_for(*ROLES_READONLY)
 def registro_view(request):
     turno_abierto = Turno.objects.filter(usuario=request.user, estado__iexact="abierto").first()
     zona_guardada_id = request.session.get("ultima_zona")

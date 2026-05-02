@@ -129,7 +129,11 @@ class ErrorHandlerMiddleware:
     def process_exception(self, request, exception):
         from django.conf import settings
         if settings.DEBUG:
-            return None  # Django muestra el traceback normal en desarrollo
+            return None
+        from django.core.exceptions import PermissionDenied
+        from django.http import Http404
+        if isinstance(exception, (PermissionDenied, Http404)):
+            return None  # Django maneja 403 y 404 de forma nativa
         import logging
         logger = logging.getLogger('django')
         logger.error(
@@ -137,10 +141,5 @@ class ErrorHandlerMiddleware:
             exc_info=True,
             extra={"request": request},
         )
-        # Devolver página de error genérica
-        from django.http import HttpResponse
-        return HttpResponse(
-            "<h2>Ocurrió un error inesperado. Por favor intenta de nuevo.</h2>"
-            "<p><a href='/'>Volver al inicio</a></p>",
-            status=500
-        )
+        from django.shortcuts import render
+        return render(request, "errors/500.html", status=500)
