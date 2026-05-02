@@ -102,9 +102,15 @@ input[readonly]{
     <h5><i class="bi bi-calculator me-2"></i>Cuadratura Caja Diaria</h5>
     <div class="sub">Registro del movimiento diario de caja</div>
   </div>
+  {% if usa_sucursal_fija %}
+  <a href="{% url 'control:turno' %}" class="btn btn-sm btn-light">
+    <i class="bi bi-arrow-left me-1"></i> Volver
+  </a>
+  {% else %}
   <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-sm btn-light">
     <i class="bi bi-arrow-left me-1"></i> Volver
   </a>
+  {% endif %}
 </div>
 
 <div class="pg-card">
@@ -121,9 +127,14 @@ input[readonly]{
 
         <div class="col-md-4">
           <label class="form-label fw-bold mb-1">Local</label>
-          {{ form.sucursal }}
-          {% if form.sucursal.errors %}
-            <div class="text-danger small">{{ form.sucursal.errors }}</div>
+          {% if usa_sucursal_fija and sucursal_fija %}
+            <input type="hidden" name="sucursal" value="{{ sucursal_fija.pk }}">
+            <input type="text" class="form-control readonly" value="{{ sucursal_fija.nombre }}" readonly>
+          {% else %}
+            {{ form.sucursal }}
+            {% if form.sucursal.errors %}
+              <div class="text-danger small">{{ form.sucursal.errors }}</div>
+            {% endif %}
           {% endif %}
         </div>
 
@@ -527,6 +538,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Paso 2/5 — Script robusto
   // =========================
 
+  const modoEditar = {% if editar %}true{% else %}false{% endif %};
+
   const formEl = document.getElementById("cuadraturaDiariaForm");
 
   // Header
@@ -648,7 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (collapseEl) {
       collapseEl.addEventListener("shown.bs.collapse", () => {
-        if (body.querySelectorAll("tr").length === 0) addRow();
+        if (!modoEditar && body.querySelectorAll("tr").length === 0) addRow();
       });
     }
 
@@ -661,6 +674,16 @@ document.addEventListener("DOMContentLoaded", () => {
     REGALOS: setupDetalle({ tbodyId:"regalos_items_body", addBtnId:"btn_add_regalo", totalLabelId:"regalos_total_label", diaInputId:"id_regalos_dia", prefix:"regalo", collapseId:"collapse_regalos" }),
     JUGADOS: setupDetalle({ tbodyId:"jugados_items_body", addBtnId:"btn_add_jugado", totalLabelId:"jugados_total_label", diaInputId:"id_jugados_dia", prefix:"jugado", collapseId:"collapse_jugados" }),
   };
+
+  {% if editar and detalles_json %}
+  (function() {
+    const detalles = {{ detalles_json|safe }};
+    detalles.forEach(function(d) {
+      const h = helpers[d.tipo];
+      if (h) h.addRow(d.nombre, d.monto);
+    });
+  })();
+  {% endif %}
 
   // ========= 3) Desglose total (UI) =========
   function recalcDesglose() {

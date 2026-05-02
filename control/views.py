@@ -1136,14 +1136,30 @@ def _recalcular_totales(cuadratura):
 
     return cuadratura
 
+def _sucursal_fija_para(request):
+    """Devuelve la Sucursal fija para roles con local asignado (supervisor/encargado)."""
+    if request.user.role == 'encargado':
+        suc_id = request.session.get('sucursal_activa_id')
+        if suc_id:
+            return Sucursal.objects.filter(pk=suc_id, is_active=True).first()
+    return request.user.sucursales.filter(is_active=True).order_by('nombre').first()
+
+
+_ROLES_SUCURSAL_FIJA = ('supervisor', 'encargado')
+
+
 @login_required
 @role_required(*ROLES_CUADRATURA_DIARIA)
 def cuadratura_diaria_create(request):
+    usa_sucursal_fija = request.user.role in _ROLES_SUCURSAL_FIJA
+    sucursal_fija = _sucursal_fija_para(request) if usa_sucursal_fija else None
+
     if request.method == "POST":
         form = CuadraturaCajaDiariaForm(request.POST)
 
         if form.is_valid():
-            sucursal = form.cleaned_data.get("sucursal")
+            # Roles con local fijo: ignorar lo que venga en el form y usar el suyo
+            sucursal = sucursal_fija if usa_sucursal_fija else form.cleaned_data.get("sucursal")
             fecha = form.cleaned_data["fecha"]
 
             if not sucursal:
@@ -1152,6 +1168,8 @@ def cuadratura_diaria_create(request):
                     "form": form,
                     "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
                     "mes_default": timezone.localdate().strftime("%Y-%m"),
+                    "sucursal_fija": sucursal_fija,
+                    "usa_sucursal_fija": usa_sucursal_fija,
                 })
 
             with transaction.atomic():
@@ -1232,27 +1250,28 @@ def cuadratura_diaria_create(request):
         messages.error(request, "Formulario inválido. Revise los datos enviados.")
 
     else:
-        form = CuadraturaCajaDiariaForm(initial={"fecha": timezone.now().date()})
-        sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
-        primera_sucursal = sucursales.first()
+        initial = {"fecha": timezone.now().date()}
+        if usa_sucursal_fija and sucursal_fija:
+            initial["sucursal"] = sucursal_fija
+        form = CuadraturaCajaDiariaForm(initial=initial)
 
-        if primera_sucursal:
+        ref_sucursal = sucursal_fija if usa_sucursal_fija else Sucursal.objects.filter(is_active=True).order_by("nombre").first()
+        if ref_sucursal:
             fecha = timezone.now().date()
-            caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(primera_sucursal, fecha)
-            caja_inicial = int(primera_sucursal.caja_inicial or 0)
+            caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(ref_sucursal, fecha)
+            caja_inicial = int(ref_sucursal.caja_inicial or 0)
         else:
             caja_anterior = 0
             caja_inicial = 0
             prestamos_acum_ant = 0
 
-    # Verificar si todas las zonas del turno activo tienen líneas en el control
+    # Verificar zonas faltantes (solo para la sucursal relevante)
     fecha_hoy = timezone.localdate()
     zonas_faltantes = []
-    turno_activo_caja = None
-    for suc in Sucursal.objects.filter(is_active=True):
+    suc_verificar = [sucursal_fija] if usa_sucursal_fija and sucursal_fija else list(Sucursal.objects.filter(is_active=True))
+    for suc in suc_verificar:
         turno_hoy = Turno.objects.filter(sucursal=suc, fecha=fecha_hoy, estado="Abierto").first()
         if turno_hoy:
-            turno_activo_caja = turno_hoy
             control_hoy = ControlLecturas.objects.filter(sucursal=suc, fecha_trabajo=fecha_hoy).first()
             zonas_con_lineas = set()
             if control_hoy:
@@ -1272,6 +1291,8 @@ def cuadratura_diaria_create(request):
         "prestamos_acum_ant": prestamos_acum_ant,
         "zonas_faltantes": zonas_faltantes,
         "control_completo": len(zonas_faltantes) == 0,
+        "sucursal_fija": sucursal_fija,
+        "usa_sucursal_fija": usa_sucursal_fija,
     })
 @login_required
 @role_required(*ROLES_CUADRATURA)
@@ -1342,43 +1363,55 @@ def cuadratura_diaria_edit(request, pk):
     if request.method == "POST":
         form = CuadraturaCajaDiariaForm(request.POST, instance=cuadratura)
         if form.is_valid():
-            c = form.save(commit=False)
+            with transaction.atomic():
+                c = form.save(commit=False)
 
-            # Recalcular acumulados y totales igual que en create
-            c.sorteos_acum = (c.sorteos_ant or 0) + (c.sorteos_dia or 0)
-            c.gastos_acum = (c.gastos_ant or 0) + (c.gastos_dia or 0)
-            c.sueldo_b_acum = (c.sueldo_b_ant or 0) + (c.sueldo_b_dia or 0)
-            c.redbank_acum = (c.redbank_ant or 0) + (c.redbank_dia or 0)
-            c.regalos_acum = (c.regalos_ant or 0) + (c.regalos_dia or 0)
-            c.taxi_acum = (c.taxi_ant or 0) + (c.taxi_dia or 0)
-            c.jugados_acum = (c.jugados_ant or 0) + (c.jugados_dia or 0)
-            c.transfer_acum = (c.transfer_ant or 0) + (c.transfer_dia or 0)
-            c.otros_1_acum = (c.otros_1_ant or 0) + (c.otros_1_dia or 0)
-            c.otros_2_acum = (c.otros_2_ant or 0) + (c.otros_2_dia or 0)
-            c.otros_3_acum = (c.otros_3_ant or 0) + (c.otros_3_dia or 0)
-            c.descuadre_acum = (c.descuadre_ant or 0) + (c.descuadre_dia or 0)
+                # Guardar campos de desglose de billetes
+                for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas', 'ef_billetes_malos']:
+                    setattr(c, field, form.cleaned_data.get(field, 0))
 
-            # Guardar campos de desglose de billetes
-            for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas', 'ef_billetes_malos']:
-                setattr(c, field, form.cleaned_data.get(field, 0))
+                # Procesar detalles (gastos/sueldos/regalos/jugados)
+                detalles_list = _parse_detalles_from_post(request.POST)
+                CuadraturaDetalle.objects.filter(cuadratura=c).delete()
+                for d in detalles_list:
+                    CuadraturaDetalle.objects.create(
+                        cuadratura=c,
+                        tipo=d["tipo"],
+                        nombre=d["nombre"],
+                        monto=d["monto"],
+                        detalle="",
+                    )
 
-            # Recalcular ganancia, numeral_dia, descuadre y total_efectivo correctamente
-            _recalcular_totales(c)
+                # Recalcular acumulados con los valores correctos
+                c.sorteos_acum   = (c.sorteos_ant or 0)   + (c.sorteos_dia or 0)
+                c.gastos_acum    = (c.gastos_ant or 0)    + (c.gastos_dia or 0)
+                c.sueldo_b_acum  = (c.sueldo_b_ant or 0)  + (c.sueldo_b_dia or 0)
+                c.redbank_acum   = (c.redbank_ant or 0)   + (c.redbank_dia or 0)
+                c.regalos_acum   = (c.regalos_ant or 0)   + (c.regalos_dia or 0)
+                c.taxi_acum      = (c.taxi_ant or 0)      + (c.taxi_dia or 0)
+                c.jugados_acum   = (c.jugados_ant or 0)   + (c.jugados_dia or 0)
+                c.transfer_acum  = (c.transfer_ant or 0)  + (c.transfer_dia or 0)
+                c.otros_1_acum   = (c.otros_1_ant or 0)   + (c.otros_1_dia or 0)
+                c.otros_2_acum   = (c.otros_2_ant or 0)   + (c.otros_2_dia or 0)
+                c.otros_3_acum   = (c.otros_3_ant or 0)   + (c.otros_3_dia or 0)
+                c.descuadre_acum = (c.descuadre_ant or 0) + (c.descuadre_dia or 0)
 
-            c.actualizado_el = timezone.now()
-            c.save()
+                # Recalcular ganancia, numeral_dia, descuadre y total_efectivo
+                _recalcular_totales(c)
 
-            # Propagar cambios en cascada a todos los días siguientes de la misma sucursal
-            # Para que la caja_anterior de cada día siguiente quede actualizada
-            dias_siguientes = CuadraturaCajaDiaria.objects.filter(
-                sucursal=c.sucursal,
-                fecha__gt=c.fecha
-            ).order_by("fecha", "creado_el")
+                c.actualizado_el = timezone.now()
+                c.save()
 
-            for siguiente in dias_siguientes:
-                _recalcular_totales(siguiente)
-                siguiente.actualizado_el = timezone.now()
-                siguiente.save()
+                # Propagar cambios en cascada a todos los días siguientes de la misma sucursal
+                dias_siguientes = CuadraturaCajaDiaria.objects.filter(
+                    sucursal=c.sucursal,
+                    fecha__gt=c.fecha
+                ).order_by("fecha", "creado_el")
+
+                for siguiente in dias_siguientes:
+                    _recalcular_totales(siguiente)
+                    siguiente.actualizado_el = timezone.now()
+                    siguiente.save()
 
             messages.success(request, "Cuadratura actualizada y días siguientes recalculados.")
             return redirect("control:cuadratura_diaria_detail", pk=c.pk)
@@ -1390,6 +1423,7 @@ def cuadratura_diaria_edit(request, pk):
     # Última caja guardada antes de esta (mismo día más antigua, o días anteriores)
     caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
+    detalles_json = json.dumps(list(cuadratura.detalles.values("tipo", "nombre", "monto")))
 
     return render(request, "cuadratura_diaria/create.html", {
         "form": form,
@@ -1400,6 +1434,7 @@ def cuadratura_diaria_edit(request, pk):
         "mes_default": timezone.localdate().strftime("%Y-%m"),
         "sucursales": sucursales,
         "editar": True,
+        "detalles_json": detalles_json,
     })
 
 
@@ -1436,12 +1471,16 @@ def cuadratura_diaria_recalcular_todo(request):
     return redirect("control:cuadratura_diaria_list")
 
 @login_required
+@role_required('admin')
 def cuadratura_diaria_delete(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
 
     if request.method == "POST":
+        if request.POST.get("confirmacion") != "eliminar":
+            messages.error(request, "Debes escribir 'eliminar' para confirmar.")
+            return redirect("control:cuadratura_diaria_delete", pk=pk)
         cuadratura.delete()
-        messages.success(request, "Cuadratura eliminada.")
+        messages.success(request, "Cuadratura eliminada correctamente.")
         return redirect("control:cuadratura_diaria_list")
 
     return render(request, "cuadratura_diaria/delete.html", {"cuadratura": cuadratura})

@@ -21,7 +21,14 @@ MENU = [
                 "icon": "bi-calendar2-week",
                 "url": "control:cuadratura_diaria_list",
                 "url_name": "cuadratura_diaria_list",
-                "roles": ["admin", "gerente", "supervisor", "encargado"]
+                "roles": ["admin", "gerente"]
+            },
+            {
+                "label": "Caja",
+                "icon": "bi-calendar2-week",
+                "url": "control:cuadratura_diaria_create",
+                "url_name": "cuadratura_diaria_create",
+                "roles": ["supervisor", "encargado"]
             },
             {
                 "label": "Control",

@@ -2,25 +2,58 @@
 {% block page_title %}Eliminar Cuadratura{% endblock %}
 
 {% block content %}
-<div class="card">
-  <div class="card-header bg-danger text-white">
-    <h5 class="mb-0"><i class="bi bi-trash"></i> Confirmar eliminación</h5>
-  </div>
+<div class="d-flex justify-content-center align-items-center" style="min-height:65vh;">
+  <div class="card shadow-sm" style="max-width:520px;width:100%;border-radius:14px;">
+    <div class="card-header bg-danger text-white">
+      <h5 class="mb-0"><i class="bi bi-trash me-2"></i>Confirmar eliminación</h5>
+    </div>
+    <div class="card-body p-4">
 
-  <div class="card-body">
-    <p>
-      ¿Seguro que deseas eliminar la cuadratura de
-      <strong>{{ cuadratura.sucursal.nombre }}</strong> del
-      <strong>{{ cuadratura.fecha|date:"d/m/Y" }}</strong>?
-    </p>
+      <p class="mb-1">Vas a eliminar la cuadratura de:</p>
+      <p class="fw-bold fs-5 mb-3">
+        {{ cuadratura.sucursal.nombre }} &mdash; {{ cuadratura.fecha|date:"d/m/Y" }}
+      </p>
+      <p class="text-danger small mb-4">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        Esta acción no se puede deshacer. Se eliminarán todos los detalles asociados.
+      </p>
 
-    <form method="post">
-      {% csrf_token %}
-      <button class="btn btn-danger"><i class="bi bi-trash"></i> Sí, eliminar</button>
-      <a class="btn btn-secondary" href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}">
-        Cancelar
-      </a>
-    </form>
+      <div class="mb-4">
+        <label class="form-label fw-semibold">
+          Para confirmar, escribe <span class="text-danger fw-bold">eliminar</span>:
+        </label>
+        <input type="text" id="inputConfirmar" class="form-control"
+               placeholder="Escribe eliminar..." autocomplete="off">
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="confirmacion" id="confirmacionHidden" value="">
+        <div class="d-flex gap-2">
+          <button type="submit" id="btnEliminar" class="btn btn-danger fw-semibold px-4" disabled>
+            <i class="bi bi-trash me-1"></i> Eliminar definitivamente
+          </button>
+          <a href="{% url 'control:cuadratura_diaria_detail' cuadratura.id %}" class="btn btn-secondary px-4">
+            Cancelar
+          </a>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
+
+<script>
+(function () {
+  const input = document.getElementById('inputConfirmar');
+  const btn   = document.getElementById('btnEliminar');
+  const hidden = document.getElementById('confirmacionHidden');
+
+  input.focus();
+  input.addEventListener('input', function () {
+    const ok = this.value === 'eliminar';
+    btn.disabled = !ok;
+    hidden.value = ok ? 'eliminar' : '';
+  });
+})();
+</script>
 {% endblock %}
