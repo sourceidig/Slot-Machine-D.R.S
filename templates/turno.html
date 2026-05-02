@@ -160,7 +160,7 @@
                       </option>
                       
                       {% for u in usuarios_sucursal %}
-                        {% if u.id != request.user.id and u.role == "asistente"%}
+                        {% if u.id != request.user.id %}
                           <option value="{{ u.id }}">{{ u.nombre }} ({{ u.get_role_display }})</option>
                         {% endif %}
                       {% endfor %}

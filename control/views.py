@@ -1896,7 +1896,7 @@ def turno_view(request):
     if turno_abierto:
         cantidad_lecturas = LecturaMaquina.objects.filter(turno=turno_abierto).count()
         zonas = list(Zona.objects.filter(sucursal=turno_abierto.sucursal, is_active=True).order_by("orden", "nombre"))
-        usuarios_sucursal = list(Usuario.objects.filter(is_active=True, role="asistente", sucursales = turno_abierto.sucursal).order_by("nombre"))
+        usuarios_sucursal = list(Usuario.objects.filter(is_active=True, role__in=("asistente", "encargado"), sucursales=turno_abierto.sucursal).order_by("nombre"))
 
         for az in AsignacionTurnoZona.objects.filter(turno=turno_abierto).select_related("usuario", "zona"):
             asig_zonas[az.zona_id] = az
