@@ -72,6 +72,19 @@
       </div>
     </div>
 
+    <!-- Identificación -->
+    <div class="pg-section-title">Identificación</div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="pg-label">Modelo</label>
+        {{ form.modelo }}
+      </div>
+      <div class="col-md-6">
+        <label class="pg-label">Número de Serie</label>
+        {{ form.numero_serie }}
+      </div>
+    </div>
+
     <!-- Contadores -->
     {% if not es_tecnico %}
     <div class="pg-section-title">Contadores iniciales</div>
