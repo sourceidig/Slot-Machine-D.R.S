@@ -44,6 +44,12 @@
       <a class="btn btn-outline-primary fw-semibold px-4" style="border-radius:10px;" href="{% url 'control:controles_list' %}">
         <i class="bi bi-archive me-1"></i>Ver controles
       </a>
+      {% if request.user.role == "admin" %}
+      <button type="button" class="btn btn-outline-danger fw-semibold px-4" style="border-radius:10px;"
+              data-bs-toggle="modal" data-bs-target="#modalEliminarControl">
+        <i class="bi bi-trash me-1"></i>Eliminar
+      </button>
+      {% endif %}
       {% if volver_a == "dashboard" %}
         <a class="btn btn-outline-secondary fw-semibold px-4" style="border-radius:10px;" href="{% url 'control:dashboard' %}">
           <i class="bi bi-arrow-left me-1"></i>Volver
@@ -323,4 +329,43 @@
 
   </div>
 </div>
+
+<!-- Modal confirmar eliminación -->
+<div class="modal fade" id="modalEliminarControl" tabindex="-1" aria-labelledby="modalEliminarLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="modalEliminarLabel"><i class="bi bi-exclamation-triangle me-2"></i>Eliminar Control</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'control:controles_delete' control.pk %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p class="mb-1">Estás a punto de eliminar el control de:</p>
+          <p class="fw-bold">{{ control.sucursal }} &nbsp;·&nbsp; {{ control.fecha_trabajo|date:"d/m/Y" }}</p>
+          <p class="text-danger small mb-3">Esta acción es irreversible y eliminará todas las líneas de lectura asociadas.</p>
+          <label class="form-label fw-semibold">Escribe <span class="text-danger">eliminar</span> para confirmar:</label>
+          <input type="text" name="confirmacion" id="inputConfirmacion" class="form-control"
+                 placeholder="eliminar" autocomplete="off">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" id="btnConfirmarEliminar" class="btn btn-danger" disabled>
+            <i class="bi bi-trash me-1"></i>Eliminar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('inputConfirmacion').addEventListener('input', function () {
+  document.getElementById('btnConfirmarEliminar').disabled = this.value !== 'eliminar';
+});
+document.getElementById('modalEliminarControl').addEventListener('hidden.bs.modal', function () {
+  document.getElementById('inputConfirmacion').value = '';
+  document.getElementById('btnConfirmarEliminar').disabled = true;
+});
+</script>
 {% endblock %}

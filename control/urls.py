@@ -137,6 +137,7 @@ urlpatterns = [
     path("turnos/<int:turno_id>/control/guardar/", views.guardar_control, name="guardar_control"),
     path("controles/", views.controles_list, name="controles_list"),
     path("controles/<int:pk>/", views.controles_detail, name="controles_detail"),
+    path("controles/<int:pk>/eliminar/", views.controles_delete, name="controles_delete"),
     path("controles/linea/<int:linea_pk>/editar/<int:control_pk>/", views.lectura_edit_from_control, name="lectura_edit_from_control"),
 
     path("turnos/<int:turno_id>/cerrar-sin-cuadratura/", views.cerrar_turno_sin_cuadratura, name="cerrar_turno_sin_cuadratura"),

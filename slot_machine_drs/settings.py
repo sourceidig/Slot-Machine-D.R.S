@@ -16,8 +16,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-slot-machine-drs-change-this-in-production')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# Para producción: setear variable de entorno DJANGO_DEBUG=False
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
@@ -190,17 +190,17 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # ══ Security Headers ══════════════════════════════════════════════════════════
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
 # ══ Cookie Security ═══════════════════════════════════════════════════════════
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
 
 # ══ Permissions Policy ════════════════════════════════════════════════════════

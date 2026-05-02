@@ -4902,6 +4902,20 @@ def controles_detail(request, pk):
     })
 
 @login_required
+@role_required('admin')
+def controles_delete(request, pk):
+    control = get_object_or_404(ControlLecturas, pk=pk)
+    if request.method == "POST":
+        if request.POST.get("confirmacion") != "eliminar":
+            messages.error(request, "Debes escribir 'eliminar' para confirmar.")
+            return redirect("control:controles_detail", pk=pk)
+        control.delete()
+        messages.success(request, "Control eliminado correctamente.")
+        return redirect("control:controles_list")
+    return redirect("control:controles_detail", pk=pk)
+
+
+@login_required
 def turno_asistente_redirect(request):
     turno = Turno.objects.filter(usuario=request.user, estado="Abierto").first()
     if turno:
