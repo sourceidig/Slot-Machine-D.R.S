@@ -120,12 +120,17 @@ input[readonly]{
 
       <!-- Header -->
       <div class="row g-3 mb-3">
-        <div class="col-md-3">
+        <div class="{% if not usa_sucursal_fija %}col-md-2{% else %}col-md-3{% endif %}">
           <label class="form-label fw-bold mb-1">Fecha</label>
-          {{ form.fecha }}
+          {% if fecha_fija %}
+            <input type="hidden" name="fecha" value="{% now "Y-m-d" %}">
+            <input type="text" class="form-control readonly" value="{% now "d/m/Y" %}" readonly>
+          {% else %}
+            {{ form.fecha }}
+          {% endif %}
         </div>
 
-        <div class="col-md-4">
+        <div class="{% if not usa_sucursal_fija %}col-md-3{% else %}col-md-4{% endif %}">
           <label class="form-label fw-bold mb-1">Local</label>
           {% if usa_sucursal_fija and sucursal_fija %}
             <input type="hidden" name="sucursal" value="{{ sucursal_fija.pk }}">
@@ -138,7 +143,19 @@ input[readonly]{
           {% endif %}
         </div>
 
-        <div class="col-md-5">
+        {% if not usa_sucursal_fija %}
+        <div class="col-md-3">
+          <label class="form-label fw-bold mb-1">Turno</label>
+          <select name="turno_tipo" class="form-select form-control">
+            <option value="">— Sin turno específico —</option>
+            <option value="Mañana">Mañana</option>
+            <option value="Tarde">Tarde</option>
+            <option value="Noche">Noche</option>
+          </select>
+        </div>
+        {% endif %}
+
+        <div class="{% if not usa_sucursal_fija %}col-md-4{% else %}col-md-5{% endif %}">
           <div class="section-title mb-2">Numerales</div>
           <div class="row g-2">
             <div class="col-4">
@@ -661,7 +678,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (collapseEl) {
       collapseEl.addEventListener("shown.bs.collapse", () => {
-        if (!modoEditar && body.querySelectorAll("tr").length === 0) addRow();
+        if (body.querySelectorAll("tr").length === 0) {
+          if (modoEditar) {
+            const valorActual = parseIntSafe(diaInput?.value);
+            addRow("", valorActual > 0 ? valorActual : "");
+          } else {
+            addRow();
+          }
+        }
       });
     }
 
@@ -675,12 +699,31 @@ document.addEventListener("DOMContentLoaded", () => {
     JUGADOS: setupDetalle({ tbodyId:"jugados_items_body", addBtnId:"btn_add_jugado", totalLabelId:"jugados_total_label", diaInputId:"id_jugados_dia", prefix:"jugado", collapseId:"collapse_jugados" }),
   };
 
-  {% if editar and detalles_json %}
+  {% if editar %}
   (function() {
-    const detalles = {{ detalles_json|safe }};
+    // Pre-cargar detalles guardados
+    const detalles = {{ detalles_json|default:"[]"|safe }};
     detalles.forEach(function(d) {
       const h = helpers[d.tipo];
       if (h) h.addRow(d.nombre, d.monto);
+    });
+
+    // Para conceptos sin detalles guardados pero con valor en DÍA: pre-cargar una fila
+    const conceptosSinDetalle = [
+      { tipo:"GASTOS",  diaId:"id_gastos_dia" },
+      { tipo:"SUELDOS", diaId:"id_sueldo_b_dia" },
+      { tipo:"REGALOS", diaId:"id_regalos_dia" },
+      { tipo:"JUGADOS", diaId:"id_jugados_dia" },
+    ];
+    conceptosSinDetalle.forEach(function(c) {
+      const h = helpers[c.tipo];
+      if (!h) return;
+      // Solo si no se cargaron detalles para este tipo y el campo tiene valor
+      const tieneFilas = detalles.some(function(d){ return d.tipo === c.tipo; });
+      if (!tieneFilas) {
+        const val = parseIntSafe(document.getElementById(c.diaId)?.value);
+        if (val > 0) h.addRow("", val);
+      }
     });
   })();
   {% endif %}

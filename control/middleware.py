@@ -29,42 +29,61 @@ class CurrentRequestMiddleware:
             _current_request_local.request = None
 
 
-# URLs que el encargado puede visitar SIN haber seleccionado sucursal
-URLS_LIBRES = {
-    'control:login',
-    'control:logout',
-    'control:seleccionar_sucursal',
-}
-
-
 class SucursalEncargadoMiddleware:
     """
-    Si el usuario es encargado/asistente y tiene más de una sucursal,
-    obliga a pasar por la pantalla de selección de sucursal antes de continuar.
+    Encargado: bloquea navegación hasta que tenga sucursal activa Y turno abierto.
+    Asistente: bloquea navegación hasta que tenga sucursal activa (si tiene 2+).
     """
-
-    ROLES_CON_SELECCION = ('encargado', 'asistente')
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if self._debe_seleccionar(request):
+        if self._debe_ir_a_seleccionar_turno(request):
+            return redirect(reverse('control:seleccionar_turno'))
+        if self._debe_ir_a_seleccionar_sucursal(request):
             return redirect(reverse('control:seleccionar_sucursal'))
         return self.get_response(request)
 
-    def _debe_seleccionar(self, request):
+    def _debe_ir_a_seleccionar_turno(self, request):
         user = request.user
-        if not user.is_authenticated:
+        if not user.is_authenticated or user.role != 'encargado':
             return False
-        if user.role not in self.ROLES_CON_SELECCION:
+        try:
+            exempt = {
+                reverse('control:seleccionar_turno'),
+                reverse('control:login'),
+                reverse('control:logout'),
+            }
+        except Exception:
+            return False
+        if request.path in exempt:
+            return False
+        # Sin sucursal activa → debe ir a seleccionar_turno
+        if not request.session.get('sucursal_activa_id'):
+            return True
+        # Encargado entró como asistente de otro turno → dejar pasar
+        if request.session.get('modo_asistente_turno_id'):
+            return False
+        # Con sucursal pero sin turno abierto propio → debe ir a seleccionar_turno
+        from control.models import Turno
+        return not Turno.objects.filter(usuario=user, estado='Abierto').exists()
+
+    def _debe_ir_a_seleccionar_sucursal(self, request):
+        user = request.user
+        if not user.is_authenticated or user.role != 'asistente':
             return False
         if request.session.get('sucursal_activa_id'):
             return False
-        seleccion_url = reverse('control:seleccionar_sucursal')
-        login_url     = reverse('control:login')
-        logout_url    = reverse('control:logout')
-        if request.path in (seleccion_url, login_url, logout_url):
+        try:
+            exempt = {
+                reverse('control:seleccionar_sucursal'),
+                reverse('control:login'),
+                reverse('control:logout'),
+            }
+        except Exception:
+            return False
+        if request.path in exempt:
             return False
         return user.sucursales.filter(is_active=True).count() > 1
 

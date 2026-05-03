@@ -21,6 +21,7 @@ urlpatterns = [
     # Turno
     # -------------------------
     path("turno/", views.turno_view, name="turno"),
+    path("turno/<int:turno_id>/entrar-como-asistente/", views.entrar_como_asistente_view, name="entrar_como_asistente"),
     path('turno/asistente/', views.turno_asistente_redirect, name='turno_asistente_redirect'),
     path("turno/cerrar/<int:turno_id>/", views.cerrar_turno, name="cerrar_turno"),
     path("turno/<int:turno_id>/asignaciones/", views.guardar_asignaciones, name="guardar_asignaciones"),
@@ -83,6 +84,7 @@ urlpatterns = [
     path("ajax/cuadratura-mensual-data/", views.ajax_cuadratura_mensual_data, name="ajax_cuadratura_mensual_data"),
     path("ajax/zonas/", views.zonas_por_sucursal, name="ajax_zonas"),
     path("ajax/cuadratura-diaria/numerales/", views.ajax_cuadratura_diaria_numerales, name="ajax_cuadratura_diaria_numerales"),
+    path("ajax/turnos/", views.ajax_turnos_por_sucursal_fecha, name="ajax_turnos"),
     path("ajax/cuadratura-detalles/", views.ajax_cuadratura_detalles, name="ajax_cuadratura_detalles"),
 
 
@@ -145,6 +147,7 @@ urlpatterns = [
     path("turnos/<int:turno_id>/cuadratura-zona/<int:zona_id>/guardar/", views.guardar_cuadratura_zona, name="guardar_cuadratura_zona"),
 
     path('seleccionar-sucursal/', views.seleccionar_sucursal_view, name='seleccionar_sucursal'),
+    path('seleccionar-turno/', views.seleccionar_turno_view, name='seleccionar_turno'),
     path('movimientos/', views.movimientos_list, name='movimientos_list'),
 
 

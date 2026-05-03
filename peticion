@@ -1,0 +1,5 @@
+necesito hacer un cambio con los turnos, necesito que los encargados puedan escoger el turno, por ejemplo si un encargado inicia sesion lo primero que debe ver   
+  despues de logearse es una pantalla para escoger su turno "mañana,tarde,noche" luego de escoger el turno se continua con el proceso normalde asignar zonas y asi  
+  , lo otro es que si hay un turno abierto o cerrado en uno de los 3 horarios ya no se podra generar otro turno en ese horario ese dia ejemplo: si encargado        
+  escogio horario de mañana y despues lo termino elsiguiente encargado que habra turno ya no podra seleccionar el horario de la mañana, haz que funcione bien, que  
+  la vista tenga un diseño acorde al sistemas 

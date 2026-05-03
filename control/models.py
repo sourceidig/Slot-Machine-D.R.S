@@ -588,9 +588,6 @@ class ControlLecturas(models.Model):
 
     class Meta:
         ordering = ["-fecha_trabajo", "-id"]
-        constraints = [
-            models.UniqueConstraint(fields=["sucursal", "fecha_trabajo"], name="uniq_control_por_sucursal_fecha")
-        ]
 
     def __str__(self):
         return f"Control {self.sucursal} - {self.fecha_trabajo}"

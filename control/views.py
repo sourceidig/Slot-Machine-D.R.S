@@ -824,10 +824,8 @@ def _manejar_sucursal_post_login(request, user):
     # ── Encargado ──
     if len(sucursales) == 1:
         request.session['sucursal_activa_id'] = sucursales[0].pk
-        _auto_iniciar_turno(request, user, sucursales[0])
-        return None
-    else:
-        return redirect("control:seleccionar_sucursal")
+    # Con 1 o más sucursales, siempre va a seleccionar_turno (que maneja ambos casos)
+    return redirect("control:seleccionar_turno")
 
 
 @login_required
@@ -858,7 +856,9 @@ def seleccionar_sucursal_view(request):
         sucursal = sucursales.first()
         request.session['sucursal_activa_id'] = sucursal.pk
         request.session.pop('sucursales_asistente_ids', None)
-        if user.role in ('encargado', 'asistente'):
+        if user.role == 'encargado':
+            return redirect("control:seleccionar_turno")
+        if user.role == 'asistente':
             _auto_iniciar_turno(request, user, sucursal)
         return _redirect_por_rol(user.role, user)
 
@@ -868,13 +868,134 @@ def seleccionar_sucursal_view(request):
             sucursal = sucursales.get(pk=sucursal_id)
             request.session['sucursal_activa_id'] = int(sucursal_id)
             request.session.pop('sucursales_asistente_ids', None)
-            if user.role in ('encargado', 'asistente'):
+            if user.role == 'encargado':
+                return redirect("control:seleccionar_turno")
+            if user.role == 'asistente':
                 _auto_iniciar_turno(request, user, sucursal)
             return _redirect_por_rol(user.role, user)
         else:
             messages.error(request, 'Debes seleccionar una sucursal válida.')
 
     return render(request, 'seleccionar_sucursal.html', {'sucursales': sucursales})
+
+
+@login_required
+def seleccionar_turno_view(request):
+    """
+    Pantalla donde el encargado elige su turno (Mañana, Tarde, Noche).
+    Si tiene múltiples sucursales y aún no ha elegido una, muestra primero
+    el selector de sucursal en la misma pantalla.
+    Las opciones de turno ya usadas ese día aparecen deshabilitadas.
+    """
+    from datetime import date, datetime, timedelta
+    from django.contrib.auth import logout as auth_logout
+
+    user = request.user
+    if user.role != 'encargado':
+        return _redirect_por_rol(user.role, user)
+
+    sucursales = list(user.sucursales.filter(is_active=True).order_by('nombre'))
+    if not sucursales:
+        auth_logout(request)
+        messages.error(request, 'No tienes sucursales activas asignadas.')
+        return redirect('control:login')
+
+    # Auto-asignar si solo tiene una sucursal
+    sucursal_id = request.session.get('sucursal_activa_id')
+    if not sucursal_id and len(sucursales) == 1:
+        sucursal_id = sucursales[0].pk
+        request.session['sucursal_activa_id'] = sucursal_id
+
+    sucursal = None
+    if sucursal_id:
+        try:
+            sucursal = Sucursal.objects.get(pk=sucursal_id, is_active=True)
+        except Sucursal.DoesNotExist:
+            request.session.pop('sucursal_activa_id', None)
+            sucursal = None
+
+    hoy = date.today()
+    hora = datetime.now().hour
+    TIPOS = ['Mañana', 'Tarde', 'Noche']
+
+    def _fecha_para_tipo(tipo):
+        if tipo == 'Noche' and 0 <= hora <= 7:
+            return hoy - timedelta(days=1)
+        return hoy
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion', 'turno')
+
+        if accion == 'sucursal':
+            # Fase 1: el encargado elige su sucursal
+            try:
+                sid = int(request.POST.get('sucursal_id', ''))
+                if not any(s.pk == sid for s in sucursales):
+                    raise ValueError
+                request.session['sucursal_activa_id'] = sid
+            except (ValueError, TypeError):
+                messages.error(request, 'Debes seleccionar una sucursal válida.')
+            return redirect('control:seleccionar_turno')
+
+        # Fase 2: el encargado elige el turno
+        if not sucursal:
+            messages.error(request, 'Primero debes seleccionar una sucursal.')
+            return redirect('control:seleccionar_turno')
+
+        tipo_turno = request.POST.get('tipo_turno')
+        if tipo_turno not in TIPOS:
+            messages.error(request, 'Debes seleccionar un turno válido.')
+            return redirect('control:seleccionar_turno')
+
+        fecha = _fecha_para_tipo(tipo_turno)
+        if Turno.objects.filter(sucursal=sucursal, fecha=fecha, tipo_turno=tipo_turno).exists():
+            messages.error(request, f'El turno {tipo_turno} ya fue utilizado hoy en esta sucursal.')
+            return redirect('control:seleccionar_turno')
+
+        turno = Turno(
+            sucursal=sucursal, usuario=user,
+            fecha=fecha, tipo_turno=tipo_turno, estado='Abierto',
+        )
+        try:
+            turno.full_clean()
+            turno.save()
+            reg_id = request.session.get('registro_sesion_id')
+            if reg_id:
+                RegistroSesion.objects.filter(pk=reg_id).update(sucursal=sucursal, turno=turno)
+            messages.success(request, f'Turno {tipo_turno} iniciado en {sucursal.nombre}.')
+            return redirect('control:turno')
+        except Exception as e:
+            messages.error(request, f'No se pudo iniciar el turno: {e}')
+            return redirect('control:seleccionar_turno')
+
+    # Construir opciones de turno solo si ya hay sucursal seleccionada
+    ICONOS = {'Mañana': 'bi-sunrise', 'Tarde': 'bi-sun', 'Noche': 'bi-moon-stars'}
+    HORAS = {'Mañana': '08:00 – 11:59', 'Tarde': '12:00 – 19:59', 'Noche': '20:00 – 07:59'}
+    opciones = []
+    if sucursal:
+        for tipo in TIPOS:
+            fecha = _fecha_para_tipo(tipo)
+            ocupado = Turno.objects.filter(sucursal=sucursal, fecha=fecha, tipo_turno=tipo).exists()
+            turno_existente = None
+            if ocupado:
+                turno_existente = Turno.objects.filter(
+                    sucursal=sucursal, fecha=fecha, tipo_turno=tipo
+                ).select_related('usuario').first()
+            opciones.append({
+                'tipo': tipo,
+                'icono': ICONOS[tipo],
+                'horas': HORAS[tipo],
+                'ocupado': ocupado,
+                'turno': turno_existente,
+            })
+
+    return render(request, 'seleccionar_turno.html', {
+        'sucursal': sucursal,
+        'sucursales': sucursales,
+        'una_sucursal': len(sucursales) == 1,
+        'opciones': opciones,
+        'hoy': hoy,
+    })
 
 
 def _auto_iniciar_turno(request, user, sucursal):
@@ -1091,8 +1212,9 @@ def _recalcular_totales(cuadratura):
     cuadratura.numeral_dia = numeral_dia
     cuadratura.numeral_acumulado = numeral_acum
 
-    # 2) Caja anterior dentro del ciclo (si es primer día del ciclo → caja_inicial)
-    base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
+    # 2) Caja anterior dentro del ciclo (si es primer día del ciclo → caja_inicial).
+    # Se excluye la propia cuadratura para evitar referencia circular cuando hay varias en el mismo día.
+    base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
 
     # (si quieres guardar caja anterior en el modelo, aquí NO tienes campo.
     #  Solo lo usamos para cálculo)
@@ -1177,6 +1299,28 @@ def cuadratura_diaria_create(request):
 
                 cuadratura.usuario = request.user
                 cuadratura.sucursal = sucursal
+                # Encargados y supervisores no pueden elegir fecha: siempre es hoy
+                if usa_sucursal_fija:
+                    cuadratura.fecha = timezone.localdate()
+
+                # Asignar turno
+                if request.user.role == 'encargado':
+                    turno_activo = Turno.objects.filter(usuario=request.user, estado="Abierto").first()
+                    if turno_activo:
+                        cuadratura.turno = turno_activo
+                elif request.user.role == 'supervisor':
+                    turno_activo = Turno.objects.filter(sucursal=sucursal, estado="Abierto").first()
+                    if turno_activo:
+                        cuadratura.turno = turno_activo
+                else:
+                    tipo_turno_post = request.POST.get('turno_tipo', '').strip()
+                    if tipo_turno_post in ('Mañana', 'Tarde', 'Noche'):
+                        turno_obj = Turno.objects.filter(
+                            sucursal=sucursal,
+                            fecha=cuadratura.fecha,
+                            tipo_turno=tipo_turno_post,
+                        ).first()
+                        cuadratura.turno = turno_obj
 
                 # Asignar campos ef_* manualmente
                 for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas', 'ef_billetes_malos']:
@@ -1206,13 +1350,21 @@ def cuadratura_diaria_create(request):
                         detalle="",
                     )
 
-                # Re-sumar desde BD
-                cuadratura.gastos_dia   = _sum_tipo(cuadratura, "GASTOS")
-                cuadratura.sueldo_b_dia = _sum_tipo(cuadratura, "SUELDOS")
-                cuadratura.regalos_dia  = _sum_tipo(cuadratura, "REGALOS")
-                cuadratura.taxi_dia     = _sum_tipo(cuadratura, "TAXI")
-                cuadratura.jugados_dia  = _sum_tipo(cuadratura, "JUGADOS")
-                cuadratura.otros_1_dia  = _sum_tipo(cuadratura, "OTROS")
+                # Re-sumar desde BD solo para los tipos que tienen detalles guardados.
+                # Si el usuario ingresó el valor directo (sin usar el detalle), conservar el valor del formulario.
+                tipos_con_detalle = {d["tipo"] for d in detalles_list}
+                if "GASTOS" in tipos_con_detalle:
+                    cuadratura.gastos_dia   = _sum_tipo(cuadratura, "GASTOS")
+                if "SUELDOS" in tipos_con_detalle:
+                    cuadratura.sueldo_b_dia = _sum_tipo(cuadratura, "SUELDOS")
+                if "REGALOS" in tipos_con_detalle:
+                    cuadratura.regalos_dia  = _sum_tipo(cuadratura, "REGALOS")
+                if "TAXI" in tipos_con_detalle:
+                    cuadratura.taxi_dia     = _sum_tipo(cuadratura, "TAXI")
+                if "JUGADOS" in tipos_con_detalle:
+                    cuadratura.jugados_dia  = _sum_tipo(cuadratura, "JUGADOS")
+                if "OTROS" in tipos_con_detalle:
+                    cuadratura.otros_1_dia  = _sum_tipo(cuadratura, "OTROS")
 
                 # Recalcular totales ahora que está todo seteado
                 _recalcular_totales(cuadratura)
@@ -1293,6 +1445,7 @@ def cuadratura_diaria_create(request):
         "control_completo": len(zonas_faltantes) == 0,
         "sucursal_fija": sucursal_fija,
         "usa_sucursal_fija": usa_sucursal_fija,
+        "fecha_fija": usa_sucursal_fija,  # bloquea el campo fecha para encargados/supervisores
     })
 @login_required
 @role_required(*ROLES_CUADRATURA)
@@ -1420,10 +1573,10 @@ def cuadratura_diaria_edit(request, pk):
     else:
         form = CuadraturaCajaDiariaForm(instance=cuadratura)
 
-    # Última caja guardada antes de esta (mismo día más antigua, o días anteriores)
-    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
+    # Caja anterior dentro del ciclo, excluyendo la propia para no tomarse a sí misma
+    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
-    detalles_json = json.dumps(list(cuadratura.detalles.values("tipo", "nombre", "monto")))
+    detalles_json = json.dumps(list(cuadratura.detalles.values("tipo", "nombre", "monto")), ensure_ascii=False)
 
     return render(request, "cuadratura_diaria/create.html", {
         "form": form,
@@ -1893,8 +2046,70 @@ def dashboard_view(request):
 # ============================================
 
 @login_required
+def entrar_como_asistente_view(request, turno_id):
+    """
+    Un encargado entra como asistente en el turno ya abierto de otro encargado
+    de la misma sucursal. Solo acepta POST.
+    """
+    if request.user.role != 'encargado':
+        return redirect('control:turno')
+    if request.method != 'POST':
+        return redirect('control:seleccionar_turno')
+
+    turno = get_object_or_404(Turno, pk=turno_id, estado='Abierto')
+
+    sucursal_id = request.session.get('sucursal_activa_id')
+    if not sucursal_id or turno.sucursal_id != int(sucursal_id):
+        messages.error(request, 'No puedes entrar en ese turno.')
+        return redirect('control:seleccionar_turno')
+
+    if turno.usuario_id == request.user.id:
+        return redirect('control:turno')
+
+    request.session['modo_asistente_turno_id'] = turno_id
+
+    reg_id = request.session.get('registro_sesion_id')
+    if reg_id:
+        RegistroSesion.objects.filter(pk=reg_id).update(sucursal=turno.sucursal, turno=turno)
+
+    encargado_nombre = turno.usuario.get_full_name() or turno.usuario.username
+    messages.success(
+        request,
+        f'Entraste como asistente en el turno {turno.tipo_turno}. '
+        f'Espera a que {encargado_nombre} te asigne una zona.'
+    )
+    return redirect('control:turno')
+
+
+@login_required
 @role_required(*ROLES_TURNO)
 def turno_view(request):
+    # Encargado que entró como asistente en el turno de otro encargado
+    if request.user.role == 'encargado':
+        modo_turno_id = request.session.get('modo_asistente_turno_id')
+        if modo_turno_id:
+            turno_ref = (
+                Turno.objects
+                .filter(pk=modo_turno_id, estado='Abierto')
+                .select_related('sucursal', 'usuario')
+                .first()
+            )
+            if turno_ref:
+                asig_zonas = {}
+                for az in AsignacionTurnoZona.objects.filter(turno=turno_ref).select_related("usuario", "zona"):
+                    asig_zonas[az.zona_id] = az
+                asig_slots = {}
+                for s in AsignacionTurnoSlot.objects.filter(turno=turno_ref).select_related("usuario"):
+                    asig_slots[(s.tipo, s.numero)] = s
+                return render(request, 'turno_asistente.html', {
+                    'turno_abierto': turno_ref,
+                    'como_asistente': True,
+                    'asig_zonas': asig_zonas,
+                    'asig_slots': asig_slots,
+                })
+            else:
+                request.session.pop('modo_asistente_turno_id', None)
+
     turno_abierto = Turno.objects.filter(usuario=request.user, estado="Abierto").first()
 
     if request.method == "POST":
@@ -2129,12 +2344,26 @@ def cuadratura_zona_view(request, turno_id):
 
     user = request.user
 
+    # Encargado que entró como asistente → tratar igual que asistente
+    modo_asistente_id = request.session.get('modo_asistente_turno_id')
+    es_encargado_asistente = (
+        user.role == 'encargado' and
+        modo_asistente_id and
+        int(modo_asistente_id) == turno_id
+    )
+
     # Asistente: buscar asignaciones en el turno del encargado de la misma sucursal
     if user.role == 'asistente':
         turno_encargado = Turno.objects.filter(
             sucursal=turno.sucursal, estado="Abierto", usuario__role="encargado"
         ).first()
         turno_ref = turno_encargado if turno_encargado else turno
+        zona_ids = AsignacionTurnoZona.objects.filter(
+            turno=turno_ref, usuario=user
+        ).values_list('zona_id', flat=True)
+        zonas = Zona.objects.filter(id__in=zona_ids, is_active=True).order_by("orden", "nombre")
+    elif es_encargado_asistente:
+        turno_ref = turno
         zona_ids = AsignacionTurnoZona.objects.filter(
             turno=turno_ref, usuario=user
         ).values_list('zona_id', flat=True)
@@ -2505,11 +2734,12 @@ def ajax_cuadratura_detalles(request):
         "sueldo_b_dia": cuadratura.sueldo_b_dia,
     })
 
-def _caja_anterior_en_ciclo(sucursal, fecha):
+def _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=None):
     """
     Retorna (caja_anterior, prestamos_acum_ant).
     - Si fecha es el inicio del ciclo o anterior: devuelve (caja_inicial, 0).
-    - Si no: busca la última CuadraturaCajaDiaria dentro del ciclo antes de fecha.
+    - Si no: busca la cuadratura más reciente en o antes de fecha (excluye exclude_pk
+      para evitar que una caja se tome a sí misma como base cuando hay varias en el día).
     """
     inicio_ciclo = get_inicio_ciclo(sucursal)
 
@@ -2519,10 +2749,12 @@ def _caja_anterior_en_ciclo(sucursal, fecha):
 
     qs = CuadraturaCajaDiaria.objects.filter(
         sucursal=sucursal,
-        fecha__lt=fecha,
+        fecha__lte=fecha,
     )
     if inicio_ciclo:
         qs = qs.filter(fecha__gte=inicio_ciclo)
+    if exclude_pk:
+        qs = qs.exclude(pk=exclude_pk)
 
     prev = qs.order_by("-fecha", "-creado_el").first()
     if prev:
@@ -2530,6 +2762,35 @@ def _caja_anterior_en_ciclo(sucursal, fecha):
     return int(sucursal.caja_inicial or 0), 0
 
 @login_required
+@login_required
+def ajax_turnos_por_sucursal_fecha(request):
+    sucursal_id = request.GET.get("sucursal_id")
+    fecha_str = request.GET.get("fecha")
+    if not sucursal_id or not fecha_str:
+        return JsonResponse({"turnos": []})
+    try:
+        from datetime import date as _date
+        fecha = _date.fromisoformat(fecha_str)
+    except ValueError:
+        return JsonResponse({"turnos": []})
+    turnos = (
+        Turno.objects
+        .filter(sucursal_id=sucursal_id, fecha=fecha)
+        .select_related("usuario")
+        .order_by("tipo_turno")
+    )
+    data = [
+        {
+            "id": t.id,
+            "tipo_turno": t.tipo_turno,
+            "estado": t.estado,
+            "usuario": t.usuario.get_full_name() or t.usuario.username if t.usuario else "—",
+        }
+        for t in turnos
+    ]
+    return JsonResponse({"turnos": data})
+
+
 def ajax_cuadratura_diaria_numerales(request):
     sucursal_id = request.GET.get("sucursal_id")
     fecha_str = request.GET.get("fecha")
@@ -4637,15 +4898,20 @@ def guardar_control(request, turno_id):
         messages.error(request, "No hay lecturas para guardar control.")
         return redirect("control:generar_control", turno_id=turno_id)
 
-    # Crear el control si no existe (el primero que guarda lo crea)
-    control, created = ControlLecturas.objects.update_or_create(
-        sucursal=sucursal,
-        fecha_trabajo=fecha,
-        defaults={
-            "turno": turno,
-            "creado_por": request.user,
-        }
-    )
+    # Buscar si ya existe un control para este turno específico.
+    # Si existe → actualizar sus líneas (colaboración entre asistentes del mismo turno).
+    # Si no existe → crear uno nuevo (segundo control del día = registro separado).
+    control = ControlLecturas.objects.filter(turno=turno).first()
+    if control:
+        control.creado_por = request.user
+        control.save(update_fields=["creado_por"])
+    else:
+        control = ControlLecturas.objects.create(
+            sucursal=sucursal,
+            fecha_trabajo=fecha,
+            turno=turno,
+            creado_por=request.user,
+        )
 
     # Borrar SOLO las líneas de las zonas del usuario actual, no tocar las demás
     if zonas_del_usuario is not None:
