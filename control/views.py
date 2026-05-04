@@ -2801,14 +2801,19 @@ def ajax_turnos_por_sucursal_fecha(request):
     return JsonResponse({"turnos": data})
 
 
+# views.py
+
+@login_required
 def ajax_cuadratura_diaria_numerales(request):
     sucursal_id = request.GET.get("sucursal_id")
     fecha_str = request.GET.get("fecha")
+    turno_tipo = request.GET.get("turno") # ✅ NUEVO: Capturar el turno desde el frontend
 
     if not sucursal_id or not fecha_str:
         return JsonResponse({"ok": False, "error": "missing_params"})
 
     try:
+        # Normalizar la fecha que viene del navegador
         fecha = timezone.datetime.fromisoformat(fecha_str).date()
     except Exception:
         return JsonResponse({"ok": False, "error": "bad_date"})
@@ -2818,8 +2823,10 @@ def ajax_cuadratura_diaria_numerales(request):
         return JsonResponse({"ok": False, "error": "bad_sucursal"})
 
     # === Cálculo principal ===
-    numeral_dia, numeral_acumulado = calcular_numerales_caja(sucursal, fecha)
+    # ✅ ACTUALIZADO: Pasarle el turno_tipo a la función de utils
+    numeral_dia, numeral_acumulado = calcular_numerales_caja(sucursal, fecha, turno_tipo=turno_tipo)
 
+    # Calcular base anterior para la caja
     caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha)
 
     return JsonResponse({

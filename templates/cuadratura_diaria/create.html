@@ -593,10 +593,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return parseIntSafe(document.getElementById(id)?.value);
   }
 
-  // ========= 1) Numerales + caja anterior (AJAX) =========
+// ========= 1) Numerales + caja anterior (AJAX) =========
   async function cargarNumerales() {
     const fecha = fechaInput?.value;
     const sucursalId = sucursalSelect?.value;
+    // ✅ NUEVO: Capturar el turno
+    const turnoSelect = document.querySelector('select[name="turno_tipo"]');
+    const turnoTipo = turnoSelect ? turnoSelect.value : "";
 
     // Si falta algo, resetea UI “header”
     if (!fecha || !sucursalId) {
@@ -606,7 +609,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const url = `{% url "control:ajax_cuadratura_diaria_numerales" %}?sucursal_id=${encodeURIComponent(sucursalId)}&fecha=${encodeURIComponent(fecha)}`;
+    // ✅ NUEVO: Agregar el parámetro turno a la URL
+    const url = `{% url "control:ajax_cuadratura_diaria_numerales" %}?sucursal_id=${encodeURIComponent(sucursalId)}&fecha=${encodeURIComponent(fecha)}&turno=${encodeURIComponent(turnoTipo)}`;
 
     try {
       const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
@@ -887,6 +891,9 @@ function recalcUI() {
   // init
   onHeaderChange();
 });
+// ✅ NUEVO: Escuchar cambios en el turno
+  const turnoSelectEl = document.querySelector('select[name="turno_tipo"]');
+  if (turnoSelectEl) turnoSelectEl.addEventListener("change", onHeaderChange);
 </script>
 
 

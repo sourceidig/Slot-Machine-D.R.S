@@ -41,50 +41,73 @@ def get_referencia_anterior(maquina, fecha_trabajo, exclude_turno_id=None):
     return maquina.contador_inicial_entrada, maquina.contador_inicial_salida, "contador_inicial"
 
 
-def calcular_numerales_caja(sucursal, fecha, exclude_pk=None):
-    from django.db.models import Sum
-    
-    # 1) Sumar todos los controles del día (puede haber varios turnos)
-    numeral_dia = int(
-        ControlLecturas.objects.filter(sucursal=sucursal, fecha_trabajo=fecha)
-        .aggregate(s=Sum("total_general"))["s"] or 0
-    )
+# control/utils.py
 
-    # 2) Determinar inicio del ciclo actual
+def calcular_numerales_caja(sucursal, fecha, turno_tipo=None, exclude_pk=None):
+    from django.db.models import Sum, Q
+    
+    # 1) Definir el orden lógico de los turnos para cálculos acumulativos dentro del día
+    # Asumimos este orden por defecto, si usas otros nombres en BD debes cambiarlos aquí.
+    ORDEN_TURNOS = {
+        "Mañana": 1,
+        "Tarde": 2,
+        "Noche": 3,
+    }
+    
+    # Obtener el orden numérico del turno actual que estamos calculando en el formulario
+    orden_actual = ORDEN_TURNOS.get(turno_tipo, 1) # Si no se pasa turno, asumimos Mañana
+
+    # 2) Numeral del Día: Es el numeral ESPECÍFICO del control del turno actual.
+    # Viendo image_3.png, el usuario quiere el total de SU control (142), no la suma del día.
+    numeral_dia_query = ControlLecturas.objects.filter(
+        sucursal=sucursal,
+        fecha_trabajo=fecha,
+        turno__tipo_turno=turno_tipo # Filtramos estrictamente por el turno del formulario
+    )
+    
+    numeral_dia = int(numeral_dia_query.aggregate(s=Sum("total_general"))["s"] or 0)
+
+    # 3) Determinar inicio del ciclo actual de recaudación
     inicio_ciclo = get_inicio_ciclo(sucursal)
 
-    # 3) Buscar la última cuadratura anterior DENTRO del ciclo
-    # ✅ FIX: Usar __lte para incluir cajas de turnos anteriores del MISMO DÍA
-    qs = CuadraturaCajaDiaria.objects.filter(
-        sucursal=sucursal,
-        fecha__lte=fecha
-    ).order_by("-fecha", "-creado_el")
-    
-    if inicio_ciclo:
-        qs = qs.filter(fecha__gte=inicio_ciclo)
-        
-    # ✅ FIX: Excluir la caja actual para que no se sume a sí misma
-    if exclude_pk:
-        qs = qs.exclude(pk=exclude_pk)
-
-    anterior = qs.first()
-
-    # Si es el primer día del ciclo y no hay nada anterior
-    if not anterior and inicio_ciclo and fecha <= inicio_ciclo:
+    # Si es el primer día del ciclo (Día 0) y el primer turno (Mañana),
+    # no hay acumulado previo: el numeral_acumulado es solo el del día actual.
+    if inicio_ciclo and fecha <= inicio_ciclo and orden_actual == 1:
         return numeral_dia, numeral_dia
 
-    numeral_acumulado = numeral_dia
+    # 4) Buscar la última cuadratura anterior DENTRO del ciclo para el acumulado
+    # Esta búsqueda es compleja porque puede ser del turno anterior de hoy, o de ayer.
     
-    # ✅ FIX: Lógica para sumar sin duplicar si hay varias cajas el mismo día
+    # Construimos filtros avanzados para buscar cuadraturas previas en orden cronológico inverso
+    query_anterior = Q(sucursal=sucursal)
+    
+    filtros_fecha = Q(fecha__lt=fecha) # Buscar en días anteriores
+    
+    if turno_tipo in ORDEN_TURNOS:
+        # Si es Tarde o Noche, también buscar en cuadraturas de HOY que tengan turnos anteriores
+        turnos_anteriores_hoy = [t for t, ord in ORDEN_TURNOS.items() if ord < orden_actual]
+        if turnos_anteriores_hoy:
+            filtros_fecha |= Q(fecha=fecha, turno__tipo_turno__in=turnos_anteriores_hoy)
+
+    query_anterior &= filtros_fecha
+    
+    if inicio_ciclo:
+        query_anterior &= Q(fecha__gte=inicio_ciclo) # No buscar antes del inicio del ciclo
+
+    # Realizamos la búsqueda
+    qs_anterior = CuadraturaCajaDiaria.objects.filter(query_anterior).order_by("-fecha", "-creado_el")
+    
+    # Excluimos la propia caja si la estamos editando para evitar cálculos circulares
+    if exclude_pk:
+        qs_anterior = qs_anterior.exclude(pk=exclude_pk)
+
+    anterior = qs_anterior.first()
+
+    # 5) Calcular Numeral Acumulado
+    # Se calcula sumando el Numeral Acumulado de la caja anterior + el Numeral del Día actual.
+    numeral_acumulado = numeral_dia
     if anterior:
-        if anterior.fecha == fecha:
-            # Si la caja anterior es de HOY, tomamos el acumulado que venía de ayer 
-            # y le sumamos el total de hoy.
-            acumulado_ayer = int(anterior.numeral_acumulado or 0) - int(anterior.numeral_dia or 0)
-            numeral_acumulado = acumulado_ayer + numeral_dia
-        else:
-            # Si la caja es de ayer o antes, sumamos directo
-            numeral_acumulado += int(anterior.numeral_acumulado or 0)
+        numeral_acumulado += int(anterior.numeral_acumulado or 0)
 
     return numeral_dia, numeral_acumulado
 
