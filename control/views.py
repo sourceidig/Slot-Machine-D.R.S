@@ -2568,7 +2568,8 @@ def registro_view(request):
                 # ── Si es reporte sin numeral visible, usar el último contador registrado ──
                 from .utils import get_referencia_anterior
                 entrada_ant, salida_ant, fuente = get_referencia_anterior(
-                    lectura.maquina, turno_abierto.fecha
+                    lectura.maquina, turno_abierto.fecha,
+                    exclude_turno_id=turno_abierto.id,
                 )
                 entrada_ant = int(entrada_ant or 0)
                 salida_ant  = int(salida_ant or 0)
@@ -4694,21 +4695,31 @@ def generar_control(request, turno_id):
         .order_by("zona__orden", "zona__nombre", "numero_maquina")
     )
 
-    # Resync: recalcular campos derivados de cualquier lectura que haya sido
-    # editada con el modelo viejo (entrada_dia/salida_dia/total desactualizados).
-    # Usamos update() directo a la BD para no disparar el save() del modelo
-    # (que recalcularía entrada_anterior, lo cual NO queremos cambiar).
-    from django.db.models import F
+    # Resync: recalcular entrada_anterior y campos derivados.
+    # Recalcula entrada_anterior porque puede que se haya creado la lectura de
+    # otro turno del mismo día DESPUÉS de que se creara ésta (ej: tarde se
+    # registró antes que mañana). Usamos update() directo para no disparar
+    # señales ni el save() completo del modelo.
+    from .utils import get_referencia_anterior as _get_ref
     for lec in lecturas:
-        entrada_dia_correcto = int(lec.entrada or 0) - int(lec.entrada_anterior or 0)
-        salida_dia_correcto  = int(lec.salida  or 0) - int(lec.salida_anterior  or 0)
+        nueva_ant_e, nueva_ant_s, _ = _get_ref(
+            lec.maquina, lec.fecha_trabajo, exclude_turno_id=lec.turno_id
+        )
+        nueva_ant_e = int(nueva_ant_e or 0)
+        nueva_ant_s = int(nueva_ant_s or 0)
+
+        entrada_dia_correcto = int(lec.entrada or 0) - nueva_ant_e
+        salida_dia_correcto  = int(lec.salida  or 0) - nueva_ant_s
         total_correcto       = entrada_dia_correcto - salida_dia_correcto
 
-        # Solo actualizar si hay diferencia (evitar writes innecesarios)
-        if (lec.entrada_dia != entrada_dia_correcto or
+        if (lec.entrada_anterior != nueva_ant_e or
+            lec.salida_anterior  != nueva_ant_s  or
+            lec.entrada_dia != entrada_dia_correcto or
             lec.salida_dia  != salida_dia_correcto  or
             lec.total       != total_correcto):
             LecturaMaquina.objects.filter(pk=lec.pk).update(
+                entrada_anterior=nueva_ant_e,
+                salida_anterior=nueva_ant_s,
                 entrada_dia=entrada_dia_correcto,
                 salida_dia=salida_dia_correcto,
                 total=total_correcto,
