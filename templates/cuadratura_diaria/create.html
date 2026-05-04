@@ -888,9 +888,8 @@ function recalcUI() {
   if (fechaInput) fechaInput.addEventListener("change", onHeaderChange);
   if (sucursalSelect) sucursalSelect.addEventListener("change", onHeaderChange);
 
-  // init
-  onHeaderChange();
-});
+
+
 // ✅ Escuchar cambios en el turno
   const turnoSelectEl = document.querySelector('select[name="turno_tipo"]');
   if (turnoSelectEl) turnoSelectEl.addEventListener("change", onHeaderChange);
