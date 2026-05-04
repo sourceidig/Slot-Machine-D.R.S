@@ -4,12 +4,21 @@ from .models import (
     LecturaMaquina, CicloRecaudacion, CuadraturaCajaDiaria
 )
 
-def get_referencia_anterior(maquina, fecha_trabajo):
+def get_referencia_anterior(maquina, fecha_trabajo, exclude_turno_id=None):
     ciclo = getattr(maquina.sucursal, "ciclo_recaudacion", None)
 
     if ciclo and fecha_trabajo == ciclo.inicio_ciclo:
         return maquina.contador_inicial_entrada, maquina.contador_inicial_salida, "contador_inicial"
 
+    # 1. Lectura del mismo día de un turno anterior (ej. tarde toma mañana como ref.)
+    qs_same = LecturaMaquina.objects.filter(maquina=maquina, fecha_trabajo=fecha_trabajo)
+    if exclude_turno_id:
+        qs_same = qs_same.exclude(turno_id=exclude_turno_id)
+    same_day = qs_same.order_by("-id").first()
+    if same_day:
+        return same_day.entrada, same_day.salida, "turno_anterior_mismo_dia"
+
+    # 2. Control guardado de ayer
     ayer = fecha_trabajo - timedelta(days=1)
     control_ayer = (
         ControlLecturas.objects
@@ -26,6 +35,7 @@ def get_referencia_anterior(maquina, fecha_trabajo):
         if linea:
             return linea.entrada_historica, linea.salida_historica, "control_ayer"
 
+    # 3. Cualquier lectura anterior dentro del ciclo
     qs = LecturaMaquina.objects.filter(maquina=maquina, fecha_trabajo__lt=fecha_trabajo)
     if ciclo:
         qs = qs.filter(fecha_trabajo__gte=ciclo.inicio_ciclo)
@@ -38,13 +48,12 @@ def get_referencia_anterior(maquina, fecha_trabajo):
 
 
 def calcular_numerales_caja(sucursal, fecha):
-    # 1) Buscar ControlLecturas del día
-    control = ControlLecturas.objects.filter(
-        sucursal=sucursal,
-        fecha_trabajo=fecha
-    ).first()
-
-    numeral_dia = int(control.total_general or 0) if control else 0
+    # 1) Sumar todos los controles del día (puede haber varios turnos)
+    from django.db.models import Sum
+    numeral_dia = int(
+        ControlLecturas.objects.filter(sucursal=sucursal, fecha_trabajo=fecha)
+        .aggregate(s=Sum("total_general"))["s"] or 0
+    )
 
     # 2) Determinar inicio del ciclo actual
     inicio_ciclo = get_inicio_ciclo(sucursal)

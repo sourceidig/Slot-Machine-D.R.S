@@ -2860,7 +2860,9 @@ def get_referencia_maquina_ajax(request, pk):
     from django.utils import timezone
     maquina = get_object_or_404(Maquina, pk=pk)
     fecha = timezone.localdate()
-    entrada_ant, salida_ant, fuente = get_referencia_anterior(maquina, fecha)
+    turno_id_raw = request.GET.get("turno_id")
+    turno_id = int(turno_id_raw) if turno_id_raw and turno_id_raw.isdigit() else None
+    entrada_ant, salida_ant, fuente = get_referencia_anterior(maquina, fecha, exclude_turno_id=turno_id)
     return JsonResponse({
         "entrada_anterior": int(entrada_ant or 0),
         "salida_anterior":  int(salida_ant or 0),
@@ -5013,12 +5015,18 @@ def lectura_edit_from_control(request, linea_pk, control_pk):
     linea   = get_object_or_404(ControlLecturasLinea, pk=linea_pk)
     control = get_object_or_404(ControlLecturas, pk=control_pk)
 
-    # Buscar la LecturaMaquina correspondiente
-    lectura = LecturaMaquina.objects.filter(
-        maquina=linea.maquina,
-        fecha_trabajo=control.fecha_trabajo,
-        sucursal=control.sucursal,
-    ).first()
+    # Buscar la LecturaMaquina correspondiente usando el turno del control
+    if control.turno_id:
+        lectura = LecturaMaquina.objects.filter(
+            turno=control.turno,
+            maquina=linea.maquina,
+        ).first()
+    else:
+        lectura = LecturaMaquina.objects.filter(
+            maquina=linea.maquina,
+            fecha_trabajo=control.fecha_trabajo,
+            sucursal=control.sucursal,
+        ).first()
 
     if not lectura:
         messages.error(request, "No se encontró la lectura original para editar.")

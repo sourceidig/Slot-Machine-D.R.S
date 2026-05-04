@@ -279,7 +279,8 @@ class LecturaMaquina(models.Model):
             from .utils import get_referencia_anterior
             entrada_ant, salida_ant, fuente = get_referencia_anterior(
                 maquina_fresca,
-                self.fecha_trabajo
+                self.fecha_trabajo,
+                exclude_turno_id=self.turno_id,
             )
             self.entrada_anterior = int(entrada_ant or 0)
             self.salida_anterior = int(salida_ant or 0)

@@ -121,10 +121,10 @@
                             {{ form.salida }}
                         </div>
                         
-                        <div class="mb-3">
+                        <!-- <div class="mb-3">
                             <label for="id_total" class="form-label">Total (Entrada - Salida)</label>
                             {{ form.total }}
-                        </div>
+                        </div> -->
                         
                         <div class="mb-4">
                             <label for="id_nota" class="form-label">Nota (Opcional)</label>
@@ -290,6 +290,7 @@
 {% endblock %}
 
 <script>
+    const TURNO_ID = {{ turno_abierto.id|default:"null" }};
     document.addEventListener('DOMContentLoaded', function () {
         // Enfocar campo entrada al cargar
         const inputEntrada = document.getElementById('id_entrada');
@@ -419,7 +420,8 @@
         // Consultar último numeral para mostrarlo
         const maqId = document.getElementById('id_maquina').value;
         if (maqId) {
-            fetch(`/ajax/maquina/${maqId}/referencia/`, { headers: {"X-Requested-With": "XMLHttpRequest"} })
+            const refUrl = TURNO_ID ? `/ajax/maquina/${maqId}/referencia/?turno_id=${TURNO_ID}` : `/ajax/maquina/${maqId}/referencia/`;
+            fetch(refUrl, { headers: {"X-Requested-With": "XMLHttpRequest"} })
                 .then(r => r.json())
                 .then(d => {
                     document.getElementById('refEntrada').textContent = d.entrada_anterior.toLocaleString();
