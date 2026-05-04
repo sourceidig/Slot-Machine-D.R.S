@@ -41,9 +41,10 @@ def get_referencia_anterior(maquina, fecha_trabajo, exclude_turno_id=None):
     return maquina.contador_inicial_entrada, maquina.contador_inicial_salida, "contador_inicial"
 
 
-def calcular_numerales_caja(sucursal, fecha):
-    # 1) Sumar todos los controles del día (puede haber varios turnos)
+def calcular_numerales_caja(sucursal, fecha, exclude_pk=None):
     from django.db.models import Sum
+    
+    # 1) Sumar todos los controles del día (puede haber varios turnos)
     numeral_dia = int(
         ControlLecturas.objects.filter(sucursal=sucursal, fecha_trabajo=fecha)
         .aggregate(s=Sum("total_general"))["s"] or 0
@@ -52,27 +53,40 @@ def calcular_numerales_caja(sucursal, fecha):
     # 2) Determinar inicio del ciclo actual
     inicio_ciclo = get_inicio_ciclo(sucursal)
 
-    # Si la fecha pedida ES el inicio del ciclo (primer día del nuevo ciclo),
-    # no hay acumulado previo: el numeral_acumulado es solo el del día.
-    if inicio_ciclo and fecha <= inicio_ciclo:
-        return numeral_dia, numeral_dia
-
     # 3) Buscar la última cuadratura anterior DENTRO del ciclo
+    # ✅ FIX: Usar __lte para incluir cajas de turnos anteriores del MISMO DÍA
     qs = CuadraturaCajaDiaria.objects.filter(
         sucursal=sucursal,
-        fecha__lt=fecha
-    )
+        fecha__lte=fecha
+    ).order_by("-fecha", "-creado_el")
+    
     if inicio_ciclo:
         qs = qs.filter(fecha__gte=inicio_ciclo)
+        
+    # ✅ FIX: Excluir la caja actual para que no se sume a sí misma
+    if exclude_pk:
+        qs = qs.exclude(pk=exclude_pk)
 
-    anterior = qs.order_by("-fecha", "-id").first()
+    anterior = qs.first()
+
+    # Si es el primer día del ciclo y no hay nada anterior
+    if not anterior and inicio_ciclo and fecha <= inicio_ciclo:
+        return numeral_dia, numeral_dia
 
     numeral_acumulado = numeral_dia
+    
+    # ✅ FIX: Lógica para sumar sin duplicar si hay varias cajas el mismo día
     if anterior:
-        numeral_acumulado += int(anterior.numeral_acumulado or 0)
+        if anterior.fecha == fecha:
+            # Si la caja anterior es de HOY, tomamos el acumulado que venía de ayer 
+            # y le sumamos el total de hoy.
+            acumulado_ayer = int(anterior.numeral_acumulado or 0) - int(anterior.numeral_dia or 0)
+            numeral_acumulado = acumulado_ayer + numeral_dia
+        else:
+            # Si la caja es de ayer o antes, sumamos directo
+            numeral_acumulado += int(anterior.numeral_acumulado or 0)
 
     return numeral_dia, numeral_acumulado
-
 
 def get_inicio_ciclo(sucursal):
     try:

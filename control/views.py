@@ -1208,7 +1208,8 @@ def _recalcular_totales(cuadratura):
     """
 
     # 1) Numerales (backend es la verdad)
-    numeral_dia, numeral_acum = calcular_numerales_caja(cuadratura.sucursal, cuadratura.fecha)
+    # ✅ FIX: Le pasamos exclude_pk=cuadratura.pk para que no se sume a sí misma
+    numeral_dia, numeral_acum = calcular_numerales_caja(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
     cuadratura.numeral_dia = numeral_dia
     cuadratura.numeral_acumulado = numeral_acum
 
@@ -1804,12 +1805,12 @@ def dashboard_view(request):
     hoy = timezone.localdate()
 
     # ── Totales globales ────────────────────────────────────────────────────
-    todas_lecturas = LecturaMaquina.objects.all()
-    global_kpis = todas_lecturas.aggregate(
-        total_entrada = Sum("entrada_dia"),
-        total_salida  = Sum("salida_dia"),
+    global_agg = ControlLecturasLinea.objects.aggregate(
+        total_entrada = Sum("entrada_parcial"),
+        total_salida  = Sum("salida_parcial"),
         total_neto    = Sum("total"),
     )
+    global_kpis = {k: (v or 0) for k, v in global_agg.items()}
     for k in global_kpis:
         global_kpis[k] = global_kpis[k] or 0
 
@@ -1974,8 +1975,12 @@ def dashboard_view(request):
                 .first()
             )
             if ultimo_turno_cerrado:
-                _lec = LecturaMaquina.objects.filter(turno=ultimo_turno_cerrado).aggregate(
-                    ent=Sum("entrada_dia"), sal=Sum("salida_dia"), tot=Sum("total")
+                _lec = ControlLecturasLinea.objects.filter(
+                    control__turno=ultimo_turno_cerrado
+                ).aggregate(
+                    ent=Sum("entrada_parcial"),
+                    sal=Sum("salida_parcial"),
+                    tot=Sum("total")
                 )
                 _ent = _lec["ent"] or 0
                 _sal = _lec["sal"] or 0
@@ -1985,8 +1990,12 @@ def dashboard_view(request):
             else:
                 btn_numeral = btn_ganancia = btn_rtp = None
 
-        acum = LecturaMaquina.objects.filter(sucursal=sucursal).aggregate(
-            ent=Sum("entrada_dia"), sal=Sum("salida_dia"), tot=Sum("total")
+        acum = ControlLecturasLinea.objects.filter(
+            control__sucursal=sucursal
+        ).aggregate(
+            ent=Sum("entrada_parcial"),
+            sal=Sum("salida_parcial"),
+            tot=Sum("total"),
         )
         acum_ent = acum["ent"] or 0
         acum_sal = acum["sal"] or 0

@@ -8,6 +8,7 @@ import threading
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
+from .models import ControlLecturas, LecturaMaquina
 
 # ── Modelos auditados → etiqueta legible ─────────────────────────────────────
 MODELOS = {
@@ -194,3 +195,13 @@ def _logout(sender, request, user, **kwargs):
         )
     except Exception:
         pass
+
+@receiver(post_delete, sender=ControlLecturas)
+def eliminar_lecturas_al_borrar_control(sender, instance, **kwargs):
+    """
+    Cuando se borra un ControlLecturas, elimina también todas las
+    LecturaMaquina del turno asociado. El control es la fuente
+    oficial — sin él, las lecturas son datos fantasma.
+    """
+    if instance.turno_id:
+        LecturaMaquina.objects.filter(turno_id=instance.turno_id).delete()
