@@ -1330,7 +1330,10 @@ def cuadratura_diaria_create(request):
                 # desglose_efectivo_total es un @property, se calcula automáticamente
                 # total_efectivo = lo que queda en caja después del retiro diario
                 cuadratura.total_efectivo = cuadratura.desglose_efectivo_total - (cuadratura.retiro_diario or 0)
-
+                tipo_turno_guard = cuadratura.turno.tipo_turno if cuadratura.turno else request.POST.get('turno_tipo', '').strip()
+                nd, na = calcular_numerales_caja(sucursal, cuadratura.fecha, turno_tipo=tipo_turno_guard)
+                cuadratura.numeral_dia = nd
+                cuadratura.numeral_acumulado = na
                 # timestamps (por tu tema MySQL)
                 if not cuadratura.creado_el:
                     cuadratura.creado_el = timezone.now()
@@ -1407,7 +1410,15 @@ def cuadratura_diaria_create(request):
         if usa_sucursal_fija and sucursal_fija:
             initial["sucursal"] = sucursal_fija
         form = CuadraturaCajaDiariaForm(initial=initial)
-
+        # Detectar turno del encargado para pre-cargar numerales
+        turno_tipo_fijo = None
+        if usa_sucursal_fija and sucursal_fija:
+            from django.utils import timezone as tz
+            turno_obj = Turno.objects.filter(
+                sucursal=sucursal_fija, fecha=tz.localdate()
+            ).order_by('-id').first()
+            if turno_obj:
+                turno_tipo_fijo = turno_obj.tipo_turno
         ref_sucursal = sucursal_fija if usa_sucursal_fija else Sucursal.objects.filter(is_active=True).order_by("nombre").first()
         if ref_sucursal:
             fecha = timezone.now().date()
@@ -1421,7 +1432,15 @@ def cuadratura_diaria_create(request):
     # Verificar zonas faltantes (solo para la sucursal relevante)
     fecha_hoy = timezone.localdate()
     zonas_faltantes = []
-    suc_verificar = [sucursal_fija] if usa_sucursal_fija and sucursal_fija else list(Sucursal.objects.filter(is_active=True))
+    if usa_sucursal_fija and sucursal_fija:
+        suc_verificar = [sucursal_fija]
+    else:
+        # Para admin: verificar solo la sucursal seleccionada en el form si viene en POST
+        suc_id_post = request.POST.get("sucursal") or request.GET.get("sucursal_id")
+        if suc_id_post:
+            suc_verificar = list(Sucursal.objects.filter(pk=suc_id_post, is_active=True))
+        else:
+            suc_verificar = list(Sucursal.objects.filter(is_active=True))
     for suc in suc_verificar:
         turno_hoy = Turno.objects.filter(sucursal=suc, fecha=fecha_hoy, estado="Abierto").first()
         if turno_hoy:
@@ -1447,6 +1466,7 @@ def cuadratura_diaria_create(request):
         "sucursal_fija": sucursal_fija,
         "usa_sucursal_fija": usa_sucursal_fija,
         "fecha_fija": usa_sucursal_fija,  # bloquea el campo fecha para encargados/supervisores
+        "turno_tipo_fijo": turno_tipo_fijo,
     })
 @login_required
 @role_required(*ROLES_CUADRATURA)

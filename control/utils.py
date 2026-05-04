@@ -72,7 +72,7 @@ def calcular_numerales_caja(sucursal, fecha, turno_tipo=None, exclude_pk=None):
 
     # Si es el primer día del ciclo (Día 0) y el primer turno (Mañana),
     # no hay acumulado previo: el numeral_acumulado es solo el del día actual.
-    if inicio_ciclo and fecha <= inicio_ciclo and orden_actual == 1:
+    if inicio_ciclo and fecha == inicio_ciclo and orden_actual == 1:
         return numeral_dia, numeral_dia
 
     # 4) Buscar la última cuadratura anterior DENTRO del ciclo para el acumulado

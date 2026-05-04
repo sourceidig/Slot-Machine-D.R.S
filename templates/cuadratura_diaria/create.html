@@ -153,6 +153,8 @@ input[readonly]{
             <option value="Noche">Noche</option>
           </select>
         </div>
+        {% else %}
+        <input type="hidden" name="turno_tipo" value="{{ turno_tipo_fijo|default:'' }}">
         {% endif %}
 
         <div class="{% if not usa_sucursal_fija %}col-md-4{% else %}col-md-5{% endif %}">
@@ -598,8 +600,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const fecha = fechaInput?.value;
     const sucursalId = sucursalSelect?.value;
     // ✅ NUEVO: Capturar el turno
-    const turnoSelect = document.querySelector('select[name="turno_tipo"]');
-    const turnoTipo = turnoSelect ? turnoSelect.value : "";
+    const turnoEl = document.querySelector('select[name="turno_tipo"]') || document.querySelector('input[name="turno_tipo"]');
+    const turnoTipo = turnoEl ? turnoEl.value : "";
 
     // Si falta algo, resetea UI “header”
     if (!fecha || !sucursalId) {
