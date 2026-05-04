@@ -10,7 +10,8 @@ def get_referencia_anterior(maquina, fecha_trabajo, exclude_turno_id=None):
     if ciclo and fecha_trabajo == ciclo.inicio_ciclo:
         return maquina.contador_inicial_entrada, maquina.contador_inicial_salida, "contador_inicial"
 
-    # 1. Lectura del mismo día de un turno anterior (ej. tarde toma mañana como ref.)
+    # 1. Lectura del mismo día de un turno anterior (tarde toma mañana como ref.)
+    #    Esto es correcto: dentro del mismo día sí usamos LecturaMaquina
     qs_same = LecturaMaquina.objects.filter(maquina=maquina, fecha_trabajo=fecha_trabajo)
     if exclude_turno_id:
         qs_same = qs_same.exclude(turno_id=exclude_turno_id)
@@ -18,32 +19,25 @@ def get_referencia_anterior(maquina, fecha_trabajo, exclude_turno_id=None):
     if same_day:
         return same_day.entrada, same_day.salida, "turno_anterior_mismo_dia"
 
-    # 2. Control guardado de ayer
-    ayer = fecha_trabajo - timedelta(days=1)
-    control_ayer = (
+    # 2. Último ControlLecturas guardado antes de esta fecha
+    #    (antes era solo "ayer", ahora busca el más reciente disponible)
+    control_anterior = (
         ControlLecturas.objects
-        .filter(sucursal=maquina.sucursal, fecha_trabajo=ayer)
-        .order_by("-id")
+        .filter(sucursal=maquina.sucursal, fecha_trabajo__lt=fecha_trabajo)
+        .order_by("-fecha_trabajo", "-id")
         .first()
     )
-    if control_ayer:
+    if control_anterior:
         linea = (
             ControlLecturasLinea.objects
-            .filter(control=control_ayer, maquina=maquina)
+            .filter(control=control_anterior, maquina=maquina)
             .first()
         )
         if linea:
-            return linea.entrada_historica, linea.salida_historica, "control_ayer"
+            return linea.entrada_historica, linea.salida_historica, "control_anterior"
 
-    # 3. Cualquier lectura anterior dentro del ciclo
-    qs = LecturaMaquina.objects.filter(maquina=maquina, fecha_trabajo__lt=fecha_trabajo)
-    if ciclo:
-        qs = qs.filter(fecha_trabajo__gte=ciclo.inicio_ciclo)
-
-    prev = qs.order_by("-fecha_trabajo", "-id").first()
-    if prev:
-        return prev.entrada, prev.salida, "lectura_anterior"
-
+    # 3. Fallback: contador inicial de la máquina
+    #    (se eliminó el paso que buscaba LecturaMaquina de días anteriores)
     return maquina.contador_inicial_entrada, maquina.contador_inicial_salida, "contador_inicial"
 
 
