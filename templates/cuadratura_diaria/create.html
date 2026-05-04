@@ -891,9 +891,13 @@ function recalcUI() {
   // init
   onHeaderChange();
 });
-// ✅ NUEVO: Escuchar cambios en el turno
+// ✅ Escuchar cambios en el turno
   const turnoSelectEl = document.querySelector('select[name="turno_tipo"]');
   if (turnoSelectEl) turnoSelectEl.addEventListener("change", onHeaderChange);
+
+  // init
+  onHeaderChange();
+});
 </script>
 
 
