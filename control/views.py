@@ -2537,6 +2537,12 @@ def cerrar_turno(request, turno_id):
 @role_required(*ROLES_REGISTRO)
 def registro_view(request):
     turno_abierto = Turno.objects.filter(usuario=request.user, estado__iexact="abierto").first()
+
+    # Encargado en modo asistente: usar el turno del encargado titular
+    if not turno_abierto and request.user.role == 'encargado':
+        modo_turno_id = request.session.get('modo_asistente_turno_id')
+        if modo_turno_id:
+            turno_abierto = Turno.objects.filter(pk=modo_turno_id, estado='Abierto').first()
     zona_guardada_id = request.session.get("ultima_zona")
 
     # Asistente: usar turno del encargado como referencia para asignaciones y zonas

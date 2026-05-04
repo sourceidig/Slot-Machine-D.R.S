@@ -59,6 +59,14 @@ class SucursalEncargadoMiddleware:
             return False
         if request.path in exempt:
             return False
+        # Permitir que encargados entren como asistente
+        try:
+            from django.urls import resolve
+            match = resolve(request.path)
+            if match.url_name == 'entrar_como_asistente':
+                return False
+        except Exception:
+            pass
         # Sin sucursal activa → debe ir a seleccionar_turno
         if not request.session.get('sucursal_activa_id'):
             return True

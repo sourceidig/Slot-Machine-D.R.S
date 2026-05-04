@@ -279,20 +279,18 @@
                   </span>
                 </div>
               </div>
-              <form method="post" action="{% url 'control:entrar_como_asistente' op.turno.id %}" style="flex-shrink:0;">
-                {% csrf_token %}
-                <button type="submit" style="
-                  background:linear-gradient(135deg,#22c55e,#16a34a);
-                  border:none;border-radius:9px;color:#fff;
-                  font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;
-                  padding:8px 12px;cursor:pointer;
-                  display:flex;align-items:center;gap:6px;
-                  box-shadow:0 3px 10px rgba(34,197,94,.3);
-                  transition:opacity .15s,transform .1s;"
-                  onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-                  <i class="bi bi-person-check-fill"></i>
-                  Entrar como<br>asistente
-                </button>
+              <button type="button" onclick="event.stopPropagation(); event.preventDefault(); document.getElementById('form-asistente-{{ op.turno.id }}').submit();" style="
+                background:linear-gradient(135deg,#22c55e,#16a34a);
+                border:none;border-radius:9px;color:#fff;
+                font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;
+                padding:8px 12px;cursor:pointer;
+                display:flex;align-items:center;gap:6px;
+                box-shadow:0 3px 10px rgba(34,197,94,.3);
+                transition:opacity .15s,transform .1s;"
+                onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                <i class="bi bi-person-check-fill"></i>
+                Entrar como<br>asistente
+              </button>
               </form>
             </div>
           </div>
@@ -449,4 +447,11 @@ if (overlay) {
   });
 }
 </script>
+{% for op in opciones %}
+{% if op.turno and op.turno.estado == 'Abierto' %}
+<form id="form-asistente-{{ op.turno.id }}" method="post" action="{% url 'control:entrar_como_asistente' op.turno.id %}" style="display:none;">
+  {% csrf_token %}
+</form>
+{% endif %}
+{% endfor %}
 {% endblock %}
