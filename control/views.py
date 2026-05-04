@@ -1424,7 +1424,7 @@ def cuadratura_diaria_create(request):
     for suc in suc_verificar:
         turno_hoy = Turno.objects.filter(sucursal=suc, fecha=fecha_hoy, estado="Abierto").first()
         if turno_hoy:
-            control_hoy = ControlLecturas.objects.filter(sucursal=suc, fecha_trabajo=fecha_hoy).first()
+            control_hoy = ControlLecturas.objects.filter(turno=turno_hoy).first()
             zonas_con_lineas = set()
             if control_hoy:
                 zonas_con_lineas = set(
@@ -3473,10 +3473,7 @@ class LecturaEditView(UpdateView):
         lectura = self.object
 
         # Sincronizar la línea en ControlLecturas si existe
-        control = ControlLecturas.objects.filter(
-            sucursal=lectura.sucursal,
-            fecha_trabajo=lectura.fecha_trabajo,
-        ).first()
+        control = ControlLecturas.objects.filter(turno=lectura.turno).first()
         if control:
             ControlLecturasLinea.objects.filter(
                 control=control, maquina=lectura.maquina
@@ -3495,10 +3492,7 @@ class LecturaEditView(UpdateView):
 
     def get_success_url(self):
         lectura = self.object
-        control = ControlLecturas.objects.filter(
-            sucursal=lectura.sucursal,
-            fecha_trabajo=lectura.fecha_trabajo,
-        ).first()
+        control = ControlLecturas.objects.filter(turno=lectura.turno).first()
         if control:
             return reverse_lazy("control:controles_detail", kwargs={"pk": control.pk})
         return reverse_lazy("control:controles_list")
@@ -4987,10 +4981,7 @@ def lectura_edit_ajax(request, pk):
     except Exception as e:
         return JsonResponse({"ok": False, "error": f"Error al guardar lectura: {e}"}, status=500)
 
-    control = ControlLecturas.objects.filter(
-        sucursal=lectura.sucursal,
-        fecha_trabajo=lectura.fecha_trabajo,
-    ).first()
+    control = ControlLecturas.objects.filter(turno=lectura.turno).first()
     if control:
         ControlLecturasLinea.objects.filter(
             control=control, maquina=lectura.maquina

@@ -48,6 +48,7 @@
           <tr>
             <th>Fecha</th>
             <th>Sucursal</th>
+            <th>Turno</th>
             <th>Creado por</th>
             <th class="text-center">Acciones</th>
           </tr>
@@ -57,6 +58,18 @@
           <tr>
             <td class="fw-semibold">{{ c.fecha_trabajo|date:"d/m/Y" }}</td>
             <td>{{ c.sucursal.nombre }}</td>
+            <td>
+              {% if c.turno %}
+                <span class="badge
+                  {% if c.turno.tipo_turno == 'Mañana' %}bg-warning text-dark
+                  {% elif c.turno.tipo_turno == 'Tarde' %}bg-primary
+                  {% else %}bg-dark{% endif %}">
+                  {{ c.turno.tipo_turno }}
+                </span>
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
             <td class="text-muted small">{{ c.creado_por.username }}</td>
             <td class="text-center">
               <a class="btn btn-sm btn-info text-white" href="{% url 'control:controles_detail' c.id %}">
