@@ -156,7 +156,8 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # ══ Seguridad y sesiones ══════════════════════════════════════════════════
 # Sesión expira al cerrar el browser (ya estaba) y también por inactividad
-SESSION_COOKIE_AGE = 28800          # 8 horas máximo aunque el browser siga abierto
+SESSION_COOKIE_AGE = 86400  # 24 horas
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False         # 24 horas máximo aunque el browser siga abierto
 SESSION_SAVE_EVERY_REQUEST = True   # Renueva el timeout con cada request
 
 
