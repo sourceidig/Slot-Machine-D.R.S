@@ -2833,7 +2833,15 @@ def ajax_turnos_por_sucursal_fecha(request):
 def ajax_cuadratura_diaria_numerales(request):
     sucursal_id = request.GET.get("sucursal_id")
     fecha_str = request.GET.get("fecha")
-    turno_tipo = request.GET.get("turno") # ✅ NUEVO: Capturar el turno desde el frontend
+    turno_tipo = request.GET.get("turno", "").strip()
+    if not turno_tipo:
+        turno_hoy = Turno.objects.filter(
+            sucursal_id=sucursal_id,
+            fecha=timezone.localdate(),
+            estado="Abierto"
+        ).order_by("-id").first()
+        if turno_hoy:
+            turno_tipo = turno_hoy.tipo_turno
 
     if not sucursal_id or not fecha_str:
         return JsonResponse({"ok": False, "error": "missing_params"})
