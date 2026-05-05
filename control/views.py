@@ -1440,7 +1440,7 @@ def cuadratura_diaria_create(request):
         if suc_id_post:
             suc_verificar = list(Sucursal.objects.filter(pk=suc_id_post, is_active=True))
         else:
-            suc_verificar = list(Sucursal.objects.filter(is_active=True))
+            suc_verificar = []  # En GET inicial sin sucursal, no validar
     for suc in suc_verificar:
         turno_hoy = Turno.objects.filter(sucursal=suc, fecha=fecha_hoy, estado="Abierto").first()
         if turno_hoy:
