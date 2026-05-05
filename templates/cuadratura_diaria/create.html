@@ -154,7 +154,7 @@ input[readonly]{
           </select>
         </div>
         {% else %}
-        <input type="hidden" name="turno_tipo" value="{{ turno_tipo_fijo|default:'' }}">
+        <input type="hidden" name="turno_tipo" id="id_turno_tipo_fijo" value="{{ turno_tipo_fijo|default:'' }}">
         {% endif %}
 
         <div class="{% if not usa_sucursal_fija %}col-md-4{% else %}col-md-5{% endif %}">
@@ -898,6 +898,14 @@ function recalcUI() {
 
   // init
   onHeaderChange();
+});
+document.addEventListener("DOMContentLoaded", function () {
+  const turnoFijo = document.getElementById("id_turno_tipo_fijo");
+  if (turnoFijo && turnoFijo.value) {
+    // Solo auto-dispara si hay turno fijo (encargada/supervisor)
+    // El delay deja que el resto del JS inicialice primero
+    setTimeout(onHeaderChange, 200);
+  }
 });
 </script>
 
