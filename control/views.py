@@ -1193,7 +1193,7 @@ def _upsert_cuadratura_diaria(*, sucursal, fecha, defaults):
     return CuadraturaCajaDiaria(sucursal=sucursal, fecha=fecha, **defaults), True
 
 
-def _recalcular_totales(cuadratura):
+def _recalcular_totales(cuadratura, turno_tipo=None):
     """
     Implementa la lógica del bloc de notas.
     - Día 1 del ciclo: base anterior = caja_inicial del local
@@ -1208,8 +1208,8 @@ def _recalcular_totales(cuadratura):
     """
 
     # 1) Numerales (backend es la verdad)
-    # ✅ FIX: Le pasamos exclude_pk=cuadratura.pk para que no se sume a sí misma
-    numeral_dia, numeral_acum = calcular_numerales_caja(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
+    tipo = turno_tipo or (cuadratura.turno.tipo_turno if cuadratura.turno else None)
+    numeral_dia, numeral_acum = calcular_numerales_caja(cuadratura.sucursal, cuadratura.fecha, turno_tipo=tipo, exclude_pk=cuadratura.pk)
     cuadratura.numeral_dia = numeral_dia
     cuadratura.numeral_acumulado = numeral_acum
 
@@ -1371,7 +1371,7 @@ def cuadratura_diaria_create(request):
                     cuadratura.otros_1_dia  = _sum_tipo(cuadratura, "OTROS")
 
                 # Recalcular totales ahora que está todo seteado
-                _recalcular_totales(cuadratura)
+                _recalcular_totales(cuadratura, turno_tipo=cuadratura.turno.tipo_turno if cuadratura.turno else None)
 
                 cuadratura.actualizado_el = timezone.now()
                 cuadratura.save()
@@ -1571,7 +1571,7 @@ def cuadratura_diaria_edit(request, pk):
                 c.descuadre_acum = (c.descuadre_ant or 0) + (c.descuadre_dia or 0)
 
                 # Recalcular ganancia, numeral_dia, descuadre y total_efectivo
-                _recalcular_totales(c)
+                _recalcular_totales(c, turno_tipo=c.turno.tipo_turno if c.turno else None)
 
                 c.actualizado_el = timezone.now()
                 c.save()
@@ -1583,7 +1583,7 @@ def cuadratura_diaria_edit(request, pk):
                 ).order_by("fecha", "creado_el")
 
                 for siguiente in dias_siguientes:
-                    _recalcular_totales(siguiente)
+                    _recalcular_totales(siguiente, turno_tipo=siguiente.turno.tipo_turno if siguiente.turno else None)
                     siguiente.actualizado_el = timezone.now()
                     siguiente.save()
 
@@ -1634,7 +1634,7 @@ def cuadratura_diaria_recalcular_todo(request):
 
     for c in cuadraturas:
         try:
-            _recalcular_totales(c)
+            _recalcular_totales(c, turno_tipo=c.turno.tipo_turno if c.turno else None)
             c.actualizado_el = timezone.now()
             c.save()
             actualizadas += 1

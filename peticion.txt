@@ -1,0 +1,22 @@
+Hay un bug crítico en control/views.py en la función _recalcular_totales. Esta función llama a calcular_numerales_caja sin pasar el parámetro turno_tipo, lo que hace que el filtro turno__tipo_turno=None devuelva 0 y sobreescriba los numerales correctos con 0.
+Fix 1 — Modificar la firma de _recalcular_totales:
+Cambiar la definición de:
+pythondef _recalcular_totales(cuadratura):
+A:
+pythondef _recalcular_totales(cuadratura, turno_tipo=None):
+Y dentro de la función, cambiar:
+pythonnumeral_dia, numeral_acum = calcular_numerales_caja(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
+cuadratura.numeral_dia = numeral_dia
+cuadratura.numeral_acumulado = numeral_acum
+Por:
+pythontipo = turno_tipo or (cuadratura.turno.tipo_turno if cuadratura.turno else None)
+numeral_dia, numeral_acum = calcular_numerales_caja(cuadratura.sucursal, cuadratura.fecha, turno_tipo=tipo, exclude_pk=cuadratura.pk)
+cuadratura.numeral_dia = numeral_dia
+cuadratura.numeral_acumulado = numeral_acum
+Fix 2 — Actualizar todas las llamadas a _recalcular_totales:
+Buscar TODAS las llamadas a _recalcular_totales(cuadratura) en el archivo y pasarles el turno_tipo correspondiente. En cada lugar donde se llama, el turno_tipo se puede obtener de cuadratura.turno.tipo_turno if cuadratura.turno else None.
+Reemplazar todas las ocurrencias de:
+python_recalcular_totales(cuadratura)
+Por:
+python_recalcular_totales(cuadratura, turno_tipo=cuadratura.turno.tipo_turno if cuadratura.turno else None)
+Verificar que no quede ninguna llamada sin el parámetro turno_tipo.
