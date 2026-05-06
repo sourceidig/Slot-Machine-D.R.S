@@ -1467,6 +1467,7 @@ def cuadratura_diaria_create(request):
         "usa_sucursal_fija": usa_sucursal_fija,
         "fecha_fija": usa_sucursal_fija,  # bloquea el campo fecha para encargados/supervisores
         "turno_tipo_fijo": turno_tipo_fijo,
+        "es_encargada": request.user.role in ("encargado", "asistente"),
     })
 @login_required
 @role_required(*ROLES_CUADRATURA)
@@ -2179,7 +2180,7 @@ def turno_view(request):
     if turno_abierto:
         cantidad_lecturas = LecturaMaquina.objects.filter(turno=turno_abierto).count()
         zonas = list(Zona.objects.filter(sucursal=turno_abierto.sucursal, is_active=True).order_by("orden", "nombre"))
-        usuarios_sucursal = list(Usuario.objects.filter(is_active=True, role__in=("asistente", "encargado"), sucursales=turno_abierto.sucursal).order_by("nombre"))
+        usuarios_sucursal = list(Usuario.objects.filter(is_active=True, role__in=("asistente", "encargado"), sucursales=turno_abierto.sucursal).distinct().order_by("nombre"))
 
         for az in AsignacionTurnoZona.objects.filter(turno=turno_abierto).select_related("usuario", "zona"):
             asig_zonas[az.zona_id] = az

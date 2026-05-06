@@ -123,7 +123,7 @@ input[readonly]{
         <div class="{% if not usa_sucursal_fija %}col-md-2{% else %}col-md-3{% endif %}">
           <label class="form-label fw-bold mb-1">Fecha</label>
           {% if fecha_fija %}
-            <input type="hidden" name="fecha" value="{% now "Y-m-d" %}">
+            <input type="hidden" id="id_fecha" name="fecha" value="{% now "Y-m-d" %}">
             <input type="text" class="form-control readonly" value="{% now "d/m/Y" %}" readonly>
           {% else %}
             {{ form.fecha }}
@@ -133,7 +133,7 @@ input[readonly]{
         <div class="{% if not usa_sucursal_fija %}col-md-3{% else %}col-md-4{% endif %}">
           <label class="form-label fw-bold mb-1">Local</label>
           {% if usa_sucursal_fija and sucursal_fija %}
-            <input type="hidden" name="sucursal" value="{{ sucursal_fija.pk }}">
+            <input type="hidden" id="id_sucursal" name="sucursal" value="{{ sucursal_fija.pk }}">
             <input type="text" class="form-control readonly" value="{{ sucursal_fija.nombre }}" readonly>
           {% else %}
             {{ form.sucursal }}
@@ -154,7 +154,7 @@ input[readonly]{
           </select>
         </div>
         {% else %}
-        <input type="hidden" name="turno_tipo" id="id_turno_tipo_fijo" value="{{ turno_tipo_fijo|default:'' }}">
+        <input type="hidden" name="turno_tipo" value="{{ turno_tipo_fijo|default:'' }}">
         {% endif %}
 
         <div class="{% if not usa_sucursal_fija %}col-md-4{% else %}col-md-5{% endif %}">
@@ -164,10 +164,14 @@ input[readonly]{
               <input type="text" class="form-control" id="id_numeral_dia" value="0" readonly>
               <div class="small text-muted mt-1">Numeral día</div>
             </div>
+            {% if not es_encargada %}
             <div class="col-4">
               <input type="text" class="form-control" id="id_numeral_acumulado" value="0" readonly>
               <div class="small text-muted mt-1">Numeral acumulado</div>
             </div>
+            {% else %}
+            <input type="hidden" id="id_numeral_acumulado" value="0">
+            {% endif %}
             <div class="col-4">
               <input type="text" class="form-control readonly" id="id_caja_anterior" value="{{ caja_anterior }}" readonly>
               <div class="small text-muted mt-1">Caja anterior</div>
@@ -898,14 +902,6 @@ function recalcUI() {
 
   // init
   onHeaderChange();
-});
-document.addEventListener("DOMContentLoaded", function () {
-  const turnoFijo = document.getElementById("id_turno_tipo_fijo");
-  if (turnoFijo && turnoFijo.value) {
-    // Solo auto-dispara si hay turno fijo (encargada/supervisor)
-    // El delay deja que el resto del JS inicialice primero
-    setTimeout(onHeaderChange, 200);
-  }
 });
 </script>
 

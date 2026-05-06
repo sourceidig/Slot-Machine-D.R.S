@@ -1,209 +1,172 @@
-# CLAUDE.md
+# CLAUDE.md — Plaza Games DRS
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Sistema de gestión de máquinas tragamonedas. Django 4.1 + MariaDB/MySQL + Tesseract OCR. App en español (Chile).
 
-## Project Overview
+---
 
-**Slot Machine D.R.S.** — Sistema de gestión de máquinas tragamonedas. Django 4.1 + MariaDB/MySQL + Tesseract OCR. Aplicación en español (Chile) para registrar lecturas de máquinas, gestionar turnos, cuadraturas de caja y recaudaciones.
-
-## Commands
+## Comandos frecuentes
 
 ```bash
-# Development server
 python manage.py runserver
-
-# Migrations
-python manage.py makemigrations
-python manage.py migrate
-
-# Django shell
-python manage.py shell
-
-# Collect static files
-python manage.py collectstatic
+python manage.py makemigrations && python manage.py migrate
+python manage.py test control --settings=slot_machine_drs.settings_test   # sin MariaDB
+python manage.py test control                                               # con MariaDB
 ```
 
-## Tests
+---
 
-```bash
-# Con MariaDB corriendo (producción/NAS):
-python manage.py test control
-python manage.py test control.tests.LecturaMaquinaCalculosTest
-python manage.py test control -v 2
+## Arquitectura
 
-# Sin MariaDB (desarrollo local, usa SQLite en memoria):
-python manage.py test control --settings=slot_machine_drs.settings_test
-python manage.py test control -v 2 --settings=slot_machine_drs.settings_test
+**Una sola app Django:** `control/`. No hay apps secundarias.
+
+| Archivo | Contenido | Líneas |
+|---|---|---|
+| `control/views.py` | TODA la lógica de vistas | ~5370 |
+| `control/models.py` | 25+ modelos | ~700 |
+| `control/utils.py` | `get_referencia_anterior()`, `calcular_numerales_caja()` | ~140 |
+| `control/decorators.py` | `@role_required()`, `@readonly_for()`, constantes de roles | ~80 |
+| `control/middleware.py` | 4 middlewares personalizados | ~120 |
+| `control/signals.py` | Audit log + signal de borrado en cascada | ~60 |
+| `control/urls.py` | ~60 rutas, patrón `control:<name>` | ~153 |
+
+Templates en `templates/<modulo>/`. Todos heredan de `templates/base.html`.
+
+---
+
+## Modelos — jerarquía y propósito
+
+```
+Sucursal → Zona → Maquina
+
+Turno → LecturaMaquina          ← datos CRUDOS en vivo (borrar si se borra el Control)
+      → ControlLecturas          ← datos OFICIALES guardados
+           → ControlLecturasLinea
+
+CuadraturaCajaDiaria            ← caja por turno (tiene FK a Turno, puede ser NULL)
+CicloRecaudacion                ← ciclo mensual por sucursal
+InformeRecaudacion → InformeRecaudacionLinea
 ```
 
-**Estado actual:** 108 tests en verde cubriendo modelos, utils, OCR, formularios, decoradores, middleware y vistas.
+**Regla crítica:** `LecturaMaquina` son datos en vivo. `ControlLecturasLinea` son datos oficiales.
+- El dashboard y acumulados históricos usan `ControlLecturasLinea`, NO `LecturaMaquina`.
+- Si se borra un `ControlLecturas`, el signal en `signals.py` elimina sus `LecturaMaquina` asociadas.
 
-## Local Development
+---
 
-El proyecto usa `python-dotenv` para cargar variables de entorno desde `.env` automáticamente.
+## Roles
 
-### Configuración local
+`admin`, `gerente`, `supervisor`, `encargado`, `asistente`, `tecnico`
 
-Crear archivo `.env` en la raíz del proyecto (nunca subir a GitHub):
-DJANGO_SECRET_KEY=clave-local-desarrollo-12345
-DJANGO_DEBUG=True
-DB_NAME=bd_prueba
-DB_USER=root
-DB_PASSWORD=1234
-DB_HOST=127.0.0.1
-DB_PORT=3306
+- `@role_required(*ROLES_X)` — restringe acceso
+- `@readonly_for('supervisor')` — permite GET, bloquea POST
+- `encargado` y `asistente` necesitan turno abierto (`SucursalEncargadoMiddleware`)
 
-### Requisitos locales
-- MySQL 8.0 corriendo en localhost
-- Base de datos `bd_prueba` existente
-- Tesseract instalado en el sistema
-- `pip install python-dotenv` incluido en requirements.txt
+Constantes de grupos de roles definidas en `decorators.py` (`ROLES_TURNO`, `ROLES_CONFIG_EDIT`, etc.).
 
-### Flujo de trabajo
-1. Desarrollar y probar en `http://127.0.0.1:8000`
-2. Cuando esté listo: `git add -A && git commit -m "..." && git push`
-3. Actualizar producción en el NAS (ver sección Production Deployment)
+---
 
-## Database
+## Reglas de negocio críticas
 
-MariaDB 10.3 requerido en producción. MySQL 8.0 en desarrollo local. Config via variables de entorno (.env).
+### get_referencia_anterior() — `control/utils.py`
 
-## Architecture
+Calcula qué contador usar como base para una lectura nueva. Orden de prioridad:
 
-**Single Django app** — toda la lógica de negocio vive en `control/`. No hay apps secundarias.
+1. Si es el primer día del ciclo → `maquina.contador_inicial_entrada/salida`
+2. Lectura del mismo día de turno anterior (`LecturaMaquina`, mismo día) → válido
+3. Último `ControlLecturas` anterior a esa fecha (`.order_by("-fecha_trabajo", "-id").first()`) → usa su línea
+4. Fallback → `contador_inicial` de la máquina
 
-### Models (`control/models.py` — 25+ models)
+**No busca `LecturaMaquina` de días anteriores** — eso causa datos fantasma.
 
-- **Auth:** `Usuario` (custom `AbstractUser`, campo `rol` con 6 roles: admin, gerente, supervisor, tecnico, encargado, asistente)
-- **Org structure:** `Sucursal` → `Zona` → `Maquina`
-- **Operations:** `Turno` → `LecturaMaquina` → `CierreMaquina`
-- **Finance:** `CuadraturaCajaDiaria`, `EncuadreCajaAdmin`, `CierreTurno*`
-- **Reporting:** `InformeRecaudacion*`, `ControlLecturas*`, `CicloRecaudacion`
+### calcular_numerales_caja() — `control/utils.py`
 
-#### Campos RTP en Maquina
+- **`numeral_dia`** → viene de `ControlLecturas.total_general` filtrado por `sucursal + fecha + turno__tipo_turno`
+- **`numeral_acumulado`** → `numeral_dia + anterior.numeral_acumulado`
+- La caja anterior se busca por `fecha__lte + creado_el DESC`, **NO por tipo_turno** (el campo turno puede ser NULL en `CuadraturaCajaDiaria`)
+- Usa `exclude_pk` para evitar referencia circular al editar
 
-`Maquina` tiene dos campos RTP distintos — no confundir:
-
-- **`rtp_creacion`** — dato estático ingresado al crear la máquina. Representa el RTP configurado en fábrica o al momento de ingreso. **No se modifica nunca por código**, es solo referencia informativa.
-- **`rtp_objetivo`** — se actualiza automáticamente en `LecturaMaquina.save()` con cada lectura. Refleja el RTP real calculado de la última lectura.
-
-#### Fórmula RTP
-
-En todo el sistema el RTP representa la **ganancia del local** como porcentaje de lo jugado:
+### RTP — fórmula única en todo el sistema
 
 ```python
-rtp = (entrada - salida) / entrada * 100
+rtp = (entrada - salida) / entrada * 100  # ganancia del local
 ```
 
-- Positivo → el local ganó
-- Negativo → el local perdió (salida > entrada)
+- Positivo → local ganó / Negativo → local perdió
+- `Maquina.rtp_creacion` → estático, ingresado al crear, nunca se modifica por código
+- `Maquina.rtp_objetivo` → se actualiza en `LecturaMaquina.save()` con cada lectura
+- En templates usar filtro `rtp_pct` de `custom_filters`, no `widthratio`
 
-Esta fórmula aplica en: `models.py` (propiedades `.rtp` de `InformeRecaudacion` e `InformeRecaudacionLinea`, y `rtp_objetivo` en `LecturaMaquina.save()`), `views.py` (dashboard, controles, informes), templates (`control_generado.html`, `controles/detail.html` via filtro `rtp_pct`), y JS en `control_generado.html`.
+### Numerales en formulario de caja (encargada/supervisor)
 
-### Views (`control/views.py` — ~5100 lines)
+La sucursal y fecha vienen pre-cargadas desde el servidor → el AJAX de numerales **no se dispara automáticamente**. El template `cuadratura_diaria/create.html` tiene un auto-trigger en `DOMContentLoaded` que llama `onHeaderChange()` con 200ms de delay cuando hay `turno_tipo_fijo`.
 
-Archivo monolítico. Contiene:
-- Auth: `login_view`, `logout_view`
-- CRUD: Sucursales, Zonas, Máquinas, Usuarios
-- Flujo de turno: `crear_turno`, `cierre_turno_*`
-- Lecturas: `registro_lectura`, `guardar_lectura`
-- Reconciliación: `cuadratura_caja_diaria`, `encuadre_caja_admin`
-- **OCR API:** `POST /api/ocr-lectura/` — recibe imagen, retorna `{success, entrada, salida, total}`
-- Endpoints AJAX para filtrado dinámico
-- Exportación Excel con openpyxl
+---
 
-### Access Control
+## Secciones de views.py (para ubicar código rápido)
 
-Roles via decoradores en `control/decorators.py`:
-- `@role_required('admin', 'gerente')` — restringe vista a roles listados
-- `@readonly_for('supervisor')` — permite lectura pero bloquea escritura
+Buscar por estas funciones ancla:
 
-Roles `encargado` y `asistente` deben seleccionar `Sucursal` antes de cualquier acción (`SucursalEncargadoMiddleware`).
+| Módulo | Función ancla |
+|---|---|
+| Auth | `def login_view` |
+| Dashboard | `def dashboard` |
+| Máquinas/Zonas/Sucursales | `def maquina_list` |
+| Turnos | `def turno_view` |
+| Registro lecturas | `def registro_lectura` |
+| Control (guardar) | `def guardar_control` |
+| Cuadratura diaria | `def cuadratura_diaria_create` |
+| Cuadratura zonas | `def cuadratura_zona` |
+| Cierre de turno | `def cierre_turno` |
+| Recaudación | `def recaudacion` |
+| AJAX numerales | `def ajax_cuadratura_diaria_numerales` |
+| OCR API | `def api_ocr_lectura` |
 
-### OCR Flow
+---
 
-1. Frontend (`static/js/ocr_capturas.js`): abre modal de cámara via MediaDevices API
+## OCR
+
+1. Frontend (`static/js/ocr_capturas.js`): captura con MediaDevices API
 2. POST imagen a `/api/ocr-lectura/`
-3. Backend: preprocesado PIL → pytesseract (`--oem 3 --psm 6`) → parseo de dígitos
-4. Retorna entrada/salida/total que auto-completan el formulario
+3. Backend: PIL preprocesa → pytesseract (`--oem 3 --psm 6`) → parseo de dígitos
+4. Retorna `{success, entrada, salida, total}` que autocompletan el formulario
 
 Tesseract debe estar instalado a nivel de sistema.
 
-### URL Structure
+---
 
-Todas las URLs bajo app `control/`, incluidas desde `slot_machine_drs/urls.py`. Patrón: `control:<name>`.
+## Settings relevantes
 
-### Templates
-
-Todos heredan de `templates/base.html`. Menú dinámico generado por `control/menu.py` según rol del usuario.
-
-Para calcular RTP en templates usar el filtro `rtp_pct` de `custom_filters` (no `widthratio`):
-```django
-{% load custom_filters %}
-{% with rtp_val=l.entrada_dia|rtp_pct:l.salida_dia %}{{ rtp_val }}%{% endwith %}
-```
+- `AUTH_USER_MODEL = 'control.Usuario'`
+- Idioma: `es-cl` / Timezone: `America/Santiago`
+- Sesión: máximo 8 horas
+- DB: MariaDB 10.3 producción, MySQL 8.0 desarrollo (puerto 3307 en producción, 3306 local)
+- **Usar Django 4.1** (no 5.x) — incompatible con MariaDB 10.3
+- Logging → `logs/django_errors.log`
 
 ### Middleware (orden importa)
 
-1. Middleware estándar Django
+1. Estándar Django
 2. `AlertaSesionCerradaMiddleware`
 3. `SucursalEncargadoMiddleware`
-4. `ErrorHandlerMiddleware` → `logs/django_errors.log`
+4. `ErrorHandlerMiddleware`
 
-### Settings
+---
 
-- `AUTH_USER_MODEL = 'control.Usuario'`
-- Idioma: `es-cl`, Timezone: `America/Santiago`
-- Sesión: máximo 8 horas
-- Logging: archivo `logs/django_errors.log` (se crea automáticamente)
-- `python-dotenv` carga `.env` automáticamente al inicio
+## Infraestructura producción
 
-## Production Deployment
+- **NAS Synology** con MariaDB 10.3 nativo
+- **Dominio:** `pazagamesdrs.cl` via Cloudflare Tunnel
+- **Docker:** contenedor `plazagames` (Django + Gunicorn puerto 8000) en red `plazanet`
+- **Archivos:** `/volume1/docker/plazagames`
+- Build tarda ~10 min (compila Tesseract)
+- `.env` nunca se sube a GitHub
 
-El sistema corre en un NAS Synology expuesto via Cloudflare Tunnel.
+---
 
-### Infraestructura
+## Lo que NO hacer
 
-- **NAS:** Synology 4GB RAM, MariaDB 10.3 nativo (puerto 3307)
-- **Dominio:** pazagamesdrs.cl via Cloudflare Tunnel (Starlink CGNAT, sin IP pública)
-- **Contenedores Docker** en red `plazanet`:
-  - `plazagames` — Django + Gunicorn (puerto 8000)
-  - `cloudflared` — túnel Cloudflare
-- **Archivos proyecto:** `/volume1/docker/plazagames`
-- **Variables de entorno:** `/volume1/docker/plazagames/.env`
-
-### Variables de entorno producción (.env en NAS)
-DJANGO_SECRET_KEY=...
-DJANGO_DEBUG=False
-DB_NAME=bd_plazagames
-DB_USER=django
-DB_PASSWORD=...
-DB_HOST=192.168.1.24
-DB_PORT=3307
-CSRF_TRUSTED_ORIGINS=https://pazagamesdrs.cl
-
-### Actualizar producción después de git push
-
-```bash
-ssh nacho@192.168.1.24
-cd /volume1/docker/plazagames
-git pull
-sudo docker stop plazagames && sudo docker rm plazagames
-sudo nohup docker build -t plazagames:latest . > /tmp/build.log 2>&1 &
-tail -f /tmp/build.log
-# Cuando aparezca "Successfully built":
-sudo docker run -d --name plazagames --restart always \
-  -p 8000:8000 \
-  --env-file .env \
-  --network plazanet \
-  plazagames:latest
-```
-
-### Notas importantes
-
-- Usar **Django 4.1** (no 5.x) por compatibilidad con MariaDB 10.3
-- El build tarda ~10 minutos por compilación de Tesseract
-- `CSRF_TRUSTED_ORIGINS` debe incluir `https://pazagamesdrs.cl`
-- Tunnel ID: `32f29c4e-36f4-43af-861f-bb41116acb64`
-- Credenciales cloudflared: `/volume1/docker/cloudflared/`
-- `.env` nunca se sube a GitHub (está en .gitignore)
+- No editar archivos en `migrations/` a mano
+- No usar `LecturaMaquina` para acumulados históricos en dashboard (usar `ControlLecturasLinea`)
+- No buscar caja anterior por `turno__tipo_turno` (el FK turno puede ser NULL)
+- No agregar `LecturaMaquina` de días anteriores como referencia en `get_referencia_anterior()`
+- No cambiar la fórmula de RTP sin actualizar todos los puntos donde se calcula
