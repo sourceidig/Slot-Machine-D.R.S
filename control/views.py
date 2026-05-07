@@ -2195,6 +2195,14 @@ def turno_view(request):
         for s in slots:
             asig_slots[(s.tipo, s.numero)] = s
 
+    caja_anterior_desglose = None
+    if turno_abierto:
+        caja_anterior_desglose = CuadraturaCajaDiaria.objects.filter(
+            sucursal=turno_abierto.sucursal
+        ).exclude(
+            ef_20000=0, ef_10000=0, ef_5000=0, ef_2000=0, ef_1000=0, ef_monedas=0
+        ).order_by("-fecha", "-creado_el").first()
+
     context = {
         "turno_abierto": turno_abierto,
         "cantidad_lecturas": cantidad_lecturas,
@@ -2208,6 +2216,7 @@ def turno_view(request):
         "cant_servicios": cant_servicios,
         "cant_redbank_range": list(range(1, cant_redbank + 1)),
         "cant_servicios_range": list(range(1, cant_servicios + 1)),
+        "caja_anterior_desglose": caja_anterior_desglose,
     }
 
     if request.user.role == "asistente":
