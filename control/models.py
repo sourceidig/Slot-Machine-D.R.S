@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.utils import timezone
 
 
@@ -232,8 +232,8 @@ class LecturaMaquina(models.Model):
     numero_maquina = models.IntegerField(verbose_name="Número de Máquina")
     nombre_juego = models.CharField(max_length=120, verbose_name="Nombre del Juego")
 
-    entrada = models.BigIntegerField(verbose_name="Entrada")
-    salida = models.BigIntegerField(verbose_name="Salida")
+    entrada = models.BigIntegerField(verbose_name="Entrada", validators=[MinValueValidator(0), MaxValueValidator(999_999_999)])
+    salida = models.BigIntegerField(verbose_name="Salida", validators=[MinValueValidator(0), MaxValueValidator(999_999_999)])
     total  = models.BigIntegerField(verbose_name="Total")
 
     nota = models.CharField(max_length=255, blank=True, verbose_name="Nota")
@@ -244,8 +244,8 @@ class LecturaMaquina(models.Model):
 
     entrada_anterior = models.PositiveBigIntegerField(default=0)
     salida_anterior = models.PositiveBigIntegerField(default=0)
-    entrada_dia = models.BigIntegerField(default=0)
-    salida_dia = models.BigIntegerField(default=0)
+    entrada_dia = models.BigIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(999_999_999)])
+    salida_dia = models.BigIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(999_999_999)])
 
     class Meta:
         verbose_name = "Lectura de Máquina"

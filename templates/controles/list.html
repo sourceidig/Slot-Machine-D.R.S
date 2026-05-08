@@ -2,6 +2,19 @@
 {% block page_title %}Controles de Lectura{% endblock %}
 
 {% block content %}
+<style>
+  .tabla-controles { font-size: 0.72rem !important; }
+  .tabla-controles th {
+    font-size: 0.65rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 5px 8px !important;
+    white-space: nowrap;
+  }
+  .tabla-controles td { padding: 5px 8px !important; vertical-align: middle; font-size: 0.72rem !important; }
+  .tabla-controles tbody tr { cursor: pointer; transition: background-color 0.15s ease; }
+  .tabla-controles tbody tr:hover { background-color: #f0f9ff !important; }
+</style>
 <div class="card shadow-sm">
   <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
     <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Controles Guardados</h5>
@@ -43,27 +56,27 @@
 
     <!-- Tabla -->
     <div class="table-responsive">
-      <table class="table table-hover table-bordered align-middle mb-0" style="font-size:0.9rem;">
+      <table class="table table-hover table-bordered align-middle mb-0 tabla-controles">
         <thead class="table-dark">
           <tr>
             <th>Fecha</th>
             <th>Sucursal</th>
             <th>Turno</th>
             <th>Creado por</th>
-            <th class="text-center">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {% for c in controles %}
-          <tr>
+          <tr onclick="window.location='{% url 'control:controles_detail' c.id %}'">
             <td class="fw-semibold">{{ c.fecha_trabajo|date:"d/m/Y" }}</td>
             <td>{{ c.sucursal.nombre }}</td>
             <td>
               {% if c.turno %}
-                <span class="badge
-                  {% if c.turno.tipo_turno == 'Mañana' %}bg-warning text-dark
-                  {% elif c.turno.tipo_turno == 'Tarde' %}bg-primary
-                  {% else %}bg-dark{% endif %}">
+                <span class="badge"
+                  {% if c.turno.tipo_turno == 'Mañana' %}style="font-size:0.62rem; padding:2px 7px; border-radius:6px; background:#fef9c3; color:#854d0e;"
+                  {% elif c.turno.tipo_turno == 'Tarde' %}style="font-size:0.62rem; padding:2px 7px; border-radius:6px; background:#fed7aa; color:#9a3412;"
+                  {% else %}style="font-size:0.62rem; padding:2px 7px; border-radius:6px; background:#1e293b; color:#f1f5f9;"
+                  {% endif %}>
                   {{ c.turno.tipo_turno }}
                 </span>
               {% else %}
@@ -71,11 +84,6 @@
               {% endif %}
             </td>
             <td class="text-muted small">{{ c.creado_por.username }}</td>
-            <td class="text-center">
-              <a class="btn btn-sm btn-info text-white" href="{% url 'control:controles_detail' c.id %}">
-                <i class="bi bi-eye"></i> Ver
-              </a>
-            </td>
           </tr>
           {% empty %}
           <tr>

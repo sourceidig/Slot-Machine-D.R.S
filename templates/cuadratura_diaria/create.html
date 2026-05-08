@@ -136,17 +136,18 @@
 
       <!-- Header -->
       <div class="row g-3 mb-3">
-        <div class="{% if not usa_sucursal_fija %}col-md-2{% else %}col-md-3{% endif %}">
+        <div class="col-md-2">
           <label class="form-label fw-bold mb-1">Fecha</label>
           {% if fecha_fija %}
             <input type="hidden" id="id_fecha" name="fecha" value="{% now "Y-m-d" %}">
             <input type="text" class="form-control readonly" value="{% now "d/m/Y" %}" readonly>
           {% else %}
-            {{ form.fecha }}
+            <input type="hidden" id="id_fecha" name="fecha" value="">
+            <input type="text" class="form-control readonly" id="id_fecha_display" readonly placeholder="Elegir turno →">
           {% endif %}
         </div>
 
-        <div class="{% if not usa_sucursal_fija %}col-md-3{% else %}col-md-4{% endif %}">
+        <div class="{% if not usa_sucursal_fija %}col-md-2{% else %}col-md-3{% endif %}">
           <label class="form-label fw-bold mb-1">Local</label>
           {% if usa_sucursal_fija and sucursal_fija %}
             <input type="hidden" id="id_sucursal" name="sucursal" value="{{ sucursal_fija.pk }}">
@@ -160,18 +161,30 @@
         </div>
 
         {% if not usa_sucursal_fija %}
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label fw-bold mb-1">Turno</label>
-          <select name="turno_tipo" class="form-select form-control">
-            <option value="">— Sin turno específico —</option>
-            <option value="Mañana">Mañana</option>
-            <option value="Tarde">Tarde</option>
-            <option value="Noche">Noche</option>
+          <select id="turnoSelect" name="turno_tipo" class="form-select form-control">
+            <option value="">— Seleccione turno —</option>
+            {% for t in turnos_para_select %}
+            <option value="{{ t.tipo_turno }}"
+                    data-fecha="{{ t.fecha|date:'Y-m-d' }}"
+                    data-fecha-display="{{ t.fecha|date:'d/m/Y' }}"
+                    data-sucursal="{{ t.sucursal_id }}">
+              {{ t.sucursal.nombre }} — {{ t.fecha|date:'d/m/Y' }} — {{ t.tipo_turno }}
+            </option>
+            {% endfor %}
           </select>
         </div>
         {% else %}
         <input type="hidden" name="turno_tipo" value="{{ turno_tipo_fijo|default:'' }}">
         {% endif %}
+
+        <div class="col-md-2">
+          <label style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6c757d;">Turno</label>
+          <div id="turno_display" style="font-size:0.9rem; font-weight:600; padding:.22rem .45rem; border:1.5px solid #9ca3af; border-radius:8px; background:#f1f5f9; min-height:30px;">
+            {% if usa_sucursal_fija %}{{ turno_tipo_fijo|default:'— Sin turno —' }}{% else %}— Sin turno —{% endif %}
+          </div>
+        </div>
 
         <div class="{% if not usa_sucursal_fija %}col-md-4{% else %}col-md-5{% endif %}">
           <div class="section-title mb-2">Numerales</div>
@@ -672,7 +685,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><input type="text" class="form-control form-control-sm" data-role="${prefix}-nombre" value="${nombre || ""}"></td>
-        <td><input type="text" class="form-control form-control-sm text-end" data-role="${prefix}-monto" value="${monto || ""}" inputmode="numeric"></td>
+        <td><input type="text" class="form-control form-control-sm text-end" data-role="${prefix}-monto" value="${monto || ""}" inputmode="numeric" max="999999999" min="0"></td>
         <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" data-action="remove">✕</button></td>
       `;
 
@@ -842,7 +855,29 @@ function recalcUI() {
   }
 
   if (formEl) {
-    formEl.addEventListener("submit", () => buildHiddenDetalles(), true);
+    formEl.addEventListener("submit", () => {
+      // Garantizar que los hidden inputs de totales tengan valor antes de enviar
+      const camposTotales = {
+        'gastos_dia':   'gastos',
+        'sueldo_b_dia': 'sueldo',
+        'regalos_dia':  'regalo',
+        'jugados_dia':  'jugado',
+      };
+      for (const [fieldName, prefix] of Object.entries(camposTotales)) {
+        const hiddenInput = document.querySelector(`input[name="${fieldName}"]`);
+        if (!hiddenInput) continue;
+        const montos = document.querySelectorAll(`#${prefix}s_items_body input[name^="detalle_monto"]`);
+        let total = 0;
+        montos.forEach(m => { total += parseInt(m.value) || 0; });
+        hiddenInput.value = total;
+      }
+      // También asegurar que sorteos_dia, redbank_dia y transfer_dia no sean vacíos
+      ['sorteos_dia', 'redbank_dia', 'transfer_dia'].forEach(name => {
+        const el = document.querySelector(`input[name="${name}"], #id_${name}`);
+        if (el && (el.value === '' || el.value === undefined)) el.value = 0;
+      });
+      buildHiddenDetalles();
+    }, true);
   }
 
   // ========= botón Ingresar — mostrar resumen =========
@@ -893,9 +928,54 @@ function recalcUI() {
 
 
 
-// ✅ Escuchar cambios en el turno
-  const turnoSelectEl = document.querySelector('select[name="turno_tipo"]');
-  if (turnoSelectEl) turnoSelectEl.addEventListener("change", onHeaderChange);
+  // Escuchar cambios en el turno
+  const turnoSelectEl = document.getElementById("turnoSelect");
+  const fechaDisplayEl = document.getElementById("id_fecha_display");
+
+  function actualizarFechaDesTurno() {
+    if (!turnoSelectEl || !fechaInput) return;
+    const opt = turnoSelectEl.options[turnoSelectEl.selectedIndex];
+    if (opt && opt.dataset.fecha) {
+      fechaInput.value = opt.dataset.fecha;
+      if (fechaDisplayEl) fechaDisplayEl.value = opt.dataset.fechaDisplay || opt.dataset.fecha;
+    } else {
+      fechaInput.value = "";
+      if (fechaDisplayEl) fechaDisplayEl.value = "";
+    }
+  }
+
+  function filtrarTurnosPorSucursal() {
+    if (!turnoSelectEl || !sucursalSelect) return;
+    const sucId = sucursalSelect.value;
+    let resetear = false;
+    Array.from(turnoSelectEl.options).forEach(opt => {
+      if (!opt.value) return;
+      opt.hidden = sucId ? opt.dataset.sucursal !== sucId : false;
+      if (opt.selected && opt.hidden) resetear = true;
+    });
+    if (resetear) {
+      turnoSelectEl.value = "";
+      actualizarFechaDesTurno();
+    }
+  }
+
+  if (turnoSelectEl) {
+    const turnoDisplayEl = document.getElementById('turno_display');
+    const updateTurnoDisplay = () => {
+      if (!turnoDisplayEl) return;
+      const opt = turnoSelectEl.options[turnoSelectEl.selectedIndex];
+      turnoDisplayEl.textContent = opt && opt.value ? opt.value : '— Sin turno —';
+    };
+    turnoSelectEl.addEventListener("change", () => {
+      actualizarFechaDesTurno();
+      updateTurnoDisplay();
+      onHeaderChange();
+    });
+    updateTurnoDisplay();
+  }
+  if (sucursalSelect && turnoSelectEl) {
+    sucursalSelect.addEventListener("change", filtrarTurnosPorSucursal);
+  }
 
   // init
   onHeaderChange();

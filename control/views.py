@@ -1210,6 +1210,8 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
     # 1) Numerales (backend es la verdad)
     tipo = turno_tipo or (cuadratura.turno.tipo_turno if cuadratura.turno else None)
     numeral_dia, numeral_acum = calcular_numerales_caja(cuadratura.sucursal, cuadratura.fecha, turno_tipo=tipo, exclude_pk=cuadratura.pk)
+    if numeral_dia and abs(numeral_dia) > 999_999_999:
+        numeral_dia = 0
     cuadratura.numeral_dia = numeral_dia
     cuadratura.numeral_acumulado = numeral_acum
 
@@ -1242,7 +1244,10 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
     desglose_total = cuadratura.desglose_efectivo_total or 0
 
     # 6) Descuadre (lo que conté vs lo que debería dar)
-    cuadratura.descuadre_dia = desglose_total - (total_calculado or 0)
+    # Clamp para evitar overflow en IntegerField de MariaDB (±2,147,483,647)
+    _MAX = 2_000_000_000
+    raw_descuadre = desglose_total - (total_calculado or 0)
+    cuadratura.descuadre_dia = max(-_MAX, min(_MAX, int(raw_descuadre)))
 
     # 7) Prestamos acumulados = prestamos de dias anteriores + dia actual
     prestamos_dia = int(cuadratura.prestamos or 0)
@@ -1323,6 +1328,9 @@ def cuadratura_diaria_create(request):
                         ).first()
                         cuadratura.turno = turno_obj
 
+                if cuadratura.turno:
+                    cuadratura.fecha = cuadratura.turno.fecha
+
                 # Asignar campos ef_* manualmente
                 for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas', 'ef_billetes_malos']:
                     setattr(cuadratura, field, form.cleaned_data.get(field, 0))
@@ -1338,6 +1346,12 @@ def cuadratura_diaria_create(request):
                 if not cuadratura.creado_el:
                     cuadratura.creado_el = timezone.now()
                 cuadratura.actualizado_el = timezone.now()
+
+                _MAX_INT = 9_999_999_999
+                for _f in ('descuadre_dia', 'descuadre_ant', 'descuadre_acum'):
+                    _v = getattr(cuadratura, _f, None)
+                    if _v is not None:
+                        setattr(cuadratura, _f, max(-_MAX_INT, min(_MAX_INT, int(_v))))
 
                 cuadratura.save()
 
@@ -1454,6 +1468,10 @@ def cuadratura_diaria_create(request):
                 if az.zona_id not in zonas_con_lineas:
                     zonas_faltantes.append(az.zona.nombre)
 
+    turnos_para_select = (
+        list(Turno.objects.select_related("sucursal").order_by("-fecha", "tipo_turno")[:90])
+        if not usa_sucursal_fija else []
+    )
     return render(request, "cuadratura_diaria/create.html", {
         "form": form,
         "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
@@ -1468,12 +1486,13 @@ def cuadratura_diaria_create(request):
         "fecha_fija": usa_sucursal_fija,  # bloquea el campo fecha para encargados/supervisores
         "turno_tipo_fijo": turno_tipo_fijo,
         "es_encargada": request.user.role in ("encargado", "asistente"),
+        "turnos_para_select": turnos_para_select,
     })
 @login_required
 @role_required(*ROLES_CUADRATURA)
 def cuadratura_diaria_list(request):
     es_encargado = request.user.role == "encargado"
-    cuadraturas  = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario")
+    cuadraturas  = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario", "turno")
 
     if es_encargado:
         # Encargado: solo ve la caja de hoy de su sucursal activa, sin filtros

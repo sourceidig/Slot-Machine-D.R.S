@@ -1,16 +1,58 @@
-En control/views.py, función cuadratura_diaria_export_excel,
-buscar la línea donde se construye el nombre de la hoja (nombre_base),
-que actualmente usa c.fecha.strftime('%d/%m/%Y').
+Modificar control/templates/controles/list.html para que las filas sean
+clickeables y la tabla se vea más compacta.
 
-Reemplazar ese strftime por '%d-%m-%Y' (guiones en vez de barras):
+CAMBIO 1 — Agregar estilos en el template:
 
-  nombre_base = f"{c.fecha.strftime('%d-%m-%Y')} {c.sucursal.nombre}"[:28]
+  <style>
+    .tabla-controles { font-size: 0.72rem !important; }
+    .tabla-controles th {
+      font-size: 0.65rem !important;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 5px 8px !important;
+      white-space: nowrap;
+    }
+    .tabla-controles td {
+      padding: 5px 8px !important;
+      vertical-align: middle;
+      font-size: 0.72rem !important;
+    }
+    .tabla-controles tbody tr {
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    .tabla-controles tbody tr:hover {
+      background-color: #f0f9ff !important;
+    }
+  </style>
 
-Además, como medida extra de seguridad, agregar justo después una línea
-que elimine cualquier carácter inválido para nombres de hoja de Excel
-(/ \ ? * [ ] : son todos inválidos en openpyxl):
+CAMBIO 2 — Agregar clase tabla-controles al <table>:
 
-  import re
-  nombre_base = re.sub(r'[/\\?*\[\]:]', '-', nombre_base)[:28]
+  <table class="table table-hover table-bordered align-middle mb-0 tabla-controles">
 
-No tocar nada más.
+CAMBIO 3 — Hacer cada fila clickeable hacia el detalle.
+Reemplazar el <tr> actual por:
+
+  <tr onclick="window.location='{% url 'control:controles_detail' c.id %}'">
+
+CAMBIO 4 — Eliminar la columna Acciones completa.
+Quitar el <th class="text-center">Acciones</th> del thead.
+Quitar el <td class="text-center"> con el botón Ver de cada fila.
+Actualizar el colspan del empty state de 4 a 4 (ya está bien,
+solo verificar que coincida con el número final de columnas).
+
+CAMBIO 5 — Mejorar el badge del turno con colores más sutiles
+(consistente con el listado de cajas):
+
+  {% if c.turno.tipo_turno == 'Mañana' %}
+    style="font-size:0.62rem; padding:2px 7px; border-radius:6px;
+           background:#fef9c3; color:#854d0e;"
+  {% elif c.turno.tipo_turno == 'Tarde' %}
+    style="font-size:0.62rem; padding:2px 7px; border-radius:6px;
+           background:#fed7aa; color:#9a3412;"
+  {% else %}
+    style="font-size:0.62rem; padding:2px 7px; border-radius:6px;
+           background:#1e293b; color:#f1f5f9;"
+  {% endif %}
+
+No tocar views.py ni ningún otro archivo.

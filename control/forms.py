@@ -105,6 +105,7 @@ class CuadraturaCajaDiariaForm(forms.ModelForm):
                 "inputmode": "numeric",
                 "autocomplete": "off",
                 "placeholder": "",
+                "max": "999999999",
             }
 
             if name in id_forced_fields:
@@ -137,6 +138,11 @@ class CuadraturaCajaDiariaForm(forms.ModelForm):
             val = cleaned.get(name)
             if val is None or val == "":
                 cleaned[name] = 0
+        dia_fields = [n for n in integer_field_names if n.endswith("_dia")]
+        for name in dia_fields:
+            val = cleaned.get(name)
+            if val is not None and val > 999_999_999:
+                self.add_error(name, "El valor no puede superar 999.999.999.")
         return cleaned
 
 # ======================================================
@@ -187,8 +193,8 @@ class LecturaMaquinaForm(forms.ModelForm):
         fields = ["zona", "maquina", "entrada", "salida", "total", "nota"]
         widgets = {
             "maquina": forms.Select(attrs={"class": "form-control form-control-lg"}),
-            "entrada": BlankZeroTextInput(attrs={"class": "form-control form-control-lg", "inputmode": "numeric", "autocomplete": "off"}),
-            "salida": BlankZeroTextInput(attrs={"class": "form-control form-control-lg", "inputmode": "numeric", "autocomplete": "off"}),
+            "entrada": BlankZeroTextInput(attrs={"class": "form-control form-control-lg", "inputmode": "numeric", "autocomplete": "off", "max": "999999999", "min": "0"}),
+            "salida": BlankZeroTextInput(attrs={"class": "form-control form-control-lg", "inputmode": "numeric", "autocomplete": "off", "max": "999999999", "min": "0"}),
             "total": forms.NumberInput(attrs={"class": "form-control form-control-lg", "readonly": "readonly"}),
             "nota": forms.TextInput(attrs={"class": "form-control form-control-lg", "placeholder": "Opcional"}),
         }
@@ -247,6 +253,10 @@ class LecturaMaquinaForm(forms.ModelForm):
             self.add_error("entrada", "La entrada no puede ser negativa.")
         if salida < 0:
             self.add_error("salida", "La salida no puede ser negativa.")
+        if entrada > 999_999_999:
+            self.add_error("entrada", "El valor no puede superar 999.999.999.")
+        if salida > 999_999_999:
+            self.add_error("salida", "El valor no puede superar 999.999.999.")
 
         if maquina and zona and maquina.zona_id != zona.id:
             self.add_error("maquina", "La máquina seleccionada no pertenece a la zona indicada.")
