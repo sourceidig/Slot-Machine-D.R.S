@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import datetime, timedelta, time, date
 from decimal import Decimal
 
@@ -1525,10 +1525,19 @@ def cuadratura_diaria_detail(request, pk):
     )
     hora_apertura = turno_ref.created_at if turno_ref else None
 
+    from collections import defaultdict
+    detalles_agrupados = defaultdict(list)
+    for d in cuadratura.detalles.all().order_by("tipo", "creado_en"):
+        detalles_agrupados[d.tipo].append({"nombre": d.nombre, "monto": d.monto})
+
     return render(request, "cuadratura_diaria/detail.html", {
-        "cuadratura":    cuadratura,
-        "caja_anterior": caja_anterior,
-        "hora_apertura": hora_apertura,
+        "cuadratura":       cuadratura,
+        "caja_anterior":    caja_anterior,
+        "hora_apertura":    hora_apertura,
+        "detalles_gastos":  detalles_agrupados["GASTOS"],
+        "detalles_sueldos": detalles_agrupados["SUELDOS"],
+        "detalles_regalos": detalles_agrupados["REGALOS"],
+        "detalles_jugados": detalles_agrupados["JUGADOS"],
     })
 @login_required
 @role_required('admin', 'gerente', 'supervisor')
@@ -1662,9 +1671,12 @@ def cuadratura_diaria_delete(request, pk):
 
 @login_required
 def cuadratura_diaria_export_excel(request):
-    qs = CuadraturaCajaDiaria.objects.all().select_related("sucursal", "usuario")
+    from collections import defaultdict
 
-    # mismos filtros que el listado
+    qs = CuadraturaCajaDiaria.objects.all().select_related(
+        "sucursal", "usuario", "turno"
+    ).prefetch_related("detalles")
+
     fecha_desde = request.GET.get("fecha_desde")
     fecha_hasta = request.GET.get("fecha_hasta")
     sucursal_id = request.GET.get("sucursal")
@@ -1676,70 +1688,187 @@ def cuadratura_diaria_export_excel(request):
     if fecha_hasta:
         qs = qs.filter(fecha__lte=fecha_hasta)
 
-    qs = qs.order_by("-fecha", "-creado_el")
+    qs = qs.order_by("sucursal__nombre", "fecha", "creado_el")
 
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Cuadraturas Caja"
+    wb.remove(wb.active)
 
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF")
+    nombres_usados = {}
 
-    headers = [
-        "Fecha", "Sucursal", "Usuario",
-        "Zona 1", "Zona 2", "Numeral Total",
-        "Gastos Día", "Ganancia",
-        "Caja", "Retiro Diario", "Total Efectivo",
-        "Observaciones",
-    ]
-
-    for col_num, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col_num)
-        cell.value = header
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center")
-
-    row = 2
     for c in qs:
-        ws.cell(row=row, column=1).value = c.fecha.strftime("%d/%m/%Y") if c.fecha else ""
-        ws.cell(row=row, column=2).value = c.sucursal.nombre if c.sucursal else ""
-        ws.cell(row=row, column=3).value = getattr(c.usuario, "nombre", "") if c.usuario else ""
+        nombre_base = re.sub(r'[/\\?*\[\]:]', '-', f"{c.fecha.strftime('%d-%m-%Y')} {c.sucursal.nombre}")[:28]
+        count = nombres_usados.get(nombre_base, 0) + 1
+        nombres_usados[nombre_base] = count
+        nombre_hoja = nombre_base if count == 1 else f"{nombre_base}_{count}"
+        ws = wb.create_sheet(title=nombre_hoja)
 
-        # Estas referencias no existen en models -> CuadraturaCajaDiaria
-       # ws.cell(row=row, column=4).value = int(c.zona_1 or 0)
-       # ws.cell(row=row, column=5).value = int(c.zona_2 or 0)
-       # ws.cell(row=row, column=6).value = int(c.numeral_total or 0)
+        caja_anterior, _ = _caja_anterior_en_ciclo(c.sucursal, c.fecha, exclude_pk=c.pk)
 
-       # Creo que estas son las que corresponden
-        ws.cell(row=row, column=4).value = int(c.numeral_dia or 0)
-        ws.cell(row=row, column=5).value = int(c.numeral_acumulado or 0)
-        # No se es total_efectivo falta por correguir
-        ws.cell(row=row, column=6).value = int(c.total_efectivo or 0)
-        
-        
-        # método del modelo
-        ws.cell(row=row, column=7).value = int(c.total_gastos_dia() or 0)
+        detalles_por_tipo = defaultdict(list)
+        for d in c.detalles.all():
+            detalles_por_tipo[d.tipo].append(d)
 
-        ws.cell(row=row, column=8).value = int(c.ganancia or 0)
+        row = 1
 
-        ws.cell(row=row, column=9).value = int(c.caja or 0)
-        ws.cell(row=row, column=10).value = int(c.retiro_diario or 0)
-        ws.cell(row=row, column=11).value = int(c.total_efectivo or 0)
+        # ── Fills y fonts reutilizables ──────────────────────────────────
+        def fill(color):
+            return PatternFill(start_color=color, end_color=color, fill_type="solid")
 
-        ws.cell(row=row, column=12).value = (c.observaciones or "")
+        # ── SECCIÓN 1 — ENCABEZADO ───────────────────────────────────────
+        ws.merge_cells(f"A{row}:F{row}")
+        cell = ws.cell(row=row, column=1, value="CUADRATURA CAJA DIARIA")
+        cell.fill = fill("1E3A5F")
+        cell.font = Font(bold=True, color="FFFFFF", size=13)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
         row += 1
 
-    # ancho automático
-    for col in ws.columns:
-        max_length = 0
-        column = col[0].column_letter
-        for cell in col:
-            try:
-                max_length = max(max_length, len(str(cell.value)))
-            except Exception:
-                pass
-        ws.column_dimensions[column].width = max_length + 2
+        nombre_usuario = getattr(c.usuario, "nombre", "") if c.usuario else ""
+        ws.cell(row=row, column=1, value=f"Local: {c.sucursal.nombre if c.sucursal else ''}")
+        ws.cell(row=row, column=3, value=f"Fecha: {c.fecha.strftime('%d/%m/%Y') if c.fecha else ''}")
+        ws.cell(row=row, column=5, value=f"Usuario: {nombre_usuario}")
+        row += 1
+
+        tipo_turno = c.turno.tipo_turno if c.turno else ""
+        if tipo_turno:
+            ws.cell(row=row, column=1, value=f"Turno: {tipo_turno}")
+        row += 2  # fila 3 + separador fila 4
+
+        # ── SECCIÓN 2 — KPIs ─────────────────────────────────────────────
+        for col, label in enumerate(["Numeral Día", "Numeral Acumulado", "Ganancia", "Total Efectivo en Caja"], 1):
+            ws.cell(row=row, column=col, value=label).font = Font(bold=True)
+        row += 1
+
+        ganancia_val = int(c.ganancia or 0)
+        ws.cell(row=row, column=1, value=int(c.numeral_dia or 0))
+        ws.cell(row=row, column=2, value=int(c.numeral_acumulado or 0))
+        cell_g = ws.cell(row=row, column=3, value=ganancia_val)
+        cell_g.fill = fill("FFD7D7" if ganancia_val < 0 else "D7F5E3")
+        ws.cell(row=row, column=4, value=int(c.total_efectivo or 0))
+        row += 2  # valores + separador
+
+        # ── SECCIÓN 3 — GASTOS DEL PERÍODO ───────────────────────────────
+        ws.merge_cells(f"A{row}:F{row}")
+        cell = ws.cell(row=row, column=1, value="GASTOS DEL PERÍODO")
+        cell.fill = fill("F59E0B")
+        cell.font = Font(bold=True, color="000000")
+        cell.alignment = Alignment(horizontal="center")
+        row += 1
+
+        cab_fill = fill("E2E8F0")
+        for col, label in enumerate(["Concepto", "Anterior", "Día", "Acumulado", "Notas"], 1):
+            cell = ws.cell(row=row, column=col, value=label)
+            cell.font = Font(bold=True)
+            cell.fill = cab_fill
+        row += 1
+
+        conceptos = [
+            ("Sorteos",   c.sorteos_ant,   c.sorteos_dia,   c.sorteos_acum,   c.sorteos_notas,  None),
+            ("Gastos",    c.gastos_ant,    c.gastos_dia,    c.gastos_acum,    c.gastos_notas,   "GASTOS"),
+            ("Sueldo B",  c.sueldo_b_ant,  c.sueldo_b_dia,  c.sueldo_b_acum,  c.sueldo_b_notas, "SUELDOS"),
+            ("Redbank",   c.redbank_ant,   c.redbank_dia,   c.redbank_acum,   c.redbank_notas,  None),
+            ("Regalos",   c.regalos_ant,   c.regalos_dia,   c.regalos_acum,   c.regalos_notas,  "REGALOS"),
+            ("Taxi",      c.taxi_ant,      c.taxi_dia,      c.taxi_acum,      c.taxi_notas,     None),
+            ("Jugados",   c.jugados_ant,   c.jugados_dia,   c.jugados_acum,   c.jugados_notas,  "JUGADOS"),
+            ("Transfer",  c.transfer_ant,  c.transfer_dia,  c.transfer_acum,  c.transfer_notas, None),
+            ("Descuadre", c.descuadre_ant, c.descuadre_dia, c.descuadre_acum, c.descuadre_notas, None),
+        ]
+        det_fill = fill("F8FAFC")
+        det_font = Font(color="6B7280")
+
+        for nombre, ant, dia, acum, notas, det_tipo in conceptos:
+            ws.cell(row=row, column=1, value=nombre)
+            ws.cell(row=row, column=2, value=int(ant or 0))
+            ws.cell(row=row, column=3, value=int(dia or 0))
+            ws.cell(row=row, column=4, value=int(acum or 0))
+            ws.cell(row=row, column=5, value=notas or "")
+            row += 1
+
+            if det_tipo:
+                for item in detalles_por_tipo.get(det_tipo, []):
+                    ws.cell(row=row, column=1, value=f"  · {item.nombre}").fill = det_fill
+                    ws.cell(row=row, column=1).font = det_font
+                    ws.cell(row=row, column=3, value=int(item.monto or 0)).fill = det_fill
+                    ws.cell(row=row, column=3).font = det_font
+                    for col in [2, 4, 5]:
+                        ws.cell(row=row, column=col).fill = det_fill
+                    row += 1
+
+        tot_fill = fill("374151")
+        tot_font = Font(bold=True, color="FFFFFF")
+        for col in range(1, 7):
+            ws.cell(row=row, column=col).fill = tot_fill
+        ws.cell(row=row, column=1, value="TOTAL GASTOS").font = tot_font
+        ws.cell(row=row, column=1).fill = tot_fill
+        ws.cell(row=row, column=3, value=int(c.total_gastos_dia())).font = tot_font
+        ws.cell(row=row, column=3).fill = tot_fill
+        row += 2  # total + separador
+
+        # ── SECCIÓN 4 — DESGLOSE DE EFECTIVO ─────────────────────────────
+        ws.merge_cells(f"A{row}:F{row}")
+        cell = ws.cell(row=row, column=1, value="DESGLOSE DE EFECTIVO")
+        cell.fill = fill("0891B2")
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal="center")
+        row += 1
+
+        ws.cell(row=row, column=1, value="Denominación").font = Font(bold=True)
+        ws.cell(row=row, column=2, value="Cantidad/Monto").font = Font(bold=True)
+        row += 1
+
+        for label, val in [
+            ("$20.000", c.ef_20000), ("$10.000", c.ef_10000), ("$5.000", c.ef_5000),
+            ("$2.000", c.ef_2000), ("$1.000", c.ef_1000),
+            ("Monedas", c.ef_monedas), ("Billetes malos", c.ef_billetes_malos),
+        ]:
+            if val and int(val) > 0:
+                ws.cell(row=row, column=1, value=label)
+                ws.cell(row=row, column=2, value=int(val))
+                row += 1
+
+        ws.cell(row=row, column=1, value="Total desglose").font = Font(bold=True)
+        ws.cell(row=row, column=2, value=int(c.desglose_efectivo_total))
+        row += 2  # total + separador
+
+        # ── SECCIÓN 5 — RESUMEN FINANCIERO ───────────────────────────────
+        ws.merge_cells(f"A{row}:F{row}")
+        cell = ws.cell(row=row, column=1, value="RESUMEN FINANCIERO")
+        cell.fill = fill("198754")
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal="center")
+        row += 1
+
+        resumen_filas = [
+            ("Caja Anterior",           int(caja_anterior),             False, False),
+            ("Numeral Día",             int(c.numeral_dia or 0),        False, False),
+            ("Total Gastos",            -int(c.total_gastos_dia()),     False, False),
+            ("Ganancia del Día",        int(c.ganancia or 0),           True,  True),
+            ("Desglose Efectivo",       int(c.desglose_efectivo_total), False, False),
+            ("Retiro Diario",           -int(c.retiro_diario or 0),     False, False),
+            ("TOTAL EFECTIVO EN CAJA",  int(c.total_efectivo or 0),     True,  False),
+        ]
+        for concepto, valor, negrita, col_ganancia in resumen_filas:
+            size = 12 if concepto == "TOTAL EFECTIVO EN CAJA" else 11
+            cell_a = ws.cell(row=row, column=1, value=concepto)
+            cell_b = ws.cell(row=row, column=2, value=valor)
+            if negrita:
+                cell_a.font = Font(bold=True, size=size)
+                cell_b.font = Font(bold=True, size=size)
+            if col_ganancia:
+                cell_b.fill = fill("FFD7D7" if valor < 0 else "D7F5E3")
+            row += 1
+
+        row += 1  # separador
+
+        # ── SECCIÓN 6 — OBSERVACIONES ────────────────────────────────────
+        if c.observaciones and c.observaciones.strip():
+            ws.cell(row=row, column=1, value="OBSERVACIONES").font = Font(bold=True)
+            row += 1
+            ws.cell(row=row, column=1, value=c.observaciones)
+            row += 1
+
+        # ── Anchos de columna ─────────────────────────────────────────────
+        for col_letter, width in [("A", 28), ("B", 18), ("C", 18), ("D", 18), ("E", 35), ("F", 18)]:
+            ws.column_dimensions[col_letter].width = width
 
     filename = f"cuadraturas_caja_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     response = HttpResponse(

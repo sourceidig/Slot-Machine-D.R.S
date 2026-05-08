@@ -129,14 +129,40 @@
         <tr>
           <td class="col-concepto">Gastos</td>
           <td class="text-end text-muted">{{ cuadratura.gastos_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.gastos_dia %}val-neg{% endif %}">{{ cuadratura.gastos_dia|default:0|floatformat:0 }}</td>
+          <td class="text-end {% if cuadratura.gastos_dia %}val-neg{% endif %}">
+            {{ cuadratura.gastos_dia|default:0|floatformat:0 }}
+            {% if detalles_gastos %}
+            <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.12);">
+              {% for item in detalles_gastos %}
+              <div class="d-flex justify-content-between gap-3"
+                   style="font-size:0.75rem; color:#6c757d; font-weight:400; white-space:nowrap;">
+                <span class="text-start">{{ item.nombre }}</span>
+                <span>${{ item.monto|floatformat:0 }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </td>
           <td class="text-end fw-semibold">{{ cuadratura.gastos_acum|default:0|floatformat:0 }}</td>
           <td class="text-muted small">{{ cuadratura.gastos_notas }}</td>
         </tr>
         <tr>
           <td class="col-concepto">Sueldo B</td>
           <td class="text-end text-muted">{{ cuadratura.sueldo_b_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.sueldo_b_dia %}val-neg{% endif %}">{{ cuadratura.sueldo_b_dia|default:0|floatformat:0 }}</td>
+          <td class="text-end {% if cuadratura.sueldo_b_dia %}val-neg{% endif %}">
+            {{ cuadratura.sueldo_b_dia|default:0|floatformat:0 }}
+            {% if detalles_sueldos %}
+            <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.12);">
+              {% for item in detalles_sueldos %}
+              <div class="d-flex justify-content-between gap-3"
+                   style="font-size:0.75rem; color:#6c757d; font-weight:400; white-space:nowrap;">
+                <span class="text-start">{{ item.nombre }}</span>
+                <span>${{ item.monto|floatformat:0 }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </td>
           <td class="text-end fw-semibold">{{ cuadratura.sueldo_b_acum|default:0|floatformat:0 }}</td>
           <td class="text-muted small">{{ cuadratura.sueldo_b_notas }}</td>
         </tr>
@@ -150,7 +176,20 @@
         <tr>
           <td class="col-concepto">Regalos</td>
           <td class="text-end text-muted">{{ cuadratura.regalos_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.regalos_dia %}val-neg{% endif %}">{{ cuadratura.regalos_dia|default:0|floatformat:0 }}</td>
+          <td class="text-end {% if cuadratura.regalos_dia %}val-neg{% endif %}">
+            {{ cuadratura.regalos_dia|default:0|floatformat:0 }}
+            {% if detalles_regalos %}
+            <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.12);">
+              {% for item in detalles_regalos %}
+              <div class="d-flex justify-content-between gap-3"
+                   style="font-size:0.75rem; color:#6c757d; font-weight:400; white-space:nowrap;">
+                <span class="text-start">{{ item.nombre }}</span>
+                <span>${{ item.monto|floatformat:0 }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </td>
           <td class="text-end fw-semibold">{{ cuadratura.regalos_acum|default:0|floatformat:0 }}</td>
           <td class="text-muted small">{{ cuadratura.regalos_notas }}</td>
         </tr>
@@ -164,7 +203,20 @@
         <tr>
           <td class="col-concepto">Jugados</td>
           <td class="text-end text-muted">{{ cuadratura.jugados_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.jugados_dia %}val-neg{% endif %}">{{ cuadratura.jugados_dia|default:0|floatformat:0 }}</td>
+          <td class="text-end {% if cuadratura.jugados_dia %}val-neg{% endif %}">
+            {{ cuadratura.jugados_dia|default:0|floatformat:0 }}
+            {% if detalles_jugados %}
+            <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.12);">
+              {% for item in detalles_jugados %}
+              <div class="d-flex justify-content-between gap-3"
+                   style="font-size:0.75rem; color:#6c757d; font-weight:400; white-space:nowrap;">
+                <span class="text-start">{{ item.nombre }}</span>
+                <span>${{ item.monto|floatformat:0 }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </td>
           <td class="text-end fw-semibold">{{ cuadratura.jugados_acum|default:0|floatformat:0 }}</td>
           <td class="text-muted small">{{ cuadratura.jugados_notas }}</td>
         </tr>
