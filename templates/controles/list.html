@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 {% block page_title %}Controles de Lectura{% endblock %}
 
 {% block content %}
@@ -63,6 +64,10 @@
             <th>Sucursal</th>
             <th>Turno</th>
             <th>Creado por</th>
+            <th class="text-end">Entrada</th>
+            <th class="text-end">Salida</th>
+            <th class="text-end">Total</th>
+            <th class="text-end">RTP</th>
           </tr>
         </thead>
         <tbody>
@@ -84,10 +89,18 @@
               {% endif %}
             </td>
             <td class="text-muted small">{{ c.creado_por.username }}</td>
+            <td class="text-end">{{ c.total_entrada|default:0|intcomma }}</td>
+            <td class="text-end">{{ c.total_salida|default:0|intcomma }}</td>
+            <td class="text-end fw-semibold {% if c.total_general >= 0 %}text-success{% else %}text-danger{% endif %}">
+              {{ c.total_general|default:0|intcomma }}
+            </td>
+            <td class="text-end fw-semibold {% if c.rtp_calculado is not None %}{% if c.rtp_calculado > 15 and c.rtp_calculado < 26 %}text-success{% elif c.rtp_calculado >= 45 or c.rtp_calculado <= -5 %}text-danger{% else %}text-warning{% endif %}{% endif %}">
+              {% if c.rtp_calculado is not None %}{{ c.rtp_calculado }}%{% else %}—{% endif %}
+            </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="4" class="text-center text-muted py-4">
+            <td colspan="8" class="text-center text-muted py-4">
               <i class="bi bi-inbox fs-3 d-block mb-2"></i>No hay controles guardados
             </td>
           </tr>

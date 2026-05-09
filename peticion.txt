@@ -1,33 +1,26 @@
-Lee control/views.py, específicamente la función cuadratura_diaria_edit.
+Lee templates/controles/detail.html y templates/control/control_generado.html.
 
-HAY UN BUG: después de crear los CuadraturaDetalle en la BD, la función
-no re-suma los totales por tipo antes de llamar _recalcular_totales().
-Esto hace que _recalcular_totales use gastos_dia=0 (o el valor del form),
-ignorando los ítems de detalle recién guardados.
+En AMBOS archivos, buscar todos los lugares donde se muestra el RTP
+(buscar por "rtp", "RTP", "text-success", "text-danger" relacionados a RTP)
+y reemplazar la lógica de colores por esta regla uniforme:
 
-El resultado: descuadre guardado difiere del mostrado en el form por exactamente
-la suma de los ítems de gastos/sueldos/regalos/jugados.
+  Verde    → rtp > 15 AND rtp < 26        (15.01 a 25.99)
+  Amarillo → rtp >= -5.01 AND rtp <= 15
+             OR rtp >= 26 AND rtp <= 45   (incluye el 0%)
+  Rojo     → rtp <= -5 OR rtp >= 45
 
-COMPARAR con cuadratura_diaria_create (que SÍ tiene este paso):
-    tipos_con_detalle = {d["tipo"] for d in detalles_list}
-    if "GASTOS" in tipos_con_detalle:
-        cuadratura.gastos_dia = _sum_tipo(cuadratura, "GASTOS")
-    if "SUELDOS" in tipos_con_detalle:
-        cuadratura.sueldo_b_dia = _sum_tipo(cuadratura, "SUELDOS")
-    if "REGALOS" in tipos_con_detalle:
-        cuadratura.regalos_dia = _sum_tipo(cuadratura, "REGALOS")
-    if "TAXI" in tipos_con_detalle:
-        cuadratura.taxi_dia = _sum_tipo(cuadratura, "TAXI")
-    if "JUGADOS" in tipos_con_detalle:
-        cuadratura.jugados_dia = _sum_tipo(cuadratura, "JUGADOS")
-    if "OTROS" in tipos_con_detalle:
-        cuadratura.otros_1_dia = _sum_tipo(cuadratura, "OTROS")
+Usar {% if %} / {% elif %} encadenados para evitar ambigüedad con and/or:
 
-FIX: En cuadratura_diaria_edit, agregar ese mismo bloque de re-suma
-DESPUÉS de crear los CuadraturaDetalle con CuadraturaDetalle.objects.create()
-y ANTES de la llamada a _recalcular_totales(c, ...).
+  {% if valor_rtp > 15 and valor_rtp < 26 %}
+    class="text-success"
+  {% elif valor_rtp <= -5 or valor_rtp >= 45 %}
+    class="text-danger"
+  {% else %}
+    class="text-warning"
+  {% endif %}
 
-El objeto se llama `c` en el edit view (no `cuadratura`), y la lista de
-detalles ya existe como `detalles_list`. Solo copiar y adaptar el bloque.
+Donde "valor_rtp" es la variable de RTP en cada template
+(puede llamarse rtp, l.rtp, item.rtp, etc. — adaptar al nombre real).
 
+Aplicar a TODAS las celdas/spans de RTP en ambos archivos.
 No tocar nada más.

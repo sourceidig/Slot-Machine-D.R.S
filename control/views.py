@@ -5310,6 +5310,10 @@ def controles_list(request):
     qs = (
         ControlLecturas.objects
         .select_related("sucursal", "turno", "creado_por")
+        .annotate(
+            total_entrada=Sum("lineas__entrada_parcial"),
+            total_salida=Sum("lineas__salida_parcial"),
+        )
         .order_by("-fecha_trabajo", "-id")
     )
 
@@ -5335,6 +5339,13 @@ def controles_list(request):
     from django.core.paginator import Paginator
     paginator = Paginator(qs, 15)
     controles_page = paginator.get_page(request.GET.get("page", 1))
+    for c in controles_page:
+        if c.total_entrada and c.total_entrada > 0:
+            c.rtp_calculado = round(
+                (c.total_entrada - (c.total_salida or 0)) / c.total_entrada * 100, 1
+            )
+        else:
+            c.rtp_calculado = None
     return render(request, "controles/list.html", {
         "controles":    controles_page,
         "page_obj":     controles_page,
