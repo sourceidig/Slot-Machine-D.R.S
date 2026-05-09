@@ -1011,6 +1011,19 @@ function recalcUI() {
     sucursalSelect.addEventListener("change", filtrarTurnosPorSucursal);
   }
 
+  {% if cuadratura.pk %}
+  // Modo edición: precargar valores guardados en los inputs de numerales
+  {
+    const ndEl = document.getElementById('id_numeral_dia');
+    const naEl = document.getElementById('id_numeral_acumulado');
+    const caEl = document.getElementById('id_caja_anterior');
+    if (ndEl) ndEl.value = '{{ cuadratura.numeral_dia|default:0 }}';
+    if (naEl) naEl.value = '{{ cuadratura.numeral_acumulado|default:0 }}';
+    if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
+    recalcUI();
+  }
+  {% endif %}
+
   // init
   onHeaderChange();
 });

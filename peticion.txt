@@ -1,21 +1,40 @@
-En control/templates/cuadratura_diaria/create.html, buscar TODOS
-los inputs readonly relacionados al turno en modo edición y cambiar
-el value. Hay que buscar cualquier input que tenga en su value algo
-como cuadratura.turno y reemplazarlo.
+En control/templates/cuadratura_diaria/create.html, en modo edición
+(cuadratura.pk existe) la función cargarNumerales() AJAX está
+sobreescribiendo los valores guardados de id_numeral_dia,
+id_numeral_acumulado e id_caja_anterior con 0, causando que
+recalcUI() calcule un descuadre incorrecto.
 
-Buscar esta línea (o similar):
-  value="{{ cuadratura.turno.sucursal.nombre }} — {{ cuadratura.turno.fecha|date:'d/m/Y' }} — {{ cuadratura.turno.tipo_turno }}"
+CAMBIO 1 — Precargar los valores correctos en los inputs al inicio.
+Agregar este bloque JS justo antes del cierre del </script> o al
+inicio del DOMContentLoaded, solo cuando es modo edición:
 
-Reemplazar por:
-  value="{{ cuadratura.turno.tipo_turno|default:'Sin turno' }}"
+  {% if cuadratura.pk %}
+  // Modo edición: precargar valores guardados en los inputs de numerales
+  document.addEventListener('DOMContentLoaded', function() {
+    const ndEl = document.getElementById('id_numeral_dia');
+    const naEl = document.getElementById('id_numeral_acumulado');
+    const caEl = document.getElementById('id_caja_anterior');
+    if (ndEl) ndEl.value = '{{ cuadratura.numeral_dia|default:0 }}';
+    if (naEl) naEl.value = '{{ cuadratura.numeral_acumulado|default:0 }}';
+    if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
+    // Forzar recalculo con los valores correctos
+    if (typeof recalcUI === 'function') recalcUI();
+  });
+  {% endif %}
 
-Si no encuentra esa línea exacta, buscar cualquier input con
-value que contenga "cuadratura.turno" y simplificarlo a solo
-mostrar cuadratura.turno.tipo_turno.
+CAMBIO 2 — Bloquear cargarNumerales() en modo edición para que
+no sobreescriba esos valores. Buscar la función cargarNumerales()
+y agregar al inicio:
 
-Además, para el campo Fecha que también se ve cortado (muestra
-"08/05/202" sin el año completo), buscar el input readonly de fecha
-en modo edición y asegurarse que tenga min-width:115px:
-  style="min-width:115px; background:#f1f5f9; font-weight:700;"
+  async function cargarNumerales() {
+    // En modo edición no recalcular numerales desde AJAX
+    if (document.getElementById('modo_edicion')) return;
+    ... resto de la función ...
+  }
+
+Y en el HTML en modo edición agregar el marcador:
+  {% if cuadratura.pk %}
+  <span id="modo_edicion" style="display:none;"></span>
+  {% endif %}
 
 No tocar nada más.
