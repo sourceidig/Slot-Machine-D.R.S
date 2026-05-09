@@ -138,7 +138,12 @@
       <div class="row g-3 mb-3">
         <div class="col-md-2">
           <label class="form-label fw-bold mb-1">Fecha</label>
-          {% if fecha_fija %}
+          {% if cuadratura.pk %}
+            <input type="text" class="form-control" readonly
+                   value="{{ cuadratura.fecha|date:'d/m/Y' }}"
+                   style="background:#f1f5f9; font-weight:700;">
+            <input type="hidden" name="fecha" value="{{ cuadratura.fecha|date:'Y-m-d' }}">
+          {% elif fecha_fija %}
             <input type="hidden" id="id_fecha" name="fecha" value="{% now "Y-m-d" %}">
             <input type="text" class="form-control readonly" value="{% now "d/m/Y" %}" readonly>
           {% else %}
@@ -147,9 +152,14 @@
           {% endif %}
         </div>
 
-        <div class="{% if not usa_sucursal_fija %}col-md-2{% else %}col-md-3{% endif %}">
+        <div class="{% if cuadratura.pk %}col-md-3{% elif not usa_sucursal_fija %}col-md-2{% else %}col-md-3{% endif %}">
           <label class="form-label fw-bold mb-1">Local</label>
-          {% if usa_sucursal_fija and sucursal_fija %}
+          {% if cuadratura.pk %}
+            <input type="text" class="form-control" readonly
+                   value="{{ cuadratura.sucursal.nombre }}"
+                   style="background:#f1f5f9; font-weight:700;">
+            <input type="hidden" name="sucursal" value="{{ cuadratura.sucursal.id }}">
+          {% elif usa_sucursal_fija and sucursal_fija %}
             <input type="hidden" id="id_sucursal" name="sucursal" value="{{ sucursal_fija.pk }}">
             <input type="text" class="form-control readonly" value="{{ sucursal_fija.nombre }}" readonly>
           {% else %}
@@ -160,7 +170,15 @@
           {% endif %}
         </div>
 
-        {% if not usa_sucursal_fija %}
+        {% if cuadratura.pk %}
+        <div class="col-md-2">
+          <label class="form-label fw-bold mb-1">Turno</label>
+          <input type="text" class="form-control" readonly
+                 value="{% if cuadratura.turno %}{{ cuadratura.turno.sucursal.nombre }} — {{ cuadratura.turno.fecha|date:'d/m/Y' }} — {{ cuadratura.turno.tipo_turno }}{% else %}Sin turno{% endif %}"
+                 style="background:#f1f5f9; font-weight:700;">
+          <input type="hidden" name="turno" value="{{ cuadratura.turno.id|default:'' }}">
+        </div>
+        {% elif not usa_sucursal_fija %}
         <div class="col-md-2">
           <label class="form-label fw-bold mb-1">Turno</label>
           <select id="turnoSelect" name="turno_tipo" class="form-select form-control">
@@ -186,7 +204,7 @@
           </div>
         </div>
 
-        <div class="{% if not usa_sucursal_fija %}col-md-4{% else %}col-md-5{% endif %}">
+        <div class="{% if cuadratura.pk %}col-md-3{% elif not usa_sucursal_fija %}col-md-4{% else %}col-md-5{% endif %}">
           <div class="section-title mb-2">Numerales</div>
           <div class="row g-2">
             <div class="col-4">
@@ -569,6 +587,15 @@
 </div><!-- /pg-card-body -->
 </div><!-- /pg-card -->
 
+{% if cuadratura.pk %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const d = document.getElementById('turno_display');
+    if (d) d.textContent = "{{ cuadratura.turno.tipo_turno|default:'Sin turno' }}";
+  });
+</script>
+{% endif %}
+
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   // =========================
@@ -615,6 +642,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ========= 1) Numerales + caja anterior (AJAX) =========
   async function cargarNumerales() {
+    if (modoEditar) return;
     const fecha = fechaInput?.value;
     const sucursalId = sucursalSelect?.value;
     // ✅ NUEVO: Capturar el turno
