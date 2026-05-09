@@ -211,7 +211,7 @@
                        value="{{ cuadratura.numeral_dia|default:0 }}"
                        style="width:130px; font-size:0.85rem; text-align:right; background:#f1f5f9;">
                 <input type="hidden" id="numeral_dia_val"
-                       value="{{ cuadratura.numeral_dia|default:0 }}">
+                       value="{{ numeral_dia_fresco|default:cuadratura.numeral_dia|default:0 }}">
               {% else %}
                 <input type="text" class="form-control" id="id_numeral_dia" value="0" readonly
                        style="width:130px; font-size:0.85rem; text-align:right; background:#f1f5f9;">
@@ -784,6 +784,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ['GASTOS', 'SUELDOS', 'REGALOS', 'JUGADOS'].forEach(function(tipo) {
       if (helpers[tipo]) helpers[tipo].recalcTotal();
     });
+    setTimeout(recalcUI, 50);
   })();
   {% endif %}
 
@@ -828,6 +829,7 @@ function recalcUI() {
 
   const desglose = parseIntSafe(desgloseTotalEl?.value);
   const totalCalculado = cajaAnteriorVal + numeralDiaVal + prestamos - sorteos - gastos - sueldos - regalos - jugados - redbank - transfer;
+  console.log('[recalcUI] caja:', cajaAnteriorVal, 'numeral:', numeralDiaVal, 'gastos:', gastos, 'sueldos:', sueldos, 'redbank:', redbank, 'desglose:', desglose, 'totalCalculado:', totalCalculado);
   const descuadre = desglose - totalCalculado;
   setVal(descuadreEl, descuadre);
 

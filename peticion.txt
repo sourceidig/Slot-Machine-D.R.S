@@ -1,29 +1,33 @@
-Lee el archivo templates/cuadratura_diaria/create.html.
+Lee control/views.py, específicamente la función cuadratura_diaria_edit.
 
-En la función `recalcUI()` hay un bug en el cálculo del descuadre. 
-Las variables `cajaAnteriorVal` y `numeralDiaVal` ya se leen correctamente 
-pero no se usan en la fórmula de descuadre.
+HAY UN BUG: después de crear los CuadraturaDetalle en la BD, la función
+no re-suma los totales por tipo antes de llamar _recalcular_totales().
+Esto hace que _recalcular_totales use gastos_dia=0 (o el valor del form),
+ignorando los ítems de detalle recién guardados.
 
-La fórmula actual (INCORRECTA) es:
-  const total = subtotal - redbank - transfer + prestamos;
-  const descuadre = desglose - total;
+El resultado: descuadre guardado difiere del mostrado en el form por exactamente
+la suma de los ítems de gastos/sueldos/regalos/jugados.
 
-La fórmula correcta debe ser idéntica a _recalcular_totales() en views.py:
-  const totalCalculado = cajaAnteriorVal + numeralDiaVal + prestamos 
-                         - sorteos - gastos - sueldos - regalos - jugados 
-                         - redbank - transfer;
-  const descuadre = desglose - totalCalculado;
+COMPARAR con cuadratura_diaria_create (que SÍ tiene este paso):
+    tipos_con_detalle = {d["tipo"] for d in detalles_list}
+    if "GASTOS" in tipos_con_detalle:
+        cuadratura.gastos_dia = _sum_tipo(cuadratura, "GASTOS")
+    if "SUELDOS" in tipos_con_detalle:
+        cuadratura.sueldo_b_dia = _sum_tipo(cuadratura, "SUELDOS")
+    if "REGALOS" in tipos_con_detalle:
+        cuadratura.regalos_dia = _sum_tipo(cuadratura, "REGALOS")
+    if "TAXI" in tipos_con_detalle:
+        cuadratura.taxi_dia = _sum_tipo(cuadratura, "TAXI")
+    if "JUGADOS" in tipos_con_detalle:
+        cuadratura.jugados_dia = _sum_tipo(cuadratura, "JUGADOS")
+    if "OTROS" in tipos_con_detalle:
+        cuadratura.otros_1_dia = _sum_tipo(cuadratura, "OTROS")
 
-IMPORTANTE: NO cambies la variable `total` ni el campo "TOTAL" que se muestra 
-en el formulario (ese representa solo los movimientos del día y debe quedar igual).
-Solo cambia la línea `const descuadre = desglose - total;` para que use 
-`totalCalculado` con la fórmula correcta.
+FIX: En cuadratura_diaria_edit, agregar ese mismo bloque de re-suma
+DESPUÉS de crear los CuadraturaDetalle con CuadraturaDetalle.objects.create()
+y ANTES de la llamada a _recalcular_totales(c, ...).
 
-Después de hacer el cambio, verifica que la función recalcUI() quede así 
-(solo las líneas relevantes):
-1. Se mantiene: const total = subtotal - redbank - transfer + prestamos;
-2. Se mantiene: setVal(totalEl, total);
-3. Se agrega:   const totalCalculado = cajaAnteriorVal + numeralDiaVal + prestamos - sorteos - gastos - sueldos - regalos - jugados - redbank - transfer;
-4. Se cambia:   const descuadre = desglose - totalCalculado;   // antes era: desglose - total
+El objeto se llama `c` en el edit view (no `cuadratura`), y la lista de
+detalles ya existe como `detalles_list`. Solo copiar y adaptar el bloque.
 
-No toques nada más en el archivo.
+No tocar nada más.

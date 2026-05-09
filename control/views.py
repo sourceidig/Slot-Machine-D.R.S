@@ -1248,10 +1248,14 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
     _MAX = 2_000_000_000
     raw_descuadre = desglose_total - (total_calculado or 0)
     cuadratura.descuadre_dia = max(-_MAX, min(_MAX, int(raw_descuadre)))
+    print(f"[_recalcular_totales] pk={cuadratura.pk} base_anterior={base_anterior} numeral_dia={cuadratura.numeral_dia} gastos_dia={cuadratura.gastos_dia} sueldo_b_dia={cuadratura.sueldo_b_dia} redbank_dia={cuadratura.redbank_dia} total_calculado={total_calculado} descuadre={raw_descuadre}")
 
     # 7) Prestamos acumulados = prestamos de dias anteriores + dia actual
     prestamos_dia = int(cuadratura.prestamos or 0)
-    _, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
+    cuadratura_pk = cuadratura.pk if cuadratura.pk else None
+    _, prestamos_acum_ant = _caja_anterior_en_ciclo(
+        cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura_pk
+    )
     prestamos_acum = prestamos_acum_ant + prestamos_dia
     cuadratura.prestamos_acum = prestamos_acum
 
@@ -1585,6 +1589,20 @@ def cuadratura_diaria_edit(request, pk):
                         detalle="",
                     )
 
+                tipos_con_detalle = {d["tipo"] for d in detalles_list}
+                if "GASTOS" in tipos_con_detalle:
+                    c.gastos_dia    = _sum_tipo(c, "GASTOS")
+                if "SUELDOS" in tipos_con_detalle:
+                    c.sueldo_b_dia  = _sum_tipo(c, "SUELDOS")
+                if "REGALOS" in tipos_con_detalle:
+                    c.regalos_dia   = _sum_tipo(c, "REGALOS")
+                if "TAXI" in tipos_con_detalle:
+                    c.taxi_dia      = _sum_tipo(c, "TAXI")
+                if "JUGADOS" in tipos_con_detalle:
+                    c.jugados_dia   = _sum_tipo(c, "JUGADOS")
+                if "OTROS" in tipos_con_detalle:
+                    c.otros_1_dia   = _sum_tipo(c, "OTROS")
+
                 # Recalcular acumulados con los valores correctos
                 c.sorteos_acum   = (c.sorteos_ant or 0)   + (c.sorteos_dia or 0)
                 c.gastos_acum    = (c.gastos_ant or 0)    + (c.gastos_dia or 0)
@@ -1627,6 +1645,12 @@ def cuadratura_diaria_edit(request, pk):
     caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
     detalles_json = json.dumps(list(cuadratura.detalles.values("tipo", "nombre", "monto")), ensure_ascii=False)
+    turno_tipo_edit = cuadratura.turno.tipo_turno if cuadratura.turno else None
+    numeral_dia_fresco, _ = calcular_numerales_caja(
+        cuadratura.sucursal, cuadratura.fecha,
+        turno_tipo=turno_tipo_edit,
+        exclude_pk=cuadratura.pk,
+    )
 
     return render(request, "cuadratura_diaria/create.html", {
         "form": form,
@@ -1638,6 +1662,7 @@ def cuadratura_diaria_edit(request, pk):
         "sucursales": sucursales,
         "editar": True,
         "detalles_json": detalles_json,
+        "numeral_dia_fresco": numeral_dia_fresco,
     })
 
 
