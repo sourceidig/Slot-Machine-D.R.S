@@ -1,40 +1,29 @@
-En control/templates/cuadratura_diaria/create.html, en modo edición
-(cuadratura.pk existe) la función cargarNumerales() AJAX está
-sobreescribiendo los valores guardados de id_numeral_dia,
-id_numeral_acumulado e id_caja_anterior con 0, causando que
-recalcUI() calcule un descuadre incorrecto.
+Lee el archivo templates/cuadratura_diaria/create.html.
 
-CAMBIO 1 — Precargar los valores correctos en los inputs al inicio.
-Agregar este bloque JS justo antes del cierre del </script> o al
-inicio del DOMContentLoaded, solo cuando es modo edición:
+En la función `recalcUI()` hay un bug en el cálculo del descuadre. 
+Las variables `cajaAnteriorVal` y `numeralDiaVal` ya se leen correctamente 
+pero no se usan en la fórmula de descuadre.
 
-  {% if cuadratura.pk %}
-  // Modo edición: precargar valores guardados en los inputs de numerales
-  document.addEventListener('DOMContentLoaded', function() {
-    const ndEl = document.getElementById('id_numeral_dia');
-    const naEl = document.getElementById('id_numeral_acumulado');
-    const caEl = document.getElementById('id_caja_anterior');
-    if (ndEl) ndEl.value = '{{ cuadratura.numeral_dia|default:0 }}';
-    if (naEl) naEl.value = '{{ cuadratura.numeral_acumulado|default:0 }}';
-    if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
-    // Forzar recalculo con los valores correctos
-    if (typeof recalcUI === 'function') recalcUI();
-  });
-  {% endif %}
+La fórmula actual (INCORRECTA) es:
+  const total = subtotal - redbank - transfer + prestamos;
+  const descuadre = desglose - total;
 
-CAMBIO 2 — Bloquear cargarNumerales() en modo edición para que
-no sobreescriba esos valores. Buscar la función cargarNumerales()
-y agregar al inicio:
+La fórmula correcta debe ser idéntica a _recalcular_totales() en views.py:
+  const totalCalculado = cajaAnteriorVal + numeralDiaVal + prestamos 
+                         - sorteos - gastos - sueldos - regalos - jugados 
+                         - redbank - transfer;
+  const descuadre = desglose - totalCalculado;
 
-  async function cargarNumerales() {
-    // En modo edición no recalcular numerales desde AJAX
-    if (document.getElementById('modo_edicion')) return;
-    ... resto de la función ...
-  }
+IMPORTANTE: NO cambies la variable `total` ni el campo "TOTAL" que se muestra 
+en el formulario (ese representa solo los movimientos del día y debe quedar igual).
+Solo cambia la línea `const descuadre = desglose - total;` para que use 
+`totalCalculado` con la fórmula correcta.
 
-Y en el HTML en modo edición agregar el marcador:
-  {% if cuadratura.pk %}
-  <span id="modo_edicion" style="display:none;"></span>
-  {% endif %}
+Después de hacer el cambio, verifica que la función recalcUI() quede así 
+(solo las líneas relevantes):
+1. Se mantiene: const total = subtotal - redbank - transfer + prestamos;
+2. Se mantiene: setVal(totalEl, total);
+3. Se agrega:   const totalCalculado = cajaAnteriorVal + numeralDiaVal + prestamos - sorteos - gastos - sueldos - regalos - jugados - redbank - transfer;
+4. Se cambia:   const descuadre = desglose - totalCalculado;   // antes era: desglose - total
 
-No tocar nada más.
+No toques nada más en el archivo.

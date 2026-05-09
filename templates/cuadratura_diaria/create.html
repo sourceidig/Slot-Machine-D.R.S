@@ -827,7 +827,8 @@ function recalcUI() {
   setVal(totalEl, total);
 
   const desglose = parseIntSafe(desgloseTotalEl?.value);
-  const descuadre = desglose - total;
+  const totalCalculado = cajaAnteriorVal + numeralDiaVal + prestamos - sorteos - gastos - sueldos - regalos - jugados - redbank - transfer;
+  const descuadre = desglose - totalCalculado;
   setVal(descuadreEl, descuadre);
 
   // Ganancia = desglose efectivo - caja inicial - prestamos acumulados
