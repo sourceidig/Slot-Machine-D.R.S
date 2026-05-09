@@ -1,63 +1,21 @@
-En control/templates/cuadratura_diaria/create.html, cuando se está
-editando una caja existente (se detecta con {% if cuadratura.pk %}),
-los campos fecha, sucursal y turno deben mostrarse como texto bloqueado
-con los datos ya guardados, no como inputs editables.
+En control/templates/cuadratura_diaria/create.html, buscar TODOS
+los inputs readonly relacionados al turno en modo edición y cambiar
+el value. Hay que buscar cualquier input que tenga en su value algo
+como cuadratura.turno y reemplazarlo.
 
-CAMBIO 1 — Reemplazar los campos fecha, sucursal y turno en modo edición.
+Buscar esta línea (o similar):
+  value="{{ cuadratura.turno.sucursal.nombre }} — {{ cuadratura.turno.fecha|date:'d/m/Y' }} — {{ cuadratura.turno.tipo_turno }}"
 
-Donde están los widgets del formulario para fecha, sucursal y turno,
-envolver con condición:
+Reemplazar por:
+  value="{{ cuadratura.turno.tipo_turno|default:'Sin turno' }}"
 
-  {% if cuadratura.pk %}
-    <!-- MODO EDICIÓN: mostrar como texto bloqueado -->
-    <div>
-      <label class="pg-label">Fecha</label>
-      <input type="text" class="form-control" readonly
-             value="{{ cuadratura.fecha|date:'d/m/Y' }}"
-             style="background:#f1f5f9; font-weight:700;">
-      <input type="hidden" name="fecha" value="{{ cuadratura.fecha|date:'Y-m-d' }}">
-    </div>
+Si no encuentra esa línea exacta, buscar cualquier input con
+value que contenga "cuadratura.turno" y simplificarlo a solo
+mostrar cuadratura.turno.tipo_turno.
 
-    <div>
-      <label class="pg-label">Local</label>
-      <input type="text" class="form-control" readonly
-             value="{{ cuadratura.sucursal.nombre }}"
-             style="background:#f1f5f9; font-weight:700;">
-      <input type="hidden" name="sucursal" value="{{ cuadratura.sucursal.id }}">
-    </div>
+Además, para el campo Fecha que también se ve cortado (muestra
+"08/05/202" sin el año completo), buscar el input readonly de fecha
+en modo edición y asegurarse que tenga min-width:115px:
+  style="min-width:115px; background:#f1f5f9; font-weight:700;"
 
-    <div>
-      <label class="pg-label">Turno</label>
-      <input type="text" class="form-control" readonly
-             value="{% if cuadratura.turno %}{{ cuadratura.turno.sucursal.nombre }} — {{ cuadratura.turno.fecha|date:'d/m/Y' }} — {{ cuadratura.turno.tipo_turno }}{% else %}Sin turno{% endif %}"
-             style="background:#f1f5f9; font-weight:700;">
-      <input type="hidden" name="turno" value="{{ cuadratura.turno.id|default:'' }}">
-    </div>
-
-  {% else %}
-    <!-- MODO CREACIÓN: widgets normales del formulario -->
-    ... los widgets actuales de fecha, sucursal y turno ...
-  {% endif %}
-
-CAMBIO 2 — En modo edición, el display del turno en el encabezado
-(el div#turno_display que muestra el turno seleccionado) debe
-inicializarse con el valor guardado:
-
-  {% if cuadratura.pk %}
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const d = document.getElementById('turno_display');
-      if (d) d.textContent = "{{ cuadratura.turno.tipo_turno|default:'Sin turno' }}";
-    });
-  </script>
-  {% endif %}
-
-CAMBIO 3 — En modo edición, también bloquear el JS que recalcula
-numerales al cambiar sucursal/turno, para que no sobreescriba los
-valores ya guardados que vienen del contexto Django.
-Buscar el listener de cambio del select de sucursal/turno y agregar:
-
-  if (document.querySelector('[name="sucursal"]')?.tagName === 'INPUT') return;
-  // Si sucursal es input readonly (modo edición), no ejecutar el AJAX
-
-No tocar la lógica de guardado ni views.py.
+No tocar nada más.
