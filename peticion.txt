@@ -1,55 +1,52 @@
-Lee templates/cuadratura_diaria/create.html.
+Lee control/views.py y templates/cuadratura_diaria/create.html.
 
-Hay un problema en el modo edición: id_numeral_dia no existe en el DOM 
-en edit mode (solo existe numeral_dia_val), y onHeaderChange() siempre 
-corre al cargar causando race conditions.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FIX 1 — Reemplazar el bloque init de edición (líneas ~1072-1086)
+BUG 1 — Caja anterior = 0 (cargarNumerales sin params)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Reemplazar el bloque actual:
+Para encargados, fecha y sucursal son campos readonly/display, 
+NO son inputs editables con id="id_fecha" e id="id_sucursal".
+Por eso cargarNumerales() retorna early y caja_anterior queda en 0.
 
-  {% if cuadratura.pk %}
-  {
-    const ndEl = document.getElementById('id_numeral_dia');
-    ...
-    recalcDesglose();
-    cargarNumerales();
-  }
-  {% endif %}
+FIX en views.py — cuadratura_diaria_create GET:
+Calcular caja_anterior en el servidor y pasarlo al contexto:
 
-Por una IIFE async que ejecute todo en orden correcto:
+  from .utils import calcular_numerales_caja
+  # Obtener sucursal y fecha del turno activo para encargado
+  if hasattr(request, 'turno_activo') or request.session.get('turno_activo_id'):
+      turno_id = request.session.get('turno_activo_id')
+      turno_obj = Turno.objects.filter(pk=turno_id).first() if turno_id else None
+      if turno_obj:
+          sucursal_ctx = turno_obj.sucursal
+          fecha_ctx = turno_obj.fecha
+          caja_anterior_ctx, prestamos_acum_ant_ctx = _caja_anterior_en_ciclo(
+              sucursal_ctx, fecha_ctx
+          )
+          numeral_dia_ctx, numeral_acum_ctx = calcular_numerales_caja(
+              sucursal_ctx, fecha_ctx, turno_tipo=turno_obj.tipo_turno
+          )
+      else:
+          caja_anterior_ctx = prestamos_acum_ant_ctx = numeral_dia_ctx = numeral_acum_ctx = 0
+  else:
+      caja_anterior_ctx = prestamos_acum_ant_ctx = numeral_dia_ctx = numeral_acum_ctx = 0
 
-  {% if cuadratura.pk %}
-  (async () => {
+Agregar al context del render:
+  "caja_anterior": caja_anterior_ctx,
+  "numeral_dia_inicial": numeral_dia_ctx,
+  "numeral_acum_inicial": numeral_acum_ctx,
+  "prestamos_acum_ant": prestamos_acum_ant_ctx,
+
+FIX en create.html — Al inicio del DOMContentLoaded, pre-cargar 
+estos valores en los elementos de display SIEMPRE (no solo en editar):
+
+  // Pre-cargar valores del servidor si no hay id_fecha/id_sucursal
+  if (!fechaInput || !sucursalSelect) {
     const caEl = document.getElementById('id_caja_anterior');
-    const retiroEl = document.getElementById('id_retiro_diario');
+    const ndEl = document.getElementById('id_numeral_dia');
     const naEl = document.getElementById('id_numeral_acumulado');
     if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
-    if (naEl) naEl.value = '{{ cuadratura.numeral_acumulado|default:0 }}';
-    if (retiroEl) retiroEl.value = '{{ cuadratura.retiro_diario|default:0 }}';
-
-    // Esperar AJAX para tener caja_anterior correcta
-    await cargarNumerales();
-
-    // Con caja_anterior ya actualizada, calcular todo
-    recalcDesglose();
+    if (ndEl) ndEl.value = '{{ numeral_dia_inicial|default:0 }}';
+    if (naEl) naEl.value = '{{ numeral_acum_inicial|default:0 }}';
     recalcUI();
-
-    // Mostrar resumen
-    if (seccionResumen) seccionResumen.style.display = 'block';
-  })();
-  {% endif %}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FIX 2 — No llamar onHeaderChange() al cargar en modo edición
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Cambiar línea 1089 de:
-  onHeaderChange();
-
-A:
-  {% if not editar %}
-  onHeaderChange();
-  {% endif %}
-
-En modo edición, el IIFE del fix 1 ya hace la carga inicial corre
+  }

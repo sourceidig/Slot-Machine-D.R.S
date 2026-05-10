@@ -241,7 +241,7 @@
             <input type="text" class="form-control" readonly
                    value="{{ cuadratura.fecha|date:'d/m/Y' }}"
                    style="min-width:115px; background:#f1f5f9; font-weight:700;">
-            <input type="hidden" name="fecha" value="{{ cuadratura.fecha|date:'Y-m-d' }}">
+            <input type="hidden" id="id_fecha" name="fecha" value="{{ cuadratura.fecha|date:'Y-m-d' }}">
           {% elif fecha_fija %}
             <input type="hidden" id="id_fecha" name="fecha" value="{{ fecha_turno|date:'Y-m-d' }}">
             <input type="text" class="form-control readonly" value="{{ fecha_turno|date:'d/m/Y' }}" readonly style="min-width:110px;">
@@ -256,7 +256,7 @@
             <input type="text" class="form-control" readonly
                    value="{{ cuadratura.sucursal.nombre }}"
                    style="background:#f1f5f9; font-weight:700; min-width:140px;">
-            <input type="hidden" name="sucursal" value="{{ cuadratura.sucursal.id }}">
+            <input type="hidden" id="id_sucursal" name="sucursal" value="{{ cuadratura.sucursal.id }}">
           {% elif usa_sucursal_fija and sucursal_fija %}
             <input type="hidden" id="id_sucursal" name="sucursal" value="{{ sucursal_fija.pk }}">
             <input type="text" class="form-control readonly" value="{{ sucursal_fija.nombre }}" readonly style="min-width:140px;">
