@@ -1453,6 +1453,8 @@ def cuadratura_diaria_create(request):
             if turno_obj:
                 turno_tipo_fijo = turno_obj.tipo_turno
                 fecha_turno = turno_obj.fecha
+        if not turno_tipo_fijo:
+            turno_tipo_fijo = request.GET.get('turno_tipo') or None
 
         initial = {"fecha": fecha_turno if usa_sucursal_fija else timezone.now().date()}
         if usa_sucursal_fija and sucursal_fija:
