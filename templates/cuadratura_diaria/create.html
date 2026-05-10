@@ -719,7 +719,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const params = new URLSearchParams({ sucursal_id: sucursalId, fecha: fecha, turno: turnoTipo });
     if (excludePk > 0) params.append('exclude_pk', excludePk);
-    const url = `{% url “control:ajax_cuadratura_diaria_numerales” %}?${params}`;
+    const url = `{% url 'control:ajax_cuadratura_diaria_numerales' %}?${params}`;
 
     try {
       const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
