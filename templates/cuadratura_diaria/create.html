@@ -1070,15 +1070,18 @@ function recalcUI() {
   }
 
   {% if cuadratura.pk %}
-  // Modo edición: precargar valores guardados en los inputs de numerales
+  // Modo edición: precargar valores guardados y recalcular UI
   {
     const ndEl = document.getElementById('id_numeral_dia');
     const naEl = document.getElementById('id_numeral_acumulado');
     const caEl = document.getElementById('id_caja_anterior');
+    const retiroEl = document.getElementById('id_retiro_diario');
     if (ndEl) ndEl.value = '{{ cuadratura.numeral_dia|default:0 }}';
     if (naEl) naEl.value = '{{ cuadratura.numeral_acumulado|default:0 }}';
     if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
-    recalcUI();
+    if (retiroEl) retiroEl.value = '{{ cuadratura.retiro_diario|default:0 }}';
+    recalcDesglose();
+    cargarNumerales();
   }
   {% endif %}
 
