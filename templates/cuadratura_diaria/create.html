@@ -97,21 +97,58 @@
     resize: none !important;
   }
 
-  @media (max-width: 576px) {
-    .table td, .table th {
-      padding: 6px 8px;
-      font-size: 0.82rem;
+  /* Caja diaria — layout flex */
+  .caja-lista {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: white;
+  }
+  .caja-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    background: white;
+  }
+  .caja-row:last-child { border-bottom: none; }
+  .caja-row:nth-child(even) { background: #fafafa; }
+  .caja-row.subtotal { background: #f8fafc; }
+  .caja-row.total-row { background: #e0f2fe; font-weight: bold; }
+  .caja-label {
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-width: 110px;
+    padding-top: 8px;
+    flex-shrink: 0;
+  }
+  .caja-inputs {
+    flex: 1;
+    min-width: 0;
+  }
+  .caja-inputs .form-control,
+  .caja-inputs input,
+  .caja-inputs textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .caja-inputs textarea.form-control {
+    margin-top: 4px;
+  }
+
+  @media (max-width: 480px) {
+    .caja-row {
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
     }
-    .table input[type="number"],
-    .table input[type="text"] {
-      min-width: 0 !important;
-      width: 100% !important;
-    }
-    #gasto_monto_input, #sueldo_monto_input, #regalo_monto_input {
-      width: 80px !important;
-    }
-    #gasto_detalle_input, #sueldo_detalle_input, #regalo_detalle_input {
-      min-width: 0 !important;
+    .caja-label {
+      padding-top: 0;
+      min-width: unset;
     }
     .desglose-grid {
       grid-template-columns: 1fr 1fr !important;
@@ -275,126 +312,102 @@
 <input type="hidden" id="id_sueldo_b_dia" name="sueldo_b_dia" value="0">
 <input type="hidden" id="id_regalos_dia" name="regalos_dia" value="0">
 
-<div class="table-responsive">
-  <table class="table table-sm table-bordered mb-0 align-middle w-100">
-    <thead class="table-secondary">
-      <tr>
-        <th style="width: 220px;">Concepto</th>
-        <th style="width: 190px;">Monto</th>
-        <th class="d-none d-md-table-cell">Notas / Detalle</th>
-      </tr>
-    </thead>
+<div class="caja-lista">
 
-    <tbody>
-      <!-- SORTEOS -->
-      <tr>
-        <td class="concept">SORTEOS</td>
-        <td>{{ form.sorteos_dia }}</td>
-        <td class="notes-cell d-none d-md-table-cell">{{ form.sorteos_notas }}</td>
-      </tr>
-    </tbody>
+  <!-- SORTEOS -->
+  <div class="caja-row">
+    <div class="caja-label">SORTEOS</div>
+    <div class="caja-inputs">
+      {{ form.sorteos_dia }}
+      {{ form.sorteos_notas }}
+    </div>
+  </div>
 
-    <!-- GASTOS -->
-    <tbody>
-      <tr style="background:#f8fafc;">
-        <td class="concept">GASTOS</td>
-        <td><input type="number" id="gasto_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100%;"></td>
-        <td>
-          <div class="d-flex gap-1 align-items-center">
-            <input type="text" id="gasto_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
-            <button type="button" id="btn_add_gasto" class="btn btn-sm btn-outline-secondary px-2">+</button>
-          </div>
-        </td>
-      </tr>
-    </tbody>
-    <tbody id="gastos_items_body"></tbody>
-    <tbody>
-      <tr style="background:#f8fafc;">
-        <td colspan="3" class="text-end text-muted py-1" style="font-size:.75rem;">Total gastos: <strong id="gasto_monto_display">$0</strong></td>
-      </tr>
-    </tbody>
+  <!-- GASTOS -->
+  <div class="caja-row">
+    <div class="caja-label">GASTOS</div>
+    <div class="caja-inputs">
+      <div class="d-flex gap-2 align-items-center">
+        <input type="number" id="gasto_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100px; flex-shrink:0;">
+        <input type="text" id="gasto_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+        <button type="button" id="btn_add_gasto" class="btn btn-sm btn-outline-secondary px-2">+</button>
+      </div>
+      <div id="gastos_items_body"></div>
+      <div class="text-end text-muted small mt-1">Total gastos: <strong id="gasto_monto_display">$0</strong></div>
+    </div>
+  </div>
 
-    <!-- SUELDOS -->
-    <tbody>
-      <tr style="background:#f8fafc;">
-        <td class="concept">SUELDOS</td>
-        <td><input type="number" id="sueldo_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100%;"></td>
-        <td>
-          <div class="d-flex gap-1 align-items-center">
-            <input type="text" id="sueldo_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
-            <button type="button" id="btn_add_sueldo" class="btn btn-sm btn-outline-secondary px-2">+</button>
-          </div>
-        </td>
-      </tr>
-    </tbody>
-    <tbody id="sueldos_items_body"></tbody>
-    <tbody>
-      <tr style="background:#f8fafc;">
-        <td colspan="3" class="text-end text-muted py-1" style="font-size:.75rem;">Total sueldos: <strong id="sueldo_monto_display">$0</strong></td>
-      </tr>
-    </tbody>
+  <!-- SUELDOS -->
+  <div class="caja-row">
+    <div class="caja-label">SUELDOS</div>
+    <div class="caja-inputs">
+      <div class="d-flex gap-2 align-items-center">
+        <input type="number" id="sueldo_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100px; flex-shrink:0;">
+        <input type="text" id="sueldo_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+        <button type="button" id="btn_add_sueldo" class="btn btn-sm btn-outline-secondary px-2">+</button>
+      </div>
+      <div id="sueldos_items_body"></div>
+      <div class="text-end text-muted small mt-1">Total sueldos: <strong id="sueldo_monto_display">$0</strong></div>
+    </div>
+  </div>
 
-    <!-- REGALOS -->
-    <tbody>
-      <tr style="background:#f8fafc;">
-        <td class="concept">REGALOS</td>
-        <td><input type="number" id="regalo_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100%;"></td>
-        <td>
-          <div class="d-flex gap-1 align-items-center">
-            <input type="text" id="regalo_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
-            <button type="button" id="btn_add_regalo" class="btn btn-sm btn-outline-secondary px-2">+</button>
-          </div>
-        </td>
-      </tr>
-    </tbody>
-    <tbody id="regalos_items_body"></tbody>
-    <tbody>
-      <tr style="background:#f8fafc;">
-        <td colspan="3" class="text-end text-muted py-1" style="font-size:.75rem;">Total regalos: <strong id="regalo_monto_display">$0</strong></td>
-      </tr>
-    </tbody>
+  <!-- REGALOS -->
+  <div class="caja-row">
+    <div class="caja-label">REGALOS</div>
+    <div class="caja-inputs">
+      <div class="d-flex gap-2 align-items-center">
+        <input type="number" id="regalo_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100px; flex-shrink:0;">
+        <input type="text" id="regalo_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+        <button type="button" id="btn_add_regalo" class="btn btn-sm btn-outline-secondary px-2">+</button>
+      </div>
+      <div id="regalos_items_body"></div>
+      <div class="text-end text-muted small mt-1">Total regalos: <strong id="regalo_monto_display">$0</strong></div>
+    </div>
+  </div>
 
-    <tbody>
-      <!-- SUBTOTAL -->
-      <tr class="table-light">
-        <td class="concept fw-bold">SUBTOTAL</td>
-        <td>
-          <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_subtotal" value="0" readonly>
-        </td>
-        <td></td>
-      </tr>
+  <!-- SUBTOTAL -->
+  <div class="caja-row subtotal">
+    <div class="caja-label fw-bold">SUBTOTAL</div>
+    <div class="caja-inputs">
+      <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_subtotal" value="0" readonly>
+    </div>
+  </div>
 
-      <!-- REDBANK -->
-      <tr>
-        <td class="concept">REDBANK</td>
-        <td>{{ form.redbank_dia }}</td>
-        <td class="notes-cell d-none d-md-table-cell">{{ form.redbank_notas }}</td>
-      </tr>
+  <!-- REDBANK -->
+  <div class="caja-row">
+    <div class="caja-label">REDBANK</div>
+    <div class="caja-inputs">
+      {{ form.redbank_dia }}
+      {{ form.redbank_notas }}
+    </div>
+  </div>
 
-      <!-- TRANSFER -->
-      <tr>
-        <td class="concept">TRANSFERENCIAS</td>
-        <td>{{ form.transfer_dia }}</td>
-        <td class="notes-cell d-none d-md-table-cell">{{ form.transfer_notas }}</td>
-      </tr>
+  <!-- TRANSFERENCIAS -->
+  <div class="caja-row">
+    <div class="caja-label">TRANSFERENCIAS</div>
+    <div class="caja-inputs">
+      {{ form.transfer_dia }}
+      {{ form.transfer_notas }}
+    </div>
+  </div>
 
-      <!-- PRESTAMOS -->
-      <tr>
-        <td class="concept">PRÉSTAMOS</td>
-        <td>{{ form.prestamos }}</td>
-        <td class="notes-cell d-none d-md-table-cell">{{ form.prestamos_notas }}</td>
-      </tr>
+  <!-- PRÉSTAMOS -->
+  <div class="caja-row">
+    <div class="caja-label">PRÉSTAMOS</div>
+    <div class="caja-inputs">
+      {{ form.prestamos }}
+      {{ form.prestamos_notas }}
+    </div>
+  </div>
 
-      <!-- TOTAL -->
-      <tr class="table-info">
-        <td class="concept fw-bold">TOTAL</td>
-        <td>
-          <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_total" value="0" readonly>
-        </td>
-        <td></td>
-      </tr>
-    </tbody>
-  </table>
+  <!-- TOTAL -->
+  <div class="caja-row total-row">
+    <div class="caja-label fw-bold">TOTAL</div>
+    <div class="caja-inputs">
+      <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_total" value="0" readonly>
+    </div>
+  </div>
+
 </div>
 
       <!-- Desglose -->

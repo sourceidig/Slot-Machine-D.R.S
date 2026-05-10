@@ -1,60 +1,66 @@
 Lee templates/cuadratura_diaria/create.html.
 
-El formulario se ve cortado en móvil porque la tabla de CAJA DIARIA 
-tiene columnas fijas que exceden el ancho de pantalla.
+El nuevo layout de divs perdió la apariencia visual de tabla. 
+Agregar estilos para que se vea estructurado en desktop y limpio en móvil.
 
-FIXES responsive para móvil:
+Envolver toda la sección CAJA DIARIA en un card con bordes:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1) Envolver la tabla en div responsive
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Agregar div class="table-responsive" alrededor de la tabla principal 
-de caja diaria para que haga scroll horizontal en móvil en vez de cortar.
+  <div style="border: 1px solid #e2e8f0; border-radius: 10px; 
+              overflow: hidden; background: white;">
+    ... todas las caja-row ...
+  </div>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2) Ocultar columna NOTAS/DETALLE en móvil para filas simples
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-En el <th> y <td> de NOTAS/DETALLE de las filas simples (Sorteos, 
-Redbank, Transferencias, Préstamos) agregar class="d-none d-md-table-cell"
-para ocultarlos en pantallas pequeñas.
+Actualizar el CSS de .caja-row y .caja-label:
 
-Para GASTOS, SUELDOS y REGALOS mantener visible el input Detalle pero
-reducir su ancho mínimo en móvil con CSS.
+  .caja-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    background: white;
+  }
+  .caja-row:last-child {
+    border-bottom: none;
+  }
+  .caja-row:nth-child(even) {
+    background: #fafafa;
+  }
+  .caja-label {
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-width: 110px;
+    padding-top: 8px;
+    flex-shrink: 0;
+  }
+  .caja-inputs {
+    flex: 1;
+    min-width: 0;
+  }
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-3) Agregar estilos responsive en <style>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  @media (max-width: 576px) {
-    /* Tabla más compacta */
-    .table td, .table th {
-      padding: 6px 8px;
-      font-size: 0.82rem;
+  /* SUBTOTAL y TOTAL con fondo diferenciado */
+  .caja-row.subtotal {
+    background: #f8fafc;
+  }
+  .caja-row.total-row {
+    background: #e0f2fe;
+    font-weight: bold;
+  }
+
+  @media (max-width: 480px) {
+    .caja-row {
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
     }
-    /* Input de monto ocupa ancho disponible */
-    .table input[type="number"],
-    .table input[type="text"] {
-      min-width: 0 !important;
-      width: 100% !important;
-    }
-    /* Inputs de Gastos/Sueldos/Regalos en móvil: 
-       Monto angosto, Detalle flexible */
-    #gasto_monto_input, #sueldo_monto_input, #regalo_monto_input {
-      width: 80px !important;
-    }
-    #gasto_detalle_input, #sueldo_detalle_input, #regalo_detalle_input {
-      min-width: 0 !important;
-    }
-    /* Desglose de efectivo: 2 columnas en vez de 3 */
-    .desglose-grid {
-      grid-template-columns: 1fr 1fr !important;
+    .caja-label {
+      padding-top: 0;
+      min-width: unset;
     }
   }
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-4) Header de numerales (Numeral Turno / Numeral acumulado / Caja anterior)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Si los 3 inputs de numerales usan display flex en fila, agregar 
-flex-wrap: wrap y min-width: 80px a cada uno para que se acomoden 
-en 2 filas en pantallas pequeñas.
-
-No cambiar ninguna lógica JS ni de cálculo.
+Agregar class="subtotal" a la fila de SUBTOTAL y class="total-row" 
+a la fila de TOTAL. No cambiar nada más.
