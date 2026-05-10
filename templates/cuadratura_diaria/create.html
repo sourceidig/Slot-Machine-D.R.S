@@ -543,7 +543,8 @@
       </div>
 
       <!-- Resumen final — oculto hasta presionar Ingresar -->
-      <div class="card mt-4" id="seccion_resumen" style="display:none;">
+      <div class="card mt-4" id="seccion_resumen"
+           style="{% if editar %}display:block;{% else %}display:none;{% endif %}">
         <div class="card-header bg-success text-white">
           <h6 class="mb-0">Resumen</h6>
         </div>
@@ -851,7 +852,10 @@ document.addEventListener("DOMContentLoaded", () => {
     ['GASTOS', 'SUELDOS', 'REGALOS'].forEach(function(tipo) {
       if (helpers[tipo]) helpers[tipo].recalcTotal();
     });
-    setTimeout(recalcUI, 50);
+    setTimeout(function() {
+      recalcDesglose();
+      recalcUI();
+    }, 50);
   })();
   {% endif %}
 
