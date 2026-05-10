@@ -37,10 +37,10 @@
 
   <div class="card-body">
     {% if not es_encargado %}
-    <form method="get" class="row g-2 mb-4 align-items-end">
+    <form id="filtro-form" method="get" class="row g-2 mb-4 align-items-end">
       <div class="col-md-4">
         <label class="form-label fw-semibold">Local</label>
-        <select name="sucursal" class="form-select form-select-sm">
+        <select id="fil-sucursal" name="sucursal" class="form-select form-select-sm">
           <option value="">Todos los locales</option>
           {% for s in sucursales %}
             <option value="{{ s.id }}" {% if request.GET.sucursal == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
@@ -49,14 +49,13 @@
       </div>
       <div class="col-md-3">
         <label class="form-label fw-semibold">Fecha Desde</label>
-        <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ request.GET.fecha_desde }}">
+        <input id="fil-desde" type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ request.GET.fecha_desde }}">
       </div>
       <div class="col-md-3">
         <label class="form-label fw-semibold">Fecha Hasta</label>
-        <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ request.GET.fecha_hasta }}">
+        <input id="fil-hasta" type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ request.GET.fecha_hasta }}">
       </div>
-      <div class="col-md-2 d-flex gap-2">
-        <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-funnel"></i> Filtrar</button>
+      <div class="col-md-2">
         <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn btn-secondary btn-sm w-100"><i class="bi bi-x-circle"></i> Limpiar</a>
       </div>
     </form>
@@ -135,4 +134,53 @@
     </div>
   </div>
 </div>
+<script>
+(function () {
+  const STORAGE_KEY = 'cuadratura_list_filters';
+  const form = document.getElementById('filtro-form');
+  if (!form) return;
+
+  // Al cargar sin parámetros GET → restaurar desde sessionStorage
+  const params = new URLSearchParams(window.location.search);
+  const sinFiltros = !params.get('sucursal') && !params.get('fecha_desde') && !params.get('fecha_hasta');
+  if (sinFiltros) {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
+      if (saved && (saved.sucursal || saved.fecha_desde || saved.fecha_hasta)) {
+        const newParams = new URLSearchParams();
+        if (saved.sucursal)    newParams.set('sucursal', saved.sucursal);
+        if (saved.fecha_desde) newParams.set('fecha_desde', saved.fecha_desde);
+        if (saved.fecha_hasta) newParams.set('fecha_hasta', saved.fecha_hasta);
+        window.location.replace('?' + newParams.toString());
+        return;
+      }
+    } catch(e) {}
+  }
+
+  // Guardar en sessionStorage y re-aplicar al cambiar cualquier filtro
+  function guardarYFiltrar() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        sucursal:    document.getElementById('fil-sucursal')?.value || '',
+        fecha_desde: document.getElementById('fil-desde')?.value   || '',
+        fecha_hasta: document.getElementById('fil-hasta')?.value   || '',
+      }));
+    } catch(e) {}
+    form.submit();
+  }
+
+  ['fil-sucursal', 'fil-desde', 'fil-hasta'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', guardarYFiltrar);
+  });
+
+  // Limpiar sessionStorage cuando se hace click en "Limpiar"
+  document.querySelectorAll('a[href*="cuadratura_diaria_list"]').forEach(a => {
+    if (a.href && !a.href.includes('?')) {
+      a.addEventListener('click', () => {
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch(e) {}
+      });
+    }
+  });
+})();
+</script>
 {% endblock %}
