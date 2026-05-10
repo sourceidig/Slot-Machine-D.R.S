@@ -22,9 +22,26 @@
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
-  <a href="#" onclick="history.back(); return false;" class="btn btn-outline-secondary btn-sm">
+  <a href="{% url 'control:cuadratura_diaria_list' %}"
+     id="btn-volver-lista" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left"></i> Volver al Listado
   </a>
+  <script>
+  (function(){
+    var a = document.getElementById('btn-volver-lista');
+    if (!a) return;
+    try {
+      var saved = JSON.parse(sessionStorage.getItem('cuadratura_list_filters') || 'null');
+      if (saved && (saved.sucursal || saved.fecha_desde || saved.fecha_hasta)) {
+        var p = new URLSearchParams();
+        if (saved.sucursal)    p.set('sucursal', saved.sucursal);
+        if (saved.fecha_desde) p.set('fecha_desde', saved.fecha_desde);
+        if (saved.fecha_hasta) p.set('fecha_hasta', saved.fecha_hasta);
+        a.href = a.href.split('?')[0] + '?' + p.toString();
+      }
+    } catch(e) {}
+  })();
+  </script>
   <div class="d-flex gap-2">
     <a href="{% url 'control:cuadratura_diaria_edit' cuadratura.id %}" class="btn btn-warning btn-sm">
       <i class="bi bi-pencil"></i> Editar

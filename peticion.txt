@@ -1,184 +1,30 @@
-Lee CLAUDE.md antes de empezar.
+Solo modificar templates/cuadratura_diaria/detail.html
 
-BUG CRÍTICO EN control/views.py — _caja_anterior_en_ciclo selecciona el 
-turno incorrecto dentro del mismo día.
+El botón o enlace "Volver" en el detail NO debe usar history.back().
+Debe navegar directo a la lista de cuadraturas, restaurando los 
+filtros guardados en sessionStorage (clave 'cuadratura_list_filters').
 
----
+Reemplazar el enlace "Volver" del detail por esto:
 
-DIAGNÓSTICO CONFIRMADO
+<a href="{% url 'control:cuadratura_diaria_list' %}" 
+   id="btn-volver-lista">Volver</a>
 
-La función _caja_anterior_en_ciclo filtra con fecha__lte=fecha y ordena 
-por -fecha, -creado_el. Esto incluye todos los turnos del mismo día, 
-y el último turno creado (ej: Noche) siempre queda primero en el resultado.
+<script>
+(function(){
+  var a = document.getElementById('btn-volver-lista');
+  if (!a) return;
+  try {
+    var saved = JSON.parse(sessionStorage.getItem('cuadratura_list_filters') || 'null');
+    if (saved && (saved.sucursal || saved.fecha_desde || saved.fecha_hasta)) {
+      var p = new URLSearchParams();
+      if (saved.sucursal)    p.set('sucursal', saved.sucursal);
+      if (saved.fecha_desde) p.set('fecha_desde', saved.fecha_desde);
+      if (saved.fecha_hasta) p.set('fecha_hasta', saved.fecha_hasta);
+      a.href = a.href.split('?')[0] + '?' + p.toString();
+    }
+  } catch(e) {}
+})();
+</script>
 
-Consecuencia: Mañana y Tarde de cada día usan el total_efectivo de Noche 
-como su caja_anterior, aunque Noche aún no haya ocurrido.
-Solo el último turno de cada día está correcto (al excluirse a sí mismo 
-encuentra el turno anterior real).
-
-Patrón observado en producción:
-- 07/05 Mañana caja_ant=1441 → TOMADO DE: 07/05 Noche total_ef (✗)
-- 07/05 Tarde  caja_ant=1441 → TOMADO DE: 07/05 Noche total_ef (✗)
-- 07/05 Noche  caja_ant=1375 → TOMADO DE: 07/05 Tarde total_ef (✓ correcto)
-
-El bug afecta todos los días desde el inicio del sistema.
-
----
-
-FIX 1 — Agregar parámetro turno_tipo a _caja_anterior_en_ciclo
-
-Ubicar la función _caja_anterior_en_ciclo en views.py y reemplazarla 
-por esta versión corregida:
-
-TURNO_ORDEN = {'Mañana': 0, 'Tarde': 1, 'Noche': 2}
-
-def _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=None, turno_tipo=None):
-    """
-    Retorna (caja_anterior, prestamos_acum_ant).
-    turno_tipo: tipo del turno actual ('Mañana', 'Tarde', 'Noche').
-    Con turno_tipo, para el mismo día solo considera turnos cronológicamente anteriores.
-    Sin turno_tipo, solo mira días estrictamente anteriores.
-    """
-    inicio_ciclo = get_inicio_ciclo(sucursal)
-    if inicio_ciclo and fecha <= inicio_ciclo:
-        return int(sucursal.caja_inicial or 0), 0
-
-    qs = CuadraturaCajaDiaria.objects.filter(
-        sucursal=sucursal,
-    ).select_related('turno')
-    if inicio_ciclo:
-        qs = qs.filter(fecha__gte=inicio_ciclo)
-    if exclude_pk:
-        qs = qs.exclude(pk=exclude_pk)
-
-    orden_actual = TURNO_ORDEN.get(turno_tipo, None)
-
-    if orden_actual is not None:
-        # Incluir días anteriores + turnos del mismo día con orden < actual
-        turnos_anteriores = [t for t, o in TURNO_ORDEN.items() if o < orden_actual]
-        from django.db.models import Q
-        qs = qs.filter(
-            Q(fecha__lt=fecha) |
-            Q(fecha=fecha, turno__tipo_turno__in=turnos_anteriores)
-        )
-    else:
-        # Sin turno_tipo: solo días anteriores para no mezclar mismo día
-        qs = qs.filter(fecha__lt=fecha)
-
-    prev = qs.order_by("-fecha", "-creado_el").first()
-    if prev:
-        return int(prev.total_efectivo or 0), int(prev.prestamos_acum or 0)
-    return int(sucursal.caja_inicial or 0), 0
-
----
-
-FIX 2 — Actualizar todos los llamados a _caja_anterior_en_ciclo
-
-Buscar TODOS los lugares donde se llama _caja_anterior_en_ciclo y agregar 
-turno_tipo donde esté disponible.
-
-Los principales son:
-
-a) En _recalcular_totales (línea ~1220):
-   Cambiar:
-     base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
-   Por:
-     base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk, turno_tipo=tipo)
-
-   Y también la segunda llamada para prestamos_acum_ant (línea ~1255):
-     _, prestamos_acum_ant = _caja_anterior_en_ciclo(
-         cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura_pk, turno_tipo=tipo
-     )
-
-b) En cuadratura_diaria_create (línea ~1429):
-   Cuando se calcula caja_anterior para el contexto GET, agregar turno_tipo si está disponible:
-     turno_tipo_get = request.GET.get('turno_tipo', '') or (turno_tipo_fijo or '')
-     caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(
-         sucursal_obj, fecha, turno_tipo=turno_tipo_get or None
-     )
-   
-c) En cuadratura_diaria_edit (línea ~1671):
-     turno_tipo_edit = cuadratura.turno.tipo_turno if cuadratura.turno else None
-     caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(
-         cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk, turno_tipo=turno_tipo_edit
-     )
-
-d) En _get_caja_anterior y cualquier otro llamado: agregar turno_tipo=None como fallback
-   (sin turno_tipo ya funciona correctamente para contextos sin turno)
-
-e) En ajax_cuadratura_diaria_numerales (buscar llamada a _caja_anterior_en_ciclo):
-   Pasar turno_tipo desde el request si está disponible.
-
----
-
-FIX 3 — cuadratura_diaria_recalcular_todo debe procesar en orden de turno
-
-Buscar la función cuadratura_diaria_recalcular_todo. Verificar que al ordenar
-las cuadraturas para recalcular, use el orden cronológico correcto dentro del 
-mismo día: primero Mañana, luego Tarde, luego Noche.
-
-Agregar anotación con orden de turno para el sort:
-    from django.db.models import Case, When, IntegerField, Value
-    TURNO_ORDEN_Q = Case(
-        When(turno__tipo_turno='Mañana', then=Value(0)),
-        When(turno__tipo_turno='Tarde',  then=Value(1)),
-        When(turno__tipo_turno='Noche',  then=Value(2)),
-        default=Value(0),
-        output_field=IntegerField(),
-    )
-    cuadraturas = CuadraturaCajaDiaria.objects.filter(...).select_related('turno','sucursal').annotate(
-        orden_turno=TURNO_ORDEN_Q
-    ).order_by('fecha', 'orden_turno', 'creado_el')
-
-También el cascade en cuadratura_diaria_edit debe usar el mismo orden:
-    dias_siguientes = CuadraturaCajaDiaria.objects.filter(
-        sucursal=c.sucursal,
-        fecha__gt=c.fecha
-    ).select_related('turno').annotate(orden_turno=TURNO_ORDEN_Q).order_by('fecha', 'orden_turno', 'creado_el')
-
----
-
-DESPUÉS DE LOS FIXES — Reparar datos en producción
-
-Una vez aplicados los tres fixes, hacer commit y push, luego SSH al NAS:
-
-git add control/views.py
-git commit -m "fix: _caja_anterior_en_ciclo ignora turnos posteriores del mismo día"
-git push origin main
-
-SSH al NAS (192.168.1.24) y:
-cd /volume1/docker/plazagames && bash actualizar.sh
-
-Luego ejecutar desde dentro del contenedor:
-docker exec -it plazagames python manage.py shell -c "
-from control.views import cuadratura_diaria_recalcular_todo
-from django.test import RequestFactory
-from control.models import Usuario
-u = Usuario.objects.filter(role='admin').first()
-# Llamar la función de recalculo directamente (si es una función pura)
-from control.models import CuadraturaCajaDiaria
-from control.views import _recalcular_totales
-from django.db.models import Case, When, IntegerField, Value
-from django.utils import timezone
-
-TURNO_ORDEN_Q = Case(
-    When(turno__tipo_turno='Mañana', then=Value(0)),
-    When(turno__tipo_turno='Tarde',  then=Value(1)),
-    When(turno__tipo_turno='Noche',  then=Value(2)),
-    default=Value(0),
-    output_field=IntegerField(),
-)
-todas = CuadraturaCajaDiaria.objects.all().select_related('turno','sucursal').annotate(
-    orden_turno=TURNO_ORDEN_Q
-).order_by('fecha', 'orden_turno', 'creado_el')
-
-for c in todas:
-    tipo = c.turno.tipo_turno if c.turno else None
-    _recalcular_totales(c, turno_tipo=tipo)
-    c.actualizado_el = timezone.now()
-    c.save()
-    print(f'{c.fecha} {c.sucursal.nombre} {tipo} → caja_prev calculada')
-print('LISTO')
-"
-
-No tocar modelos ni migrations.
+No tocar el botón Volver del edit (ese sí puede seguir con history.back()).
+No tocar views.py ni otros templates.
