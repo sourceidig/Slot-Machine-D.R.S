@@ -1217,7 +1217,7 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
 
     # 2) Caja anterior dentro del ciclo (si es primer día del ciclo → caja_inicial).
     # Se excluye la propia cuadratura para evitar referencia circular cuando hay varias en el mismo día.
-    base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk, turno_tipo=turno_tipo)
+    base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk, turno_tipo=tipo)
 
     # (si quieres guardar caja anterior en el modelo, aquí NO tienes campo.
     #  Solo lo usamos para cálculo)
@@ -1254,7 +1254,7 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
     prestamos_dia = int(cuadratura.prestamos or 0)
     cuadratura_pk = cuadratura.pk if cuadratura.pk else None
     _, prestamos_acum_ant = _caja_anterior_en_ciclo(
-        cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura_pk, turno_tipo=turno_tipo
+        cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura_pk, turno_tipo=tipo
     )
     prestamos_acum = prestamos_acum_ant + prestamos_dia
     cuadratura.prestamos_acum = prestamos_acum
@@ -1566,7 +1566,8 @@ def cuadratura_diaria_list(request):
 @login_required
 def cuadratura_diaria_detail(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
-    caja_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, turno_tipo=cuadratura.turno.tipo_turno if cuadratura.turno else None)
+    _turno_tipo_det = cuadratura.turno.tipo_turno if cuadratura.turno else None
+    caja_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, turno_tipo=_turno_tipo_det)
 
     # Hora de apertura del turno: usa el turno vinculado o busca por sucursal+fecha
     turno_ref = cuadratura.turno or (
@@ -1684,13 +1685,13 @@ def cuadratura_diaria_edit(request, pk):
         form = CuadraturaCajaDiariaForm(instance=cuadratura)
 
     # Caja anterior dentro del ciclo, excluyendo la propia para no tomarse a sí misma
-    turno_tipo_edit = cuadratura.turno.tipo_turno if cuadratura.turno else None
-    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk, turno_tipo=turno_tipo_edit)
+    _turno_tipo_edit = cuadratura.turno.tipo_turno if cuadratura.turno else None
+    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk, turno_tipo=_turno_tipo_edit)
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
     detalles_json = json.dumps(list(cuadratura.detalles.values("tipo", "nombre", "monto")), ensure_ascii=False)
     numeral_dia_fresco, _ = calcular_numerales_caja(
         cuadratura.sucursal, cuadratura.fecha,
-        turno_tipo=turno_tipo_edit,
+        turno_tipo=_turno_tipo_edit,
         exclude_pk=cuadratura.pk,
     )
 
@@ -3023,15 +3024,9 @@ def ajax_cuadratura_detalles(request):
         "sueldo_b_dia": cuadratura.sueldo_b_dia,
     })
 
-TURNO_ORDEN = {'Mañana': 0, 'Tarde': 1, 'Noche': 2}
+_TURNO_ORDEN = {'Mañana': 0, 'Tarde': 1, 'Noche': 2}
 
 def _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=None, turno_tipo=None):
-    """
-    Retorna (caja_anterior, prestamos_acum_ant).
-    turno_tipo: tipo del turno actual ('Mañana', 'Tarde', 'Noche').
-    Con turno_tipo, para el mismo día solo considera turnos cronológicamente anteriores.
-    Sin turno_tipo, solo mira días estrictamente anteriores.
-    """
     inicio_ciclo = get_inicio_ciclo(sucursal)
     if inicio_ciclo and fecha <= inicio_ciclo:
         return int(sucursal.caja_inicial or 0), 0
@@ -3044,10 +3039,11 @@ def _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=None, turno_tipo=None):
     if exclude_pk:
         qs = qs.exclude(pk=exclude_pk)
 
-    orden_actual = TURNO_ORDEN.get(turno_tipo, None)
+    orden_actual = _TURNO_ORDEN.get(turno_tipo) if turno_tipo else None
 
     if orden_actual is not None:
-        turnos_anteriores = [t for t, o in TURNO_ORDEN.items() if o < orden_actual]
+        turnos_anteriores = [t for t, o in _TURNO_ORDEN.items() if o < orden_actual]
+        from django.db.models import Q
         qs = qs.filter(
             Q(fecha__lt=fecha) |
             Q(fecha=fecha, turno__tipo_turno__in=turnos_anteriores)
