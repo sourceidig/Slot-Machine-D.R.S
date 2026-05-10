@@ -700,7 +700,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 // ========= 1) Numerales + caja anterior (AJAX) =========
-  const excludePk = {{ cuadratura.pk|default:”null” }};
+  const excludePk = {{ cuadratura.pk|default:0 }};
 
   async function cargarNumerales() {
     const fecha = fechaInput?.value;
@@ -718,7 +718,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const params = new URLSearchParams({ sucursal_id: sucursalId, fecha: fecha, turno: turnoTipo });
-    if (excludePk) params.append('exclude_pk', excludePk);
+    if (excludePk > 0) params.append('exclude_pk', excludePk);
     const url = `{% url “control:ajax_cuadratura_diaria_numerales” %}?${params}`;
 
     try {
@@ -825,7 +825,7 @@ document.addEventListener("DOMContentLoaded", () => {
   {% if editar %}
   (function() {
     // Pre-cargar detalles guardados
-    const detalles = {{ detalles_json|default:"[]"|safe }};
+    const detalles = {{ detalles_json|safe }};
     detalles.forEach(function(d) {
       const h = helpers[d.tipo];
       if (h) h.addRow(d.nombre, d.monto);
