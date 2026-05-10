@@ -1,61 +1,76 @@
-Lee control/views.py. Hay DOS bugs en la misma función _caja_anterior_en_ciclo
-que se llama sin exclude_pk en dos lugares distintos.
+Lee templates/cuadratura_diaria/create.html y control/views.py.
+
+En modo edición, los siguientes campos del Resumen no se muestran:
+Descuadre, Ganancia, Retiro, Total efectivo. Y el Total desglose 
+muestra 0 aunque los inputs de billetes tienen valores.
+Además la Caja anterior muestra valor incorrecto.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FIX 1 — _recalcular_totales paso 7
+PROBLEMA 1 — Total desglose = 0 y Resumen vacío
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Buscar exactamente esta línea (paso 7):
+Al cargar la página en modo edición, los inputs de billetes tienen 
+valores pero las funciones JS que calculan totales no se ejecutan.
 
-    _, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
+En el bloque DOMContentLoaded o en el bloque {% if cuadratura.pk %},
+DESPUÉS de que todos los inputs tengan sus valores precargados,
+agregar llamadas explícitas en este orden:
 
-Cambiar a:
+  1. calcularDesglose()  (o el nombre real que suma los billetes)
+  2. recalcUI()          (recalcula subtotales, descuadre, ganancia)
 
-    _, prestamos_acum_ant = _caja_anterior_en_ciclo(
-        cuadratura.sucursal, cuadratura.fecha,
-        exclude_pk=cuadratura.pk
-    )
+Si esas funciones no existen con esos nombres, buscar en el JS cuál
+es la función que:
+  - Lee los inputs de $20.000, $10.000, $5.000, $2.000, $1.000, 
+    Monedas y actualiza "Total desglose"
+  - Lee todos los campos y actualiza Descuadre, Ganancia, 
+    Total efectivo en el Resumen
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FIX 2 — ajax_cuadratura_diaria_numerales
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-En la función ajax_cuadratura_diaria_numerales, la llamada:
-
-    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha)
-
-No recibe exclude_pk. Cuando se edita una caja existente, fecha__lte=fecha
-encuentra LA CAJA MISMA y retorna su propio total_efectivo como caja anterior.
-
-Paso 1: Recibir el pk desde el GET request:
-    exclude_pk = request.GET.get("exclude_pk")
-    if exclude_pk:
-        try:
-            exclude_pk = int(exclude_pk)
-        except (ValueError, TypeError):
-            exclude_pk = None
-
-Paso 2: Pasar exclude_pk a _caja_anterior_en_ciclo:
-    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(
-        sucursal, fecha, exclude_pk=exclude_pk
-    )
+Y llamarlas al final del bloque de inicialización en edición.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FIX 3 — Template create.html (pasar exclude_pk al AJAX)
+PROBLEMA 2 — Retiro no se precarga en edición
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-En la función JS cargarNumerales() o onHeaderChange() que hace el AJAX
-a ajax_cuadratura_diaria_numerales, agregar el pk de la caja actual
-cuando se está en modo edición:
+El campo Retiro (id_retiro o similar) no se está precargando con
+el valor guardado en la BD (cuadratura.retiro_diario).
 
-    const excludePk = {{ cuadratura.pk|default:"null" }};
-    
-    // En la llamada AJAX agregar:
-    const params = new URLSearchParams({
-        sucursal_id: ...,
-        fecha: ...,
-        turno: ...,
-    });
-    if (excludePk) params.append('exclude_pk', excludePk);
-    
-    fetch(`/ajax/cuadratura-diaria-numerales/?${params}`)
+En el bloque {% if cuadratura.pk %}, agregar:
+  document.getElementById('id_retiro').value = 
+    '{{ cuadratura.retiro_diario|default:0 }}';
 
-Adaptar al código real de la función AJAX en el template.
+Adaptar el id real del campo según el HTML.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEMA 3 — Caja anterior incorrecta en edición
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+En views.py, función ajax_cuadratura_diaria_numerales:
+
+  caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha)
+
+Sin exclude_pk, encuentra la caja que se está editando y retorna
+su propio total_efectivo como caja anterior.
+
+FIX en views.py:
+  exclude_pk = request.GET.get("exclude_pk")
+  if exclude_pk:
+      try: exclude_pk = int(exclude_pk)
+      except: exclude_pk = None
+  caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(
+      sucursal, fecha, exclude_pk=exclude_pk
+  )
+
+FIX en create.html — en la función JS que llama al AJAX 
+(cargarNumerales o onHeaderChange), agregar exclude_pk:
+
+  const excludePk = {{ cuadratura.pk|default:0 }};
+  ...
+  if (excludePk > 0) params.append('exclude_pk', excludePk);
+
+TAMBIÉN: Al cargar la página en modo edición, disparar el AJAX
+una vez con los valores actuales para que cargue la caja anterior
+correcta desde el inicio, sin esperar a que el usuario cambie algo.
+
+En el bloque {% if cuadratura.pk %}, después de precargar los inputs,
+agregar:
+  cargarNumerales(); // o el nombre real de la función AJAX
+
 No tocar ninguna otra lógica.
