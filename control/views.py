@@ -1284,6 +1284,8 @@ _ROLES_SUCURSAL_FIJA = ('supervisor', 'encargado')
 def cuadratura_diaria_create(request):
     usa_sucursal_fija = request.user.role in _ROLES_SUCURSAL_FIJA
     sucursal_fija = _sucursal_fija_para(request) if usa_sucursal_fija else None
+    turno_tipo_fijo = None
+    fecha_turno = timezone.localdate()
 
     if request.method == "POST":
         form = CuadraturaCajaDiariaForm(request.POST)
@@ -1308,12 +1310,12 @@ def cuadratura_diaria_create(request):
 
                 cuadratura.usuario = request.user
                 cuadratura.sucursal = sucursal
-                # Encargados y supervisores no pueden elegir fecha: siempre es hoy
+                # Fecha inicial: se sobreescribe con turno.fecha más abajo cuando hay turno abierto
                 if usa_sucursal_fija:
                     cuadratura.fecha = timezone.localdate()
 
                 # Asignar turno
-                if request.user.role == 'encargado':
+                if request.user.role in ('encargado', 'asistente'):
                     turno_activo = Turno.objects.filter(usuario=request.user, estado="Abierto").first()
                     if turno_activo:
                         cuadratura.turno = turno_activo
@@ -1433,22 +1435,24 @@ def cuadratura_diaria_create(request):
         messages.error(request, "Formulario inválido. Revise los datos enviados.")
 
     else:
-        initial = {"fecha": timezone.now().date()}
-        if usa_sucursal_fija and sucursal_fija:
-            initial["sucursal"] = sucursal_fija
-        form = CuadraturaCajaDiariaForm(initial=initial)
-        # Detectar turno del encargado para pre-cargar numerales
         turno_tipo_fijo = None
+        fecha_turno = timezone.localdate()
         if usa_sucursal_fija and sucursal_fija:
-            from django.utils import timezone as tz
             turno_obj = Turno.objects.filter(
-                sucursal=sucursal_fija, fecha=tz.localdate()
+                sucursal=sucursal_fija, estado="Abierto"
             ).order_by('-id').first()
             if turno_obj:
                 turno_tipo_fijo = turno_obj.tipo_turno
+                fecha_turno = turno_obj.fecha
+
+        initial = {"fecha": fecha_turno if usa_sucursal_fija else timezone.now().date()}
+        if usa_sucursal_fija and sucursal_fija:
+            initial["sucursal"] = sucursal_fija
+        form = CuadraturaCajaDiariaForm(initial=initial)
+
         ref_sucursal = sucursal_fija if usa_sucursal_fija else Sucursal.objects.filter(is_active=True).order_by("nombre").first()
         if ref_sucursal:
-            fecha = timezone.now().date()
+            fecha = fecha_turno if usa_sucursal_fija else timezone.now().date()
             caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(ref_sucursal, fecha)
             caja_inicial = int(ref_sucursal.caja_inicial or 0)
         else:
@@ -1493,6 +1497,7 @@ def cuadratura_diaria_create(request):
         "sucursal_fija": sucursal_fija,
         "usa_sucursal_fija": usa_sucursal_fija,
         "fecha_fija": usa_sucursal_fija,  # bloquea el campo fecha para encargados/supervisores
+        "fecha_turno": fecha_turno if usa_sucursal_fija else None,
         "turno_tipo_fijo": turno_tipo_fijo,
         "es_encargada": request.user.role in ("encargado", "asistente"),
         "es_encargado_o_asistente": request.user.role in ('encargado', 'asistente'),

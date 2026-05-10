@@ -1,66 +1,32 @@
-Lee templates/cuadratura_diaria/create.html.
+Lee control/views.py función cuadratura_diaria_create y 
+templates/cuadratura_diaria/create.html.
 
-El nuevo layout de divs perdió la apariencia visual de tabla. 
-Agregar estilos para que se vea estructurado en desktop y limpio en móvil.
+BUG: La fecha de la caja muestra la fecha de hoy en vez de la fecha 
+del turno activo cuando el usuario es encargado/asistente/supervisor.
 
-Envolver toda la sección CAJA DIARIA en un card con bordes:
+CAUSA: Al agregar el input libre de fecha para admin, se perdió la 
+lógica que tomaba la fecha del turno activo para los demás roles.
 
-  <div style="border: 1px solid #e2e8f0; border-radius: 10px; 
-              overflow: hidden; background: white;">
-    ... todas las caja-row ...
-  </div>
+FIX en views.py — GET de cuadratura_diaria_create:
+Para roles con sucursal fija (encargado, asistente, supervisor):
+  - Obtener el turno activo del usuario (ya existe esta lógica)
+  - Pasar fecha_inicial = turno_activo.fecha al contexto
+  - NO pasar fecha_inicial = date.today()
 
-Actualizar el CSS de .caja-row y .caja-label:
+Para admin/gerente:
+  - Mantener fecha_inicial = date.today() como default del date picker
 
-  .caja-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 10px 16px;
-    border-bottom: 1px solid #f1f5f9;
-    background: white;
-  }
-  .caja-row:last-child {
-    border-bottom: none;
-  }
-  .caja-row:nth-child(even) {
-    background: #fafafa;
-  }
-  .caja-label {
-    font-weight: 700;
-    font-size: 0.78rem;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    min-width: 110px;
-    padding-top: 8px;
-    flex-shrink: 0;
-  }
-  .caja-inputs {
-    flex: 1;
-    min-width: 0;
-  }
+FIX en create.html:
+Para encargado/asistente/supervisor el campo fecha debe ser:
+  - Valor = {{ turno_activo.fecha|date:"Y-m-d" }} (la del turno)
+  - readonly o disabled (no editable)
+  - Sin el date picker libre
 
-  /* SUBTOTAL y TOTAL con fondo diferenciado */
-  .caja-row.subtotal {
-    background: #f8fafc;
-  }
-  .caja-row.total-row {
-    background: #e0f2fe;
-    font-weight: bold;
-  }
+Para admin/gerente mantener el input date editable con default hoy.
 
-  @media (max-width: 480px) {
-    .caja-row {
-      flex-direction: column;
-      gap: 6px;
-      padding: 10px 12px;
-    }
-    .caja-label {
-      padding-top: 0;
-      min-width: unset;
-    }
-  }
+Verificar que en el POST, para encargado, la fecha también se tome 
+del turno activo (turno_obj.fecha) y no del POST data, para evitar 
+manipulación. Esto probablemente ya estaba así antes del cambio — 
+restaurar ese comportamiento.
 
-Agregar class="subtotal" a la fila de SUBTOTAL y class="total-row" 
-a la fila de TOTAL. No cambiar nada más.
+No tocar ninguna otra lógica.

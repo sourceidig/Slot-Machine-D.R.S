@@ -114,7 +114,7 @@
   }
   .caja-row:last-child { border-bottom: none; }
   .caja-row:nth-child(even) { background: #fafafa; }
-  .caja-row.subtotal { background: #f8fafc; }
+  .caja-row.subtotal { background: #e2e8f0; }
   .caja-row.total-row { background: #e0f2fe; font-weight: bold; }
   .caja-label {
     font-weight: 700;
@@ -122,9 +122,18 @@
     color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    min-width: 110px;
+    width: 140px;
     padding-top: 8px;
     flex-shrink: 0;
+    flex-grow: 0;
+  }
+  .caja-inputs input[type="number"] {
+    width: 100px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .caja-inputs input[type="text"] {
+    text-align: left;
   }
   .caja-inputs {
     flex: 1;
@@ -135,9 +144,27 @@
   .caja-inputs textarea {
     width: 100%;
     box-sizing: border-box;
+    resize: none;
   }
   .caja-inputs textarea.form-control {
     margin-top: 4px;
+  }
+  .caja-inline-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .caja-inline-row input[type="number"] {
+    width: 100px !important;
+    flex-shrink: 0;
+  }
+  .caja-inline-row textarea {
+    flex: 1 !important;
+    width: auto !important;
+    min-width: 0;
+    height: 36px;
+    padding: 6px 10px;
+    margin-top: 0 !important;
   }
 
   @media (max-width: 480px) {
@@ -153,6 +180,16 @@
     .desglose-grid {
       grid-template-columns: 1fr 1fr !important;
     }
+  }
+
+  .caja-inputs input[type="number"],
+  .caja-inputs textarea {
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    padding: 6px 10px;
+    box-sizing: border-box;
+    line-height: normal;
   }
 </style>
 
@@ -206,8 +243,8 @@
                    style="min-width:115px; background:#f1f5f9; font-weight:700;">
             <input type="hidden" name="fecha" value="{{ cuadratura.fecha|date:'Y-m-d' }}">
           {% elif fecha_fija %}
-            <input type="hidden" id="id_fecha" name="fecha" value="{% now "Y-m-d" %}">
-            <input type="text" class="form-control readonly" value="{% now "d/m/Y" %}" readonly style="min-width:110px;">
+            <input type="hidden" id="id_fecha" name="fecha" value="{{ fecha_turno|date:'Y-m-d' }}">
+            <input type="text" class="form-control readonly" value="{{ fecha_turno|date:'d/m/Y' }}" readonly style="min-width:110px;">
           {% else %}
             <input type="date" id="id_fecha" name="fecha" class="form-control" value="{% now "Y-m-d" %}" style="min-width:110px;">
           {% endif %}
@@ -272,7 +309,7 @@
                 <input type="text" class="form-control" id="id_numeral_dia" value="0" readonly
                        style="width:130px; font-size:0.85rem; text-align:right; background:#f1f5f9;">
               {% endif %}
-              <div class="small text-muted mt-1">Numeral Turno</div>
+              <div class="small mt-1" style="font-weight:600; color:#1e293b;">Numeral Turno</div>
             </div>
             {% if not es_encargada %}
             <div style="min-width: 80px;">
@@ -286,7 +323,7 @@
                 <input type="text" class="form-control" id="id_numeral_acumulado" value="0" readonly
                        style="width:130px; font-size:0.85rem; text-align:right; background:#f1f5f9;">
               {% endif %}
-              <div class="small text-muted mt-1">Numeral acumulado</div>
+              <div class="small mt-1" style="font-weight:600; color:#1e293b;">Numeral acumulado</div>
             </div>
             {% else %}
             <input type="hidden" id="id_numeral_acumulado" value="{% if cuadratura.pk %}{{ cuadratura.numeral_acumulado|default:0 }}{% else %}0{% endif %}">
@@ -295,7 +332,7 @@
               <input type="text" class="form-control" id="id_caja_anterior"
                      value="{{ caja_anterior }}" readonly
                      style="width:130px; font-size:0.85rem; text-align:right; background:#f1f5f9;">
-              <div class="small text-muted mt-1">Caja anterior</div>
+              <div class="small mt-1" style="font-weight:600; color:#1e293b;">Caja anterior</div>
               <input type="hidden" id="id_caja_inicial" value="{{ caja_inicial|default:0 }}">
               <input type="hidden" id="id_prestamos_acum_ant" value="{{ prestamos_acum_ant|default:0 }}">
             </div>
@@ -318,8 +355,17 @@
   <div class="caja-row">
     <div class="caja-label">SORTEOS</div>
     <div class="caja-inputs">
-      {{ form.sorteos_dia }}
-      {{ form.sorteos_notas }}
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="number" id="id_sorteos_dia" name="sorteos_dia"
+               value="{{ form.sorteos_dia.value|default:'' }}"
+               placeholder="Monto"
+               class="form-control form-control-sm"
+               style="width:100px; flex-shrink:0; text-align:right;">
+        <textarea id="id_sorteos_notas" name="sorteos_notas" rows="1"
+                  placeholder="Notas..."
+                  class="form-control form-control-sm"
+                  style="flex:1; min-width:0; resize:none; height:36px; padding:6px 10px; box-sizing:border-box;">{{ form.sorteos_notas.value|default:'' }}</textarea>
+      </div>
     </div>
   </div>
 
@@ -327,13 +373,13 @@
   <div class="caja-row">
     <div class="caja-label">GASTOS</div>
     <div class="caja-inputs">
-      <div class="d-flex gap-2 align-items-center">
+      <div style="display:flex; align-items:center; gap:8px;">
         <input type="number" id="gasto_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100px; flex-shrink:0;">
-        <input type="text" id="gasto_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+        <input type="text" id="gasto_detalle_input" class="form-control form-control-sm" placeholder="Detalle" style="flex:1; min-width:0;">
         <button type="button" id="btn_add_gasto" class="btn btn-sm btn-outline-secondary px-2">+</button>
       </div>
+      <div style="display:none;">Total gastos: <strong id="gasto_monto_display">$0</strong></div>
       <div id="gastos_items_body"></div>
-      <div class="text-end text-muted small mt-1">Total gastos: <strong id="gasto_monto_display">$0</strong></div>
     </div>
   </div>
 
@@ -341,13 +387,13 @@
   <div class="caja-row">
     <div class="caja-label">SUELDOS</div>
     <div class="caja-inputs">
-      <div class="d-flex gap-2 align-items-center">
+      <div style="display:flex; align-items:center; gap:8px;">
         <input type="number" id="sueldo_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100px; flex-shrink:0;">
-        <input type="text" id="sueldo_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+        <input type="text" id="sueldo_detalle_input" class="form-control form-control-sm" placeholder="Detalle" style="flex:1; min-width:0;">
         <button type="button" id="btn_add_sueldo" class="btn btn-sm btn-outline-secondary px-2">+</button>
       </div>
+      <div style="display:none;">Total sueldos: <strong id="sueldo_monto_display">$0</strong></div>
       <div id="sueldos_items_body"></div>
-      <div class="text-end text-muted small mt-1">Total sueldos: <strong id="sueldo_monto_display">$0</strong></div>
     </div>
   </div>
 
@@ -355,13 +401,13 @@
   <div class="caja-row">
     <div class="caja-label">REGALOS</div>
     <div class="caja-inputs">
-      <div class="d-flex gap-2 align-items-center">
+      <div style="display:flex; align-items:center; gap:8px;">
         <input type="number" id="regalo_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100px; flex-shrink:0;">
-        <input type="text" id="regalo_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+        <input type="text" id="regalo_detalle_input" class="form-control form-control-sm" placeholder="Detalle" style="flex:1; min-width:0;">
         <button type="button" id="btn_add_regalo" class="btn btn-sm btn-outline-secondary px-2">+</button>
       </div>
+      <div style="display:none;">Total regalos: <strong id="regalo_monto_display">$0</strong></div>
       <div id="regalos_items_body"></div>
-      <div class="text-end text-muted small mt-1">Total regalos: <strong id="regalo_monto_display">$0</strong></div>
     </div>
   </div>
 
@@ -369,7 +415,7 @@
   <div class="caja-row subtotal">
     <div class="caja-label fw-bold">SUBTOTAL</div>
     <div class="caja-inputs">
-      <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_subtotal" value="0" readonly>
+      <input type="text" class="form-control form-control-sm fw-bold" id="id_subtotal" value="0" readonly>
     </div>
   </div>
 
@@ -377,17 +423,44 @@
   <div class="caja-row">
     <div class="caja-label">REDBANK</div>
     <div class="caja-inputs">
-      {{ form.redbank_dia }}
-      {{ form.redbank_notas }}
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="number" id="id_redbank_dia" name="redbank_dia"
+               value="{{ form.redbank_dia.value|default:'' }}"
+               placeholder="Monto"
+               class="form-control form-control-sm"
+               style="width:100px; flex-shrink:0; text-align:right;">
+        <textarea id="id_redbank_notas" name="redbank_notas" rows="1"
+                  placeholder="Notas..."
+                  class="form-control form-control-sm"
+                  style="flex:1; min-width:0; resize:none; height:36px; padding:6px 10px; box-sizing:border-box;">{{ form.redbank_notas.value|default:'' }}</textarea>
+      </div>
     </div>
   </div>
 
   <!-- TRANSFERENCIAS -->
   <div class="caja-row">
-    <div class="caja-label">TRANSFERENCIAS</div>
+    <div class="caja-label">TRANSFER.</div>
     <div class="caja-inputs">
-      {{ form.transfer_dia }}
-      {{ form.transfer_notas }}
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="number" id="id_transfer_dia" name="transfer_dia"
+               value="{{ form.transfer_dia.value|default:'' }}"
+               placeholder="Monto"
+               class="form-control form-control-sm"
+               style="width:100px; flex-shrink:0; text-align:right;">
+        <textarea id="id_transfer_notas" name="transfer_notas" rows="1"
+                  placeholder="Notas..."
+                  class="form-control form-control-sm"
+                  style="flex:1; min-width:0; resize:none; height:36px; padding:6px 10px; box-sizing:border-box;">{{ form.transfer_notas.value|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBTOTAL 2 -->
+  <div class="caja-row subtotal">
+    <div class="caja-label">SUBTOTAL</div>
+    <div class="caja-inputs">
+      <input type="text" id="subtotal2_display" readonly value="0"
+             style="background:#e2e8f0; border:1px solid #cbd5e1; border-radius:6px; padding:6px 10px; width:100%; font-weight:600;">
     </div>
   </div>
 
@@ -395,18 +468,21 @@
   <div class="caja-row">
     <div class="caja-label">PRÉSTAMOS</div>
     <div class="caja-inputs">
-      {{ form.prestamos }}
-      {{ form.prestamos_notas }}
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="number" id="id_prestamos" name="prestamos"
+               value="{{ form.prestamos.value|default:'' }}"
+               placeholder="Monto"
+               class="form-control form-control-sm"
+               style="width:100px; flex-shrink:0; text-align:right;">
+        <textarea id="id_prestamos_notas" name="prestamos_notas" rows="1"
+                  placeholder="Notas..."
+                  class="form-control form-control-sm"
+                  style="flex:1; min-width:0; resize:none; height:36px; padding:6px 10px; box-sizing:border-box;">{{ form.prestamos_notas.value|default:'' }}</textarea>
+      </div>
     </div>
   </div>
 
-  <!-- TOTAL -->
-  <div class="caja-row total-row">
-    <div class="caja-label fw-bold">TOTAL</div>
-    <div class="caja-inputs">
-      <input type="text" class="form-control form-control-sm text-end fw-bold" id="id_total" value="0" readonly>
-    </div>
-  </div>
+  <input type="hidden" id="id_total" value="0">
 
 </div>
 
@@ -735,9 +811,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const monto = parseIntSafe(document.getElementById(montoInputId)?.value);
         if (!monto) return;
         const detalle = (document.getElementById(detalleInputId)?.value || '').trim();
-        helper.addRow(detalle, monto);
         document.getElementById(montoInputId).value = '';
         document.getElementById(detalleInputId).value = '';
+        helper.addRow(detalle, monto);
       });
     }
     wireAddBtn('btn_add_gasto',  'gasto_monto_input',  'gasto_detalle_input',  helpers.GASTOS);
@@ -802,14 +878,18 @@ function recalcUI() {
   const cajaAnteriorVal = getValById("id_caja_anterior");
 
   const sorteos = getValById("id_sorteos_dia");
-  const gastos = getValById("id_gastos_dia");
-  const sueldos = getValById("id_sueldo_b_dia");
-  const regalos = getValById("id_regalos_dia");
+  const gastos  = getValById("id_gastos_dia")  + (parseInt(document.getElementById("gasto_monto_input")?.value)  || 0);
+  const sueldos = getValById("id_sueldo_b_dia") + (parseInt(document.getElementById("sueldo_monto_input")?.value) || 0);
+  const regalos = getValById("id_regalos_dia") + (parseInt(document.getElementById("regalo_monto_input")?.value) || 0);
   const jugados = 0;
 
   const redbank = getValById("id_redbank_dia");
   const transfer = getValById("id_transfer_dia");
   const prestamos = getValById("id_prestamos");
+
+  const subtotal2 = redbank + transfer;
+  const subtotal2El = document.getElementById('subtotal2_display');
+  if (subtotal2El) subtotal2El.value = subtotal2;
 
   const subtotal = sorteos + gastos + sueldos + regalos;
   setVal(subtotalEl, subtotal);
@@ -965,6 +1045,10 @@ function recalcUI() {
       else recalcUI();
     });
   });
+
+  document.getElementById("gasto_monto_input")?.addEventListener("input", recalcUI);
+  document.getElementById("sueldo_monto_input")?.addEventListener("input", recalcUI);
+  document.getElementById("regalo_monto_input")?.addEventListener("input", recalcUI);
 
   // ========= hooks header =========
   async function onHeaderChange() {
