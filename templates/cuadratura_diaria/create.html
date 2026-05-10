@@ -1071,22 +1071,30 @@ function recalcUI() {
 
   {% if cuadratura.pk %}
   // Modo edición: precargar valores guardados y recalcular UI
-  {
-    const ndEl = document.getElementById('id_numeral_dia');
-    const naEl = document.getElementById('id_numeral_acumulado');
+  (async () => {
     const caEl = document.getElementById('id_caja_anterior');
     const retiroEl = document.getElementById('id_retiro_diario');
-    if (ndEl) ndEl.value = '{{ cuadratura.numeral_dia|default:0 }}';
-    if (naEl) naEl.value = '{{ cuadratura.numeral_acumulado|default:0 }}';
+    const naEl = document.getElementById('id_numeral_acumulado');
     if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
+    if (naEl) naEl.value = '{{ cuadratura.numeral_acumulado|default:0 }}';
     if (retiroEl) retiroEl.value = '{{ cuadratura.retiro_diario|default:0 }}';
+
+    // Esperar AJAX para tener caja_anterior correcta
+    await cargarNumerales();
+
+    // Con caja_anterior ya actualizada, calcular todo
     recalcDesglose();
-    cargarNumerales();
-  }
+    recalcUI();
+
+    // Mostrar resumen
+    if (seccionResumen) seccionResumen.style.display = 'block';
+  })();
   {% endif %}
 
   // init
+  {% if not editar %}
   onHeaderChange();
+  {% endif %}
 
   // ========= Modal cierre sesión (encargado/asistente) =========
   const esEncargado = {{ es_encargado_o_asistente|yesno:"true,false" }};

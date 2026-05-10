@@ -1,76 +1,55 @@
-Lee templates/cuadratura_diaria/create.html y control/views.py.
+Lee templates/cuadratura_diaria/create.html.
 
-En modo edición, los siguientes campos del Resumen no se muestran:
-Descuadre, Ganancia, Retiro, Total efectivo. Y el Total desglose 
-muestra 0 aunque los inputs de billetes tienen valores.
-Además la Caja anterior muestra valor incorrecto.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROBLEMA 1 — Total desglose = 0 y Resumen vacío
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Al cargar la página en modo edición, los inputs de billetes tienen 
-valores pero las funciones JS que calculan totales no se ejecutan.
-
-En el bloque DOMContentLoaded o en el bloque {% if cuadratura.pk %},
-DESPUÉS de que todos los inputs tengan sus valores precargados,
-agregar llamadas explícitas en este orden:
-
-  1. calcularDesglose()  (o el nombre real que suma los billetes)
-  2. recalcUI()          (recalcula subtotales, descuadre, ganancia)
-
-Si esas funciones no existen con esos nombres, buscar en el JS cuál
-es la función que:
-  - Lee los inputs de $20.000, $10.000, $5.000, $2.000, $1.000, 
-    Monedas y actualiza "Total desglose"
-  - Lee todos los campos y actualiza Descuadre, Ganancia, 
-    Total efectivo en el Resumen
-
-Y llamarlas al final del bloque de inicialización en edición.
+Hay un problema en el modo edición: id_numeral_dia no existe en el DOM 
+en edit mode (solo existe numeral_dia_val), y onHeaderChange() siempre 
+corre al cargar causando race conditions.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROBLEMA 2 — Retiro no se precarga en edición
+FIX 1 — Reemplazar el bloque init de edición (líneas ~1072-1086)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-El campo Retiro (id_retiro o similar) no se está precargando con
-el valor guardado en la BD (cuadratura.retiro_diario).
+Reemplazar el bloque actual:
 
-En el bloque {% if cuadratura.pk %}, agregar:
-  document.getElementById('id_retiro').value = 
-    '{{ cuadratura.retiro_diario|default:0 }}';
+  {% if cuadratura.pk %}
+  {
+    const ndEl = document.getElementById('id_numeral_dia');
+    ...
+    recalcDesglose();
+    cargarNumerales();
+  }
+  {% endif %}
 
-Adaptar el id real del campo según el HTML.
+Por una IIFE async que ejecute todo en orden correcto:
+
+  {% if cuadratura.pk %}
+  (async () => {
+    const caEl = document.getElementById('id_caja_anterior');
+    const retiroEl = document.getElementById('id_retiro_diario');
+    const naEl = document.getElementById('id_numeral_acumulado');
+    if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
+    if (naEl) naEl.value = '{{ cuadratura.numeral_acumulado|default:0 }}';
+    if (retiroEl) retiroEl.value = '{{ cuadratura.retiro_diario|default:0 }}';
+
+    // Esperar AJAX para tener caja_anterior correcta
+    await cargarNumerales();
+
+    // Con caja_anterior ya actualizada, calcular todo
+    recalcDesglose();
+    recalcUI();
+
+    // Mostrar resumen
+    if (seccionResumen) seccionResumen.style.display = 'block';
+  })();
+  {% endif %}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROBLEMA 3 — Caja anterior incorrecta en edición
+FIX 2 — No llamar onHeaderChange() al cargar en modo edición
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-En views.py, función ajax_cuadratura_diaria_numerales:
+Cambiar línea 1089 de:
+  onHeaderChange();
 
-  caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha)
+A:
+  {% if not editar %}
+  onHeaderChange();
+  {% endif %}
 
-Sin exclude_pk, encuentra la caja que se está editando y retorna
-su propio total_efectivo como caja anterior.
-
-FIX en views.py:
-  exclude_pk = request.GET.get("exclude_pk")
-  if exclude_pk:
-      try: exclude_pk = int(exclude_pk)
-      except: exclude_pk = None
-  caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(
-      sucursal, fecha, exclude_pk=exclude_pk
-  )
-
-FIX en create.html — en la función JS que llama al AJAX 
-(cargarNumerales o onHeaderChange), agregar exclude_pk:
-
-  const excludePk = {{ cuadratura.pk|default:0 }};
-  ...
-  if (excludePk > 0) params.append('exclude_pk', excludePk);
-
-TAMBIÉN: Al cargar la página en modo edición, disparar el AJAX
-una vez con los valores actuales para que cargue la caja anterior
-correcta desde el inicio, sin esperar a que el usuario cambie algo.
-
-En el bloque {% if cuadratura.pk %}, después de precargar los inputs,
-agregar:
-  cargarNumerales(); // o el nombre real de la función AJAX
-
-No tocar ninguna otra lógica.
+En modo edición, el IIFE del fix 1 ya hace la carga inicial corre
