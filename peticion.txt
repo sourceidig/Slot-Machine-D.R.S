@@ -1,74 +1,109 @@
 Lee CLAUDE.md antes de empezar.
 
-Hay dos problemas en control/views.py relacionados con la cuadratura de caja diaria:
+Dos mejoras en la lista de cuadratura diaria + deploy inmediato al NAS.
 
 ---
 
-PROBLEMA 1 — Cascade incompleto en cuadratura_diaria_create
+MEJORA 1 — Auto-aplicar filtros sin botón
 
-En cuadratura_diaria_create, después de guardar la cuadratura nueva, el código 
-intenta actualizar el día siguiente pero solo cambia el campo `caja` sin 
-recalcular total_efectivo ni descuadre:
+Archivo: templates/cuadratura_diaria/list.html
 
-    if cuadratura_siguiente:
-        cuadratura_siguiente.caja = cuadratura.desglose_efectivo_total
-        cuadratura_siguiente.save()
+Los filtros (select de sucursal, fecha desde, fecha hasta) deben aplicarse 
+automáticamente al cambiar, sin necesidad de presionar "Filtrar".
 
-Esto es incorrecto porque _caja_anterior_en_ciclo lee prev.total_efectivo, 
-no prev.caja. Si el día siguiente ya existe cuando se crea el actual, 
-sus cálculos quedan desactualizados.
+Cambios:
+1. Agregar id al form: <form id="filtro-form" method="get" ...>
+2. Agregar ids a los inputs:
+   - select sucursal → id="fil-sucursal"
+   - input fecha_desde → id="fil-desde"
+   - input fecha_hasta → id="fil-hasta"
+3. Ocultar el botón "Filtrar" (eliminar o display:none). 
+   Conservar el botón "Limpiar" con su href tal como está.
+4. Agregar este script al final del bloque content:
 
-FIX: Reemplazar esas 3 líneas por el mismo cascade que usa cuadratura_diaria_edit,
-es decir: recalcular con _recalcular_totales todos los días siguientes en orden
-cronológico, igual que este bloque de cuadratura_diaria_edit:
+<script>
+(function () {
+  const STORAGE_KEY = 'cuadratura_list_filters';
+  const form = document.getElementById('filtro-form');
+  if (!form) return;
 
-    dias_siguientes = CuadraturaCajaDiaria.objects.filter(
-        sucursal=c.sucursal,
-        fecha__gt=c.fecha
-    ).order_by("fecha", "creado_el")
-    for siguiente in dias_siguientes:
-        _recalcular_totales(siguiente, turno_tipo=siguiente.turno.tipo_turno if siguiente.turno else None)
-        siguiente.actualizado_el = timezone.now()
-        siguiente.save()
+  // Al cargar sin parámetros GET → restaurar desde sessionStorage
+  const params = new URLSearchParams(window.location.search);
+  const sinFiltros = !params.get('sucursal') && !params.get('fecha_desde') && !params.get('fecha_hasta');
+  if (sinFiltros) {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
+      if (saved && (saved.sucursal || saved.fecha_desde || saved.fecha_hasta)) {
+        const newParams = new URLSearchParams();
+        if (saved.sucursal)    newParams.set('sucursal', saved.sucursal);
+        if (saved.fecha_desde) newParams.set('fecha_desde', saved.fecha_desde);
+        if (saved.fecha_hasta) newParams.set('fecha_hasta', saved.fecha_hasta);
+        window.location.replace('?' + newParams.toString());
+        return;
+      }
+    } catch(e) {}
+  }
 
-Adaptarlo a las variables de cuadratura_diaria_create (la cuadratura se llama 
-`cuadratura`, no `c`). El bloque debe quedar dentro del with transaction.atomic()
-existente, justo después del segundo cuadratura.save().
+  // Guardar en sessionStorage y re-aplicar al cambiar cualquier filtro
+  function guardarYFiltrar() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        sucursal:    document.getElementById('fil-sucursal')?.value || '',
+        fecha_desde: document.getElementById('fil-desde')?.value   || '',
+        fecha_hasta: document.getElementById('fil-hasta')?.value   || '',
+      }));
+    } catch(e) {}
+    form.submit();
+  }
+
+  ['fil-sucursal', 'fil-desde', 'fil-hasta'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', guardarYFiltrar);
+  });
+
+  // Limpiar sessionStorage cuando se hace click en "Limpiar"
+  document.querySelectorAll('a[href*="cuadratura_diaria_list"]').forEach(a => {
+    if (a.href && !a.href.includes('?')) {
+      a.addEventListener('click', () => {
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch(e) {}
+      });
+    }
+  });
+})();
+</script>
+
+No modificar la lógica Python de la view. No tocar otros templates.
 
 ---
 
-PROBLEMA 2 — jugados_dia falta en restas_principales de _recalcular_totales
+MEJORA 2 — Volver desde el detalle mantiene el filtro
 
-En _recalcular_totales, la variable restas_principales incluye sorteos, gastos, 
-sueldo_b y regalos, pero le falta jugados_dia:
-
-    restas_principales = (
-        (cuadratura.sorteos_dia or 0)
-        + (cuadratura.gastos_dia or 0)
-        + (cuadratura.sueldo_b_dia or 0)
-        + (cuadratura.regalos_dia or 0)
-        # ← jugados_dia falta aquí
-    )
-
-Según la lógica de negocio documentada en CLAUDE.md, jugados debe sumarse al subtotal 
-de restas. Agregar (cuadratura.jugados_dia or 0) a restas_principales.
+Esto ya funciona si el usuario usa el botón Atrás del navegador (la URL con 
+parámetros GET queda en el historial). No se necesita cambio adicional.
+Solo verificar que el enlace "Volver" en templates/cuadratura_diaria/detail.html
+use history.back() en vez de un href fijo. Si actualmente tiene un href fijo como:
+  <a href="{% url 'control:cuadratura_diaria_list' %}">Volver</a>
+Reemplazarlo por:
+  <a href="#" onclick="history.back(); return false;">Volver</a>
+Si ya usa history.back(), no cambiar nada.
 
 ---
 
-ARREGLO DE DATOS
+DEPLOY AL NAS
 
-Después de aplicar los fixes de código, corregir los datos afectados:
-1. Buscar la CuadraturaCajaDiaria de sucursal=Renaico, fecha=2026-05-07, 
-   turno__tipo_turno="Noche"
-2. Imprimir sus campos: retiro_diario, total_efectivo, desglose (ef_*)
-3. Si retiro_diario != 0 y no debería tener retiro, corregirlo a 0 y recalcular
-4. Correr cuadratura_diaria_recalcular_todo para propagar la cadena completa
+Después de aplicar los cambios, hacer commit y push, luego conectar por SSH al NAS 
+y correr actualizar.sh:
 
-Para inspeccionar desde shell de Django:
-    python manage.py shell
-    from control.models import CuadraturaCajaDiaria
-    c = CuadraturaCajaDiaria.objects.get(sucursal__nombre__icontains="renaico", fecha="2026-05-07", turno__tipo_turno="Noche")
-    print(c.pk, c.retiro_diario, c.total_efectivo, c.desglose_efectivo_total)
+git add templates/cuadratura_diaria/list.html templates/cuadratura_diaria/detail.html
+git commit -m "feat: auto-filtros y persistencia en lista cuadraturas"
+git push origin main
 
-No tocar migrations. No cambiar modelos. Solo views.py (los dos fixes) y la corrección 
-de datos via shell o un management command temporal.
+Luego SSH al NAS (192.168.1.24, usuario admin, VPN desactivada) y ejecutar:
+cd /volume1/docker/plazagames && bash actualizar.sh
+
+Si actualizar.sh no existe o falla, el proceso manual es:
+  git reset --hard origin/main
+  docker compose build --no-cache   # o docker-compose según la versión
+  docker compose up -d
+
+Verificar que el contenedor "plazagames" quedó corriendo:
+  docker ps | grep plazagames
