@@ -1,52 +1,74 @@
-Lee control/views.py y templates/cuadratura_diaria/create.html.
+Lee CLAUDE.md antes de empezar.
 
+Hay dos problemas en control/views.py relacionados con la cuadratura de caja diaria:
 
+---
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BUG 1 — Caja anterior = 0 (cargarNumerales sin params)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Para encargados, fecha y sucursal son campos readonly/display, 
-NO son inputs editables con id="id_fecha" e id="id_sucursal".
-Por eso cargarNumerales() retorna early y caja_anterior queda en 0.
+PROBLEMA 1 — Cascade incompleto en cuadratura_diaria_create
 
-FIX en views.py — cuadratura_diaria_create GET:
-Calcular caja_anterior en el servidor y pasarlo al contexto:
+En cuadratura_diaria_create, después de guardar la cuadratura nueva, el código 
+intenta actualizar el día siguiente pero solo cambia el campo `caja` sin 
+recalcular total_efectivo ni descuadre:
 
-  from .utils import calcular_numerales_caja
-  # Obtener sucursal y fecha del turno activo para encargado
-  if hasattr(request, 'turno_activo') or request.session.get('turno_activo_id'):
-      turno_id = request.session.get('turno_activo_id')
-      turno_obj = Turno.objects.filter(pk=turno_id).first() if turno_id else None
-      if turno_obj:
-          sucursal_ctx = turno_obj.sucursal
-          fecha_ctx = turno_obj.fecha
-          caja_anterior_ctx, prestamos_acum_ant_ctx = _caja_anterior_en_ciclo(
-              sucursal_ctx, fecha_ctx
-          )
-          numeral_dia_ctx, numeral_acum_ctx = calcular_numerales_caja(
-              sucursal_ctx, fecha_ctx, turno_tipo=turno_obj.tipo_turno
-          )
-      else:
-          caja_anterior_ctx = prestamos_acum_ant_ctx = numeral_dia_ctx = numeral_acum_ctx = 0
-  else:
-      caja_anterior_ctx = prestamos_acum_ant_ctx = numeral_dia_ctx = numeral_acum_ctx = 0
+    if cuadratura_siguiente:
+        cuadratura_siguiente.caja = cuadratura.desglose_efectivo_total
+        cuadratura_siguiente.save()
 
-Agregar al context del render:
-  "caja_anterior": caja_anterior_ctx,
-  "numeral_dia_inicial": numeral_dia_ctx,
-  "numeral_acum_inicial": numeral_acum_ctx,
-  "prestamos_acum_ant": prestamos_acum_ant_ctx,
+Esto es incorrecto porque _caja_anterior_en_ciclo lee prev.total_efectivo, 
+no prev.caja. Si el día siguiente ya existe cuando se crea el actual, 
+sus cálculos quedan desactualizados.
 
-FIX en create.html — Al inicio del DOMContentLoaded, pre-cargar 
-estos valores en los elementos de display SIEMPRE (no solo en editar):
+FIX: Reemplazar esas 3 líneas por el mismo cascade que usa cuadratura_diaria_edit,
+es decir: recalcular con _recalcular_totales todos los días siguientes en orden
+cronológico, igual que este bloque de cuadratura_diaria_edit:
 
-  // Pre-cargar valores del servidor si no hay id_fecha/id_sucursal
-  if (!fechaInput || !sucursalSelect) {
-    const caEl = document.getElementById('id_caja_anterior');
-    const ndEl = document.getElementById('id_numeral_dia');
-    const naEl = document.getElementById('id_numeral_acumulado');
-    if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
-    if (ndEl) ndEl.value = '{{ numeral_dia_inicial|default:0 }}';
-    if (naEl) naEl.value = '{{ numeral_acum_inicial|default:0 }}';
-    recalcUI();
-  }
+    dias_siguientes = CuadraturaCajaDiaria.objects.filter(
+        sucursal=c.sucursal,
+        fecha__gt=c.fecha
+    ).order_by("fecha", "creado_el")
+    for siguiente in dias_siguientes:
+        _recalcular_totales(siguiente, turno_tipo=siguiente.turno.tipo_turno if siguiente.turno else None)
+        siguiente.actualizado_el = timezone.now()
+        siguiente.save()
+
+Adaptarlo a las variables de cuadratura_diaria_create (la cuadratura se llama 
+`cuadratura`, no `c`). El bloque debe quedar dentro del with transaction.atomic()
+existente, justo después del segundo cuadratura.save().
+
+---
+
+PROBLEMA 2 — jugados_dia falta en restas_principales de _recalcular_totales
+
+En _recalcular_totales, la variable restas_principales incluye sorteos, gastos, 
+sueldo_b y regalos, pero le falta jugados_dia:
+
+    restas_principales = (
+        (cuadratura.sorteos_dia or 0)
+        + (cuadratura.gastos_dia or 0)
+        + (cuadratura.sueldo_b_dia or 0)
+        + (cuadratura.regalos_dia or 0)
+        # ← jugados_dia falta aquí
+    )
+
+Según la lógica de negocio documentada en CLAUDE.md, jugados debe sumarse al subtotal 
+de restas. Agregar (cuadratura.jugados_dia or 0) a restas_principales.
+
+---
+
+ARREGLO DE DATOS
+
+Después de aplicar los fixes de código, corregir los datos afectados:
+1. Buscar la CuadraturaCajaDiaria de sucursal=Renaico, fecha=2026-05-07, 
+   turno__tipo_turno="Noche"
+2. Imprimir sus campos: retiro_diario, total_efectivo, desglose (ef_*)
+3. Si retiro_diario != 0 y no debería tener retiro, corregirlo a 0 y recalcular
+4. Correr cuadratura_diaria_recalcular_todo para propagar la cadena completa
+
+Para inspeccionar desde shell de Django:
+    python manage.py shell
+    from control.models import CuadraturaCajaDiaria
+    c = CuadraturaCajaDiaria.objects.get(sucursal__nombre__icontains="renaico", fecha="2026-05-07", turno__tipo_turno="Noche")
+    print(c.pk, c.retiro_diario, c.total_efectivo, c.desglose_efectivo_total)
+
+No tocar migrations. No cambiar modelos. Solo views.py (los dos fixes) y la corrección 
+de datos via shell o un management command temporal.

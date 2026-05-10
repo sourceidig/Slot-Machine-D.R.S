@@ -1232,6 +1232,7 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
         + (cuadratura.gastos_dia or 0)
         + (cuadratura.sueldo_b_dia or 0)
         + (cuadratura.regalos_dia or 0)
+        + (cuadratura.jugados_dia or 0)
     )
 
     restas_adicionales = (cuadratura.redbank_dia or 0) + (cuadratura.transfer_dia or 0)
@@ -1404,16 +1405,15 @@ def cuadratura_diaria_create(request):
                 cuadratura.actualizado_el = timezone.now()
                 cuadratura.save()
 
-                # ✅ ACTUALIZAR LA CUADRATURA DEL DÍA SIGUIENTE
-                siguiente_dia = cuadratura.fecha + timedelta(days=1)
-                cuadratura_siguiente = CuadraturaCajaDiaria.objects.filter(
+                # Propagar cambios en cascada a todos los días siguientes de la misma sucursal
+                dias_siguientes = CuadraturaCajaDiaria.objects.filter(
                     sucursal=cuadratura.sucursal,
-                    fecha=siguiente_dia
-                ).first()
-
-                if cuadratura_siguiente:
-                    cuadratura_siguiente.caja = cuadratura.desglose_efectivo_total
-                    cuadratura_siguiente.save()
+                    fecha__gt=cuadratura.fecha
+                ).order_by("fecha", "creado_el")
+                for siguiente in dias_siguientes:
+                    _recalcular_totales(siguiente, turno_tipo=siguiente.turno.tipo_turno if siguiente.turno else None)
+                    siguiente.actualizado_el = timezone.now()
+                    siguiente.save()
 
             messages.success(request, "Cuadratura guardada (creada o actualizada) exitosamente.")
             if request.user.role in ['encargado', 'asistente']:
