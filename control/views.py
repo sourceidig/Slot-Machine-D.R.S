@@ -3053,6 +3053,12 @@ def ajax_cuadratura_diaria_numerales(request):
     sucursal_id = request.GET.get("sucursal_id")
     fecha_str = request.GET.get("fecha")
     turno_tipo = request.GET.get("turno", "").strip()
+    exclude_pk = request.GET.get("exclude_pk")
+    if exclude_pk:
+        try:
+            exclude_pk = int(exclude_pk)
+        except (ValueError, TypeError):
+            exclude_pk = None
     if not turno_tipo:
         turno_hoy = Turno.objects.filter(
             sucursal_id=sucursal_id,
@@ -3080,7 +3086,7 @@ def ajax_cuadratura_diaria_numerales(request):
     numeral_dia, numeral_acumulado = calcular_numerales_caja(sucursal, fecha, turno_tipo=turno_tipo)
 
     # Calcular base anterior para la caja
-    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha)
+    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=exclude_pk)
 
     return JsonResponse({
         "ok": True,

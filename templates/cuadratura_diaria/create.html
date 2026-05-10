@@ -700,14 +700,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 // ========= 1) Numerales + caja anterior (AJAX) =========
+  const excludePk = {{ cuadratura.pk|default:”null” }};
+
   async function cargarNumerales() {
-    if (modoEditar) return;
-    if (document.querySelector('#modo_edicion')) return;
     const fecha = fechaInput?.value;
     const sucursalId = sucursalSelect?.value;
     // ✅ NUEVO: Capturar el turno
-    const turnoEl = document.querySelector('select[name="turno_tipo"]') || document.querySelector('input[name="turno_tipo"]');
-    const turnoTipo = turnoEl ? turnoEl.value : "";
+    const turnoEl = document.querySelector('select[name=”turno_tipo”]') || document.querySelector('input[name=”turno_tipo”]');
+    const turnoTipo = turnoEl ? turnoEl.value : “”;
 
     // Si falta algo, resetea UI “header”
     if (!fecha || !sucursalId) {
@@ -717,8 +717,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // ✅ NUEVO: Agregar el parámetro turno a la URL
-    const url = `{% url "control:ajax_cuadratura_diaria_numerales" %}?sucursal_id=${encodeURIComponent(sucursalId)}&fecha=${encodeURIComponent(fecha)}&turno=${encodeURIComponent(turnoTipo)}`;
+    const params = new URLSearchParams({ sucursal_id: sucursalId, fecha: fecha, turno: turnoTipo });
+    if (excludePk) params.append('exclude_pk', excludePk);
+    const url = `{% url “control:ajax_cuadratura_diaria_numerales” %}?${params}`;
 
     try {
       const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
