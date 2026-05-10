@@ -1217,7 +1217,7 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
 
     # 2) Caja anterior dentro del ciclo (si es primer día del ciclo → caja_inicial).
     # Se excluye la propia cuadratura para evitar referencia circular cuando hay varias en el mismo día.
-    base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
+    base_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk, turno_tipo=turno_tipo)
 
     # (si quieres guardar caja anterior en el modelo, aquí NO tienes campo.
     #  Solo lo usamos para cálculo)
@@ -1254,7 +1254,7 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
     prestamos_dia = int(cuadratura.prestamos or 0)
     cuadratura_pk = cuadratura.pk if cuadratura.pk else None
     _, prestamos_acum_ant = _caja_anterior_en_ciclo(
-        cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura_pk
+        cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura_pk, turno_tipo=turno_tipo
     )
     prestamos_acum = prestamos_acum_ant + prestamos_dia
     cuadratura.prestamos_acum = prestamos_acum
@@ -1406,10 +1406,17 @@ def cuadratura_diaria_create(request):
                 cuadratura.save()
 
                 # Propagar cambios en cascada a todos los días siguientes de la misma sucursal
+                _TURNO_Q = Case(
+                    When(turno__tipo_turno='Mañana', then=Value(0)),
+                    When(turno__tipo_turno='Tarde',  then=Value(1)),
+                    When(turno__tipo_turno='Noche',  then=Value(2)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
                 dias_siguientes = CuadraturaCajaDiaria.objects.filter(
                     sucursal=cuadratura.sucursal,
                     fecha__gt=cuadratura.fecha
-                ).order_by("fecha", "creado_el")
+                ).select_related('turno').annotate(orden_turno=_TURNO_Q).order_by('fecha', 'orden_turno', 'creado_el')
                 for siguiente in dias_siguientes:
                     _recalcular_totales(siguiente, turno_tipo=siguiente.turno.tipo_turno if siguiente.turno else None)
                     siguiente.actualizado_el = timezone.now()
@@ -1455,7 +1462,7 @@ def cuadratura_diaria_create(request):
         ref_sucursal = sucursal_fija if usa_sucursal_fija else Sucursal.objects.filter(is_active=True).order_by("nombre").first()
         if ref_sucursal:
             fecha = fecha_turno if usa_sucursal_fija else timezone.now().date()
-            caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(ref_sucursal, fecha)
+            caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(ref_sucursal, fecha, turno_tipo=turno_tipo_fijo)
             caja_inicial = int(ref_sucursal.caja_inicial or 0)
             numeral_dia_inicial, numeral_acum_inicial = calcular_numerales_caja(
                 ref_sucursal, fecha, turno_tipo=turno_tipo_fijo
@@ -1557,7 +1564,7 @@ def cuadratura_diaria_list(request):
 @login_required
 def cuadratura_diaria_detail(request, pk):
     cuadratura = get_object_or_404(CuadraturaCajaDiaria, pk=pk)
-    caja_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha)
+    caja_anterior, _ = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, turno_tipo=cuadratura.turno.tipo_turno if cuadratura.turno else None)
 
     # Hora de apertura del turno: usa el turno vinculado o busca por sucursal+fecha
     turno_ref = cuadratura.turno or (
@@ -1650,10 +1657,17 @@ def cuadratura_diaria_edit(request, pk):
                 c.save()
 
                 # Propagar cambios en cascada a todos los días siguientes de la misma sucursal
+                _TURNO_Q = Case(
+                    When(turno__tipo_turno='Mañana', then=Value(0)),
+                    When(turno__tipo_turno='Tarde',  then=Value(1)),
+                    When(turno__tipo_turno='Noche',  then=Value(2)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
                 dias_siguientes = CuadraturaCajaDiaria.objects.filter(
                     sucursal=c.sucursal,
                     fecha__gt=c.fecha
-                ).order_by("fecha", "creado_el")
+                ).select_related('turno').annotate(orden_turno=_TURNO_Q).order_by('fecha', 'orden_turno', 'creado_el')
 
                 for siguiente in dias_siguientes:
                     _recalcular_totales(siguiente, turno_tipo=siguiente.turno.tipo_turno if siguiente.turno else None)
@@ -1668,10 +1682,10 @@ def cuadratura_diaria_edit(request, pk):
         form = CuadraturaCajaDiariaForm(instance=cuadratura)
 
     # Caja anterior dentro del ciclo, excluyendo la propia para no tomarse a sí misma
-    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk)
+    turno_tipo_edit = cuadratura.turno.tipo_turno if cuadratura.turno else None
+    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(cuadratura.sucursal, cuadratura.fecha, exclude_pk=cuadratura.pk, turno_tipo=turno_tipo_edit)
     sucursales = Sucursal.objects.filter(is_active=True).order_by("nombre")
     detalles_json = json.dumps(list(cuadratura.detalles.values("tipo", "nombre", "monto")), ensure_ascii=False)
-    turno_tipo_edit = cuadratura.turno.tipo_turno if cuadratura.turno else None
     numeral_dia_fresco, _ = calcular_numerales_caja(
         cuadratura.sucursal, cuadratura.fecha,
         turno_tipo=turno_tipo_edit,
@@ -1708,8 +1722,17 @@ def cuadratura_diaria_recalcular_todo(request):
         total = CuadraturaCajaDiaria.objects.count()
         return render(request, "cuadratura_diaria/recalcular.html", {"total": total})
 
-    # Procesar en orden cronológico para que cada día vea el total_efectivo correcto del día anterior
-    cuadraturas = CuadraturaCajaDiaria.objects.select_related("sucursal").order_by("fecha", "creado_el")
+    # Procesar en orden cronológico con orden de turno correcto dentro del mismo día
+    TURNO_ORDEN_Q = Case(
+        When(turno__tipo_turno='Mañana', then=Value(0)),
+        When(turno__tipo_turno='Tarde',  then=Value(1)),
+        When(turno__tipo_turno='Noche',  then=Value(2)),
+        default=Value(0),
+        output_field=IntegerField(),
+    )
+    cuadraturas = CuadraturaCajaDiaria.objects.select_related('turno', 'sucursal').annotate(
+        orden_turno=TURNO_ORDEN_Q
+    ).order_by('fecha', 'orden_turno', 'creado_el')
     actualizadas = 0
 
     for c in cuadraturas:
@@ -1780,7 +1803,7 @@ def cuadratura_diaria_export_excel(request):
         nombre_hoja = nombre_base if count == 1 else f"{nombre_base}_{count}"
         ws = wb.create_sheet(title=nombre_hoja)
 
-        caja_anterior, _ = _caja_anterior_en_ciclo(c.sucursal, c.fecha, exclude_pk=c.pk)
+        caja_anterior, _ = _caja_anterior_en_ciclo(c.sucursal, c.fecha, exclude_pk=c.pk, turno_tipo=c.turno.tipo_turno if c.turno else None)
 
         detalles_por_tipo = defaultdict(list)
         for d in c.detalles.all():
@@ -2998,27 +3021,37 @@ def ajax_cuadratura_detalles(request):
         "sueldo_b_dia": cuadratura.sueldo_b_dia,
     })
 
-def _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=None):
+TURNO_ORDEN = {'Mañana': 0, 'Tarde': 1, 'Noche': 2}
+
+def _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=None, turno_tipo=None):
     """
     Retorna (caja_anterior, prestamos_acum_ant).
-    - Si fecha es el inicio del ciclo o anterior: devuelve (caja_inicial, 0).
-    - Si no: busca la cuadratura más reciente en o antes de fecha (excluye exclude_pk
-      para evitar que una caja se tome a sí misma como base cuando hay varias en el día).
+    turno_tipo: tipo del turno actual ('Mañana', 'Tarde', 'Noche').
+    Con turno_tipo, para el mismo día solo considera turnos cronológicamente anteriores.
+    Sin turno_tipo, solo mira días estrictamente anteriores.
     """
     inicio_ciclo = get_inicio_ciclo(sucursal)
-
-    # Primer día del nuevo ciclo → resetear todo
     if inicio_ciclo and fecha <= inicio_ciclo:
         return int(sucursal.caja_inicial or 0), 0
 
     qs = CuadraturaCajaDiaria.objects.filter(
         sucursal=sucursal,
-        fecha__lte=fecha,
-    )
+    ).select_related('turno')
     if inicio_ciclo:
         qs = qs.filter(fecha__gte=inicio_ciclo)
     if exclude_pk:
         qs = qs.exclude(pk=exclude_pk)
+
+    orden_actual = TURNO_ORDEN.get(turno_tipo, None)
+
+    if orden_actual is not None:
+        turnos_anteriores = [t for t, o in TURNO_ORDEN.items() if o < orden_actual]
+        qs = qs.filter(
+            Q(fecha__lt=fecha) |
+            Q(fecha=fecha, turno__tipo_turno__in=turnos_anteriores)
+        )
+    else:
+        qs = qs.filter(fecha__lt=fecha)
 
     prev = qs.order_by("-fecha", "-creado_el").first()
     if prev:
@@ -3095,7 +3128,7 @@ def ajax_cuadratura_diaria_numerales(request):
     numeral_dia, numeral_acumulado = calcular_numerales_caja(sucursal, fecha, turno_tipo=turno_tipo)
 
     # Calcular base anterior para la caja
-    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=exclude_pk)
+    caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=exclude_pk, turno_tipo=turno_tipo or None)
 
     return JsonResponse({
         "ok": True,
