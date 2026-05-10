@@ -714,10 +714,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const fecha = fechaInput?.value;
     const sucursalId = sucursalSelect?.value;
     // ✅ NUEVO: Capturar el turno
-    const turnoEl = document.querySelector('select[name=”turno_tipo”]') || document.querySelector('input[name=”turno_tipo”]');
-    const turnoTipo = turnoEl ? turnoEl.value : “”;
+    const turnoEl = document.querySelector('select[name="turno_tipo"]') || document.querySelector('input[name="turno_tipo"]');
+    const turnoTipo = turnoEl ? turnoEl.value : "";
 
-    // Si falta algo, resetea UI “header”
+    // Si falta algo, resetea UI "header"
     if (!fecha || !sucursalId) {
       setVal(numeralDiaEl, 0);
       setVal(numeralAcumEl, 0);
