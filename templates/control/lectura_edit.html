@@ -32,6 +32,19 @@
             </div>
         </div>
 
+        {% if messages %}
+          {% for message in messages %}
+            {% if message.tags == 'success' %}
+            <div class="alert d-flex align-items-center gap-2 mb-3"
+                 style="background:#f0fdf4; border:1px solid #86efac;
+                        border-radius:10px; font-size:0.9rem;">
+              <i class="bi bi-check-circle-fill" style="color:#16a34a;"></i>
+              <span>{{ message }}</span>
+            </div>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+
         <form method="post">
             {% csrf_token %}
             {{ form.non_field_errors }}

@@ -274,7 +274,7 @@
             <tr id="detail-numeral" style="display:none;background:#f0fdf4;">
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
-                  <thead><tr><th>Fecha</th><th class="text-end">Numeral día</th></tr></thead>
+                  <thead><tr><th>Fecha</th><th class="text-end">Numeral Turno</th></tr></thead>
                   <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.numeral_dia }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>

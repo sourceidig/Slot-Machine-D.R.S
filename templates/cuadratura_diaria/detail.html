@@ -75,7 +75,7 @@
     <div class="row g-3">
       <div class="col-6 col-md-3">
         <div class="kpi-card bg-info">
-          <div style="font-size:0.75rem;opacity:0.85;">Numeral Día</div>
+          <div style="font-size:0.75rem;opacity:0.85;">Numeral Turno</div>
           <div style="font-size:1.5rem;font-weight:700;">${{ cuadratura.numeral_dia|default:0|floatformat:0 }}</div>
         </div>
       </div>
@@ -330,7 +330,7 @@
           <td class="text-end">${{ caja_anterior|default:0|floatformat:0 }}</td>
         </tr>
         <tr>
-          <td class="col-concepto">Numeral Día</td>
+          <td class="col-concepto">Numeral Turno</td>
           <td class="text-end {% if cuadratura.numeral_dia >= 0 %}val-pos{% else %}val-neg{% endif %}">${{ cuadratura.numeral_dia|default:0|floatformat:0 }}</td>
         </tr>
         <tr>

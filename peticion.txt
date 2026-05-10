@@ -1,26 +1,26 @@
-Lee templates/controles/detail.html y templates/control/control_generado.html.
+Lee templates/cuadratura_diaria/create.html y control/urls.py.
 
-En AMBOS archivos, buscar todos los lugares donde se muestra el RTP
-(buscar por "rtp", "RTP", "text-success", "text-danger" relacionados a RTP)
-y reemplazar la lógica de colores por esta regla uniforme:
+BUG: El botón "Volver" y "Cancelar" en el formulario de edición de caja 
+redirigen a la lista, pero deberían ir al detalle de la caja que se estaba 
+editando.
 
-  Verde    → rtp > 15 AND rtp < 26        (15.01 a 25.99)
-  Amarillo → rtp >= -5.01 AND rtp <= 15
-             OR rtp >= 26 AND rtp <= 45   (incluye el 0%)
-  Rojo     → rtp <= -5 OR rtp >= 45
+FIX en create.html:
+Buscar los botones/links de "Volver" y "Cancelar". Actualmente apuntan a 
+algo como {% url 'control:cuadratura_diaria_list' %}.
 
-Usar {% if %} / {% elif %} encadenados para evitar ambigüedad con and/or:
+En modo edición (cuando cuadratura.pk existe), cambiar el href a la vista 
+de detalle de esa caja:
 
-  {% if valor_rtp > 15 and valor_rtp < 26 %}
-    class="text-success"
-  {% elif valor_rtp <= -5 or valor_rtp >= 45 %}
-    class="text-danger"
+  {% if cuadratura.pk %}
+    href="{% url 'control:cuadratura_diaria_detail' cuadratura.pk %}"
   {% else %}
-    class="text-warning"
+    href="{% url 'control:cuadratura_diaria_list' %}"
   {% endif %}
 
-Donde "valor_rtp" es la variable de RTP en cada template
-(puede llamarse rtp, l.rtp, item.rtp, etc. — adaptar al nombre real).
+Aplicar esto a AMBOS botones (Volver al inicio y Cancelar).
 
-Aplicar a TODAS las celdas/spans de RTP en ambos archivos.
-No tocar nada más.
+Verificar en urls.py cómo se llama la url del detalle 
+(puede ser cuadratura_diaria_detail, cuadratura_detail, etc.) 
+y adaptar el nombre exacto.
+
+No tocar ninguna otra lógica.

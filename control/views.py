@@ -1232,7 +1232,6 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
         + (cuadratura.gastos_dia or 0)
         + (cuadratura.sueldo_b_dia or 0)
         + (cuadratura.regalos_dia or 0)
-        + (cuadratura.jugados_dia or 0)
     )
 
     restas_adicionales = (cuadratura.redbank_dia or 0) + (cuadratura.transfer_dia or 0)
@@ -1335,6 +1334,15 @@ def cuadratura_diaria_create(request):
                 if cuadratura.turno:
                     cuadratura.fecha = cuadratura.turno.fecha
 
+                if request.user.role in ['encargado', 'asistente']:
+                    control_existe = ControlLecturas.objects.filter(
+                        turno=cuadratura.turno,
+                        sucursal=sucursal,
+                    ).exists()
+                    if not control_existe:
+                        messages.error(request, "Debes guardar el Control de Lecturas antes de registrar la caja.")
+                        return redirect('control:cuadratura_diaria_create')
+
                 # Asignar campos ef_* manualmente
                 for field in ['ef_20000', 'ef_10000', 'ef_5000', 'ef_2000', 'ef_1000', 'ef_monedas', 'ef_billetes_malos']:
                     setattr(cuadratura, field, form.cleaned_data.get(field, 0))
@@ -1383,8 +1391,6 @@ def cuadratura_diaria_create(request):
                     cuadratura.regalos_dia  = _sum_tipo(cuadratura, "REGALOS")
                 if "TAXI" in tipos_con_detalle:
                     cuadratura.taxi_dia     = _sum_tipo(cuadratura, "TAXI")
-                if "JUGADOS" in tipos_con_detalle:
-                    cuadratura.jugados_dia  = _sum_tipo(cuadratura, "JUGADOS")
                 if "OTROS" in tipos_con_detalle:
                     cuadratura.otros_1_dia  = _sum_tipo(cuadratura, "OTROS")
 
@@ -1406,6 +1412,9 @@ def cuadratura_diaria_create(request):
                     cuadratura_siguiente.save()
 
             messages.success(request, "Cuadratura guardada (creada o actualizada) exitosamente.")
+            if request.user.role in ['encargado', 'asistente']:
+                request.session['pendiente_cierre_sesion'] = True
+                return redirect('control:logout_post_caja')
             return redirect("control:cuadratura_diaria_list")
 
         # Si el formulario no es válido
@@ -1472,10 +1481,6 @@ def cuadratura_diaria_create(request):
                 if az.zona_id not in zonas_con_lineas:
                     zonas_faltantes.append(az.zona.nombre)
 
-    turnos_para_select = (
-        list(Turno.objects.select_related("sucursal").order_by("-fecha", "tipo_turno")[:90])
-        if not usa_sucursal_fija else []
-    )
     return render(request, "cuadratura_diaria/create.html", {
         "form": form,
         "sucursales": Sucursal.objects.filter(is_active=True).order_by("nombre"),
@@ -1490,7 +1495,7 @@ def cuadratura_diaria_create(request):
         "fecha_fija": usa_sucursal_fija,  # bloquea el campo fecha para encargados/supervisores
         "turno_tipo_fijo": turno_tipo_fijo,
         "es_encargada": request.user.role in ("encargado", "asistente"),
-        "turnos_para_select": turnos_para_select,
+        "es_encargado_o_asistente": request.user.role in ('encargado', 'asistente'),
     })
 @login_required
 @role_required(*ROLES_CUADRATURA)
@@ -1598,8 +1603,6 @@ def cuadratura_diaria_edit(request, pk):
                     c.regalos_dia   = _sum_tipo(c, "REGALOS")
                 if "TAXI" in tipos_con_detalle:
                     c.taxi_dia      = _sum_tipo(c, "TAXI")
-                if "JUGADOS" in tipos_con_detalle:
-                    c.jugados_dia   = _sum_tipo(c, "JUGADOS")
                 if "OTROS" in tipos_con_detalle:
                     c.otros_1_dia   = _sum_tipo(c, "OTROS")
 
@@ -1619,6 +1622,15 @@ def cuadratura_diaria_edit(request, pk):
 
                 # Recalcular ganancia, numeral_dia, descuadre y total_efectivo
                 _recalcular_totales(c, turno_tipo=c.turno.tipo_turno if c.turno else None)
+
+                if request.user.role in ['encargado', 'asistente']:
+                    control_existe = ControlLecturas.objects.filter(
+                        turno=c.turno,
+                        sucursal=c.sucursal,
+                    ).exists()
+                    if not control_existe:
+                        messages.error(request, "Debes guardar el Control de Lecturas antes de registrar la caja.")
+                        return redirect('control:cuadratura_diaria_create')
 
                 c.actualizado_el = timezone.now()
                 c.save()
@@ -1697,6 +1709,14 @@ def cuadratura_diaria_recalcular_todo(request):
 
     messages.success(request, f"✅ {actualizadas} cuadraturas recalculadas correctamente.")
     return redirect("control:cuadratura_diaria_list")
+
+
+@login_required
+def logout_post_caja(request):
+    from django.contrib.auth import logout
+    logout(request)
+    return redirect('control:login')
+
 
 @login_required
 @role_required('admin')
@@ -2856,6 +2876,17 @@ def registro_view(request):
                         messages.warning(request, f"Máquina {lectura.maquina.numero_maquina} reportada y puesta en Mantenimiento.")
                     else:
                         messages.success(request, f"Lectura registrada. Máquina {lectura.maquina.numero_maquina} guardada.")
+
+                    # Verificar si se completaron todas las máquinas de la zona
+                    lecturas_zona_ids = set(
+                        LecturaMaquina.objects.filter(
+                            maquina__zona=lectura.zona,
+                            turno=turno_abierto,
+                        ).values_list('maquina_id', flat=True)
+                    )
+                    if set(maquinas_zona) and set(maquinas_zona).issubset(lecturas_zona_ids):
+                        messages.success(request, f"✓ {lectura.zona.nombre} — Todas las máquinas han sido ingresadas.")
+
                     return redirect("control:registro")
             except IntegrityError:
                 messages.error(request, "Ya existe una lectura para esa máquina en este turno.")

@@ -66,7 +66,7 @@
           </thead>
           <tbody>
             {% for l in lecturas %}
-            <tr id="fila-{{ l.pk }}">
+            <tr id="fila-{{ l.pk }}" data-zona-id="{{ l.zona.id }}" data-zona-nombre="{{ l.zona.nombre }}" data-linea-id="{{ l.pk }}">
               <td style="font-size:11px;color:#64748b;">{{ l.zona.nombre }}</td>
               <td class="text-center fw-bold">{{ l.numero_maquina }}</td>
               <td class="text-center text-muted" style="font-size:12px;">{{ l.maquina.codigo_interno|default:"—" }}</td>
@@ -335,6 +335,13 @@
   </div>
 </div>
 
+<style>
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+</style>
+
 <script>
 function activarEdicion(id) {
   document.getElementById(`val-entrada-${id}`).classList.add('d-none');
@@ -394,6 +401,10 @@ function guardarFila(id, entAnt, salAnt) {
       document.getElementById(`val-salida-${id}`).textContent  = salida.toLocaleString();
       cancelarEdicion(id, entrada, salida);
       recalcularTotales();
+      const fila = document.querySelector(`tr[data-linea-id="${id}"]`);
+      if (fila) {
+        checkZonaCompleta(fila.dataset.zonaId, fila.dataset.zonaNombre);
+      }
     } else {
       alert('Error: ' + (data.error || 'No se pudo guardar'));
     }
@@ -403,6 +414,51 @@ function guardarFila(id, entAnt, salAnt) {
     btnSave.disabled = false;
     btnSave.innerHTML = '<i class="bi bi-check-lg"></i>';
   });
+}
+
+function checkZonaCompleta(zonaId, zonaNombre) {
+  const filas = document.querySelectorAll(`tr[data-zona-id="${zonaId}"]`);
+  if (!filas.length) return;
+
+  const todasIngresadas = Array.from(filas).every(fila => {
+    const lineaId = fila.dataset.lineaId;
+    const valEl = document.getElementById(`val-entrada-${lineaId}`);
+    const val = parseInt(valEl?.textContent?.replace(/\./g, '') || '0');
+    return val > 0;
+  });
+
+  if (todasIngresadas) {
+    mostrarToastZona(zonaNombre);
+  }
+}
+
+function mostrarToastZona(zonaNombre) {
+  let container = document.getElementById('toast-container-zonas');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container-zonas';
+    container.style.cssText =
+      'position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px;';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.style.cssText =
+    'background:#f0fdf4; border:1px solid #86efac; border-radius:10px; ' +
+    'padding:10px 16px; display:flex; align-items:center; gap:10px; ' +
+    'box-shadow:0 2px 8px rgba(0,0,0,0.12); font-size:0.85rem; ' +
+    'animation: slideIn 0.3s ease;';
+  toast.innerHTML = `
+    <i class="bi bi-check-circle-fill" style="color:#16a34a; font-size:1.1rem;"></i>
+    <span><strong>${zonaNombre}</strong> — Numerales ingresados con éxito</span>
+  `;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.4s';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 400);
+  }, 4000);
 }
 
 function recalcularTotales() {

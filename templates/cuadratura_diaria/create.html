@@ -118,7 +118,11 @@
     <h5><i class="bi bi-calculator me-2"></i>Cuadratura Caja Diaria</h5>
     <div class="sub">Registro del movimiento diario de caja</div>
   </div>
-  {% if usa_sucursal_fija %}
+  {% if cuadratura.pk %}
+  <a href="{% url 'control:cuadratura_diaria_detail' cuadratura.pk %}" class="btn btn-sm btn-light">
+    <i class="bi bi-arrow-left me-1"></i> Volver
+  </a>
+  {% elif usa_sucursal_fija %}
   <a href="{% url 'control:turno' %}" class="btn btn-sm btn-light">
     <i class="bi bi-arrow-left me-1"></i> Volver
   </a>
@@ -147,8 +151,7 @@
             <input type="hidden" id="id_fecha" name="fecha" value="{% now "Y-m-d" %}">
             <input type="text" class="form-control readonly" value="{% now "d/m/Y" %}" readonly style="min-width:110px;">
           {% else %}
-            <input type="hidden" id="id_fecha" name="fecha" value="">
-            <input type="text" class="form-control readonly" id="id_fecha_display" readonly placeholder="Elegir turno →" style="min-width:110px;">
+            <input type="date" id="id_fecha" name="fecha" class="form-control" value="{% now "Y-m-d" %}" style="min-width:110px;">
           {% endif %}
         </div>
 
@@ -181,16 +184,11 @@
         {% elif not usa_sucursal_fija %}
         <div class="col-md-2">
           <label class="form-label fw-bold mb-1">Turno</label>
-          <select id="turnoSelect" name="turno_tipo" class="form-select form-control" style="min-width:160px;">
+          <select id="id_turno_tipo" name="turno_tipo" class="form-select form-control" style="min-width:160px;">
             <option value="">— Seleccione turno —</option>
-            {% for t in turnos_para_select %}
-            <option value="{{ t.tipo_turno }}"
-                    data-fecha="{{ t.fecha|date:'Y-m-d' }}"
-                    data-fecha-display="{{ t.fecha|date:'d/m/Y' }}"
-                    data-sucursal="{{ t.sucursal_id }}">
-              {{ t.sucursal.nombre }} — {{ t.fecha|date:'d/m/Y' }} — {{ t.tipo_turno }}
-            </option>
-            {% endfor %}
+            <option value="Mañana">Mañana</option>
+            <option value="Tarde">Tarde</option>
+            <option value="Noche">Noche</option>
           </select>
         </div>
         {% else %}
@@ -252,13 +250,17 @@
         <div class="section-title">Caja diaria</div>
       </div>
 
+<input type="hidden" id="id_gastos_dia" name="gastos_dia" value="0">
+<input type="hidden" id="id_sueldo_b_dia" name="sueldo_b_dia" value="0">
+<input type="hidden" id="id_regalos_dia" name="regalos_dia" value="0">
+
 <div class="table-responsive">
   <table class="table table-sm table-bordered mb-0 align-middle w-100">
     <thead class="table-secondary">
       <tr>
         <th style="width: 220px;">Concepto</th>
         <th style="width: 190px;">Monto</th>
-        <th>Notas</th>
+        <th>Notas / Detalle</th>
       </tr>
     </thead>
 
@@ -269,179 +271,69 @@
         <td>{{ form.sorteos_dia }}</td>
         <td class="notes-cell">{{ form.sorteos_notas }}</td>
       </tr>
+    </tbody>
 
-      <!-- GASTOS + detalle -->
-      <tr style="border-bottom: none;">
+    <!-- GASTOS -->
+    <tbody>
+      <tr style="background:#f8fafc;">
         <td class="concept">GASTOS</td>
+        <td><input type="number" id="gasto_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100%;"></td>
         <td>
-          <input type="hidden" id="id_gastos_dia" name="gastos_dia" value="0">
-          <div class="fw-bold text-end" id="gasto_monto_display">$0</div>
-        </td>
-        <td class="notes-cell">{{ form.gastos_notas }}</td>
-      </tr>
-
-      <tr>
-        <td colspan="3" style="padding: 0 0 8px 32px; background: #f8fafc; border-top: none;">
-          <div style="border-left: 3px solid #198754; padding-left: 12px; margin-top: 4px;">
-            <div class="d-flex justify-content-between align-items-center mb-2 mt-1">
-              <span style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6c757d;">
-                Ítems de GASTOS
-              </span>
-              <button type="button" class="btn btn-sm btn-success" id="btn_add_gasto"
-                      style="font-size: 0.75rem; padding: 3px 10px; border-radius: 8px;">
-                + Agregar ítem
-              </button>
-            </div>
-            <table class="table table-sm table-bordered align-middle mb-0 bg-white"
-                   style="border-radius: 8px; overflow: hidden; font-size: 0.84rem;">
-              <thead class="table-light">
-                <tr>
-                  <th style="font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;">Descripción</th>
-                  <th style="width:160px; font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;">Monto</th>
-                  <th style="width:44px;"></th>
-                </tr>
-              </thead>
-              <tbody id="gastos_items_body">
-                <tr id="gasto_empty_row">
-                  <td colspan="3" class="text-center text-muted py-2" style="font-size:0.82rem; font-style:italic;">
-                    Sin ítems — usa "+ Agregar ítem" para añadir
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="d-flex gap-1 align-items-center">
+            <input type="text" id="gasto_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+            <button type="button" id="btn_add_gasto" class="btn btn-sm btn-outline-secondary px-2">+</button>
           </div>
         </td>
       </tr>
+    </tbody>
+    <tbody id="gastos_items_body"></tbody>
+    <tbody>
+      <tr style="background:#f8fafc;">
+        <td colspan="3" class="text-end text-muted py-1" style="font-size:.75rem;">Total gastos: <strong id="gasto_monto_display">$0</strong></td>
+      </tr>
+    </tbody>
 
-      <!-- SUELDOS + detalle -->
-      <tr style="border-bottom: none;">
+    <!-- SUELDOS -->
+    <tbody>
+      <tr style="background:#f8fafc;">
         <td class="concept">SUELDOS</td>
+        <td><input type="number" id="sueldo_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100%;"></td>
         <td>
-          <input type="hidden" id="id_sueldo_b_dia" name="sueldo_b_dia" value="0">
-          <div class="fw-bold text-end" id="sueldo_monto_display">$0</div>
-        </td>
-        <td class="notes-cell">{{ form.sueldo_b_notas }}</td>
-      </tr>
-
-      <tr>
-        <td colspan="3" style="padding: 0 0 8px 32px; background: #f8fafc; border-top: none;">
-          <div style="border-left: 3px solid #198754; padding-left: 12px; margin-top: 4px;">
-            <div class="d-flex justify-content-between align-items-center mb-2 mt-1">
-              <span style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6c757d;">
-                Ítems de SUELDOS
-              </span>
-              <button type="button" class="btn btn-sm btn-success" id="btn_add_sueldo"
-                      style="font-size: 0.75rem; padding: 3px 10px; border-radius: 8px;">
-                + Agregar ítem
-              </button>
-            </div>
-            <table class="table table-sm table-bordered align-middle mb-0 bg-white"
-                   style="border-radius: 8px; overflow: hidden; font-size: 0.84rem;">
-              <thead class="table-light">
-                <tr>
-                  <th style="font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;">Descripción</th>
-                  <th style="width:160px; font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;">Monto</th>
-                  <th style="width:44px;"></th>
-                </tr>
-              </thead>
-              <tbody id="sueldos_items_body">
-                <tr id="sueldo_empty_row">
-                  <td colspan="3" class="text-center text-muted py-2" style="font-size:0.82rem; font-style:italic;">
-                    Sin ítems — usa "+ Agregar ítem" para añadir
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="d-flex gap-1 align-items-center">
+            <input type="text" id="sueldo_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+            <button type="button" id="btn_add_sueldo" class="btn btn-sm btn-outline-secondary px-2">+</button>
           </div>
         </td>
       </tr>
+    </tbody>
+    <tbody id="sueldos_items_body"></tbody>
+    <tbody>
+      <tr style="background:#f8fafc;">
+        <td colspan="3" class="text-end text-muted py-1" style="font-size:.75rem;">Total sueldos: <strong id="sueldo_monto_display">$0</strong></td>
+      </tr>
+    </tbody>
 
-      <!-- REGALOS + detalle -->
-      <tr style="border-bottom: none;">
+    <!-- REGALOS -->
+    <tbody>
+      <tr style="background:#f8fafc;">
         <td class="concept">REGALOS</td>
+        <td><input type="number" id="regalo_monto_input" class="form-control form-control-sm" placeholder="Monto" min="0" style="width:100%;"></td>
         <td>
-          <input type="hidden" id="id_regalos_dia" name="regalos_dia" value="0">
-          <div class="fw-bold text-end" id="regalo_monto_display">$0</div>
-        </td>
-        <td class="notes-cell">{{ form.regalos_notas }}</td>
-      </tr>
-
-      <tr>
-        <td colspan="3" style="padding: 0 0 8px 32px; background: #f8fafc; border-top: none;">
-          <div style="border-left: 3px solid #198754; padding-left: 12px; margin-top: 4px;">
-            <div class="d-flex justify-content-between align-items-center mb-2 mt-1">
-              <span style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6c757d;">
-                Ítems de REGALOS
-              </span>
-              <button type="button" class="btn btn-sm btn-success" id="btn_add_regalo"
-                      style="font-size: 0.75rem; padding: 3px 10px; border-radius: 8px;">
-                + Agregar ítem
-              </button>
-            </div>
-            <table class="table table-sm table-bordered align-middle mb-0 bg-white"
-                   style="border-radius: 8px; overflow: hidden; font-size: 0.84rem;">
-              <thead class="table-light">
-                <tr>
-                  <th style="font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;">Descripción</th>
-                  <th style="width:160px; font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;">Monto</th>
-                  <th style="width:44px;"></th>
-                </tr>
-              </thead>
-              <tbody id="regalos_items_body">
-                <tr id="regalo_empty_row">
-                  <td colspan="3" class="text-center text-muted py-2" style="font-size:0.82rem; font-style:italic;">
-                    Sin ítems — usa "+ Agregar ítem" para añadir
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="d-flex gap-1 align-items-center">
+            <input type="text" id="regalo_detalle_input" class="form-control form-control-sm flex-grow-1" placeholder="Detalle">
+            <button type="button" id="btn_add_regalo" class="btn btn-sm btn-outline-secondary px-2">+</button>
           </div>
         </td>
       </tr>
-
-      <!-- JUGADOS + detalle -->
-      <tr style="border-bottom: none;">
-        <td class="concept">JUGADOS</td>
-        <td>
-          <input type="hidden" id="id_jugados_dia" name="jugados_dia" value="0">
-          <div class="fw-bold text-end" id="jugado_monto_display">$0</div>
-        </td>
-        <td class="notes-cell">{{ form.jugados_notas }}</td>
+    </tbody>
+    <tbody id="regalos_items_body"></tbody>
+    <tbody>
+      <tr style="background:#f8fafc;">
+        <td colspan="3" class="text-end text-muted py-1" style="font-size:.75rem;">Total regalos: <strong id="regalo_monto_display">$0</strong></td>
       </tr>
+    </tbody>
 
-      <tr>
-        <td colspan="3" style="padding: 0 0 8px 32px; background: #f8fafc; border-top: none;">
-          <div style="border-left: 3px solid #198754; padding-left: 12px; margin-top: 4px;">
-            <div class="d-flex justify-content-between align-items-center mb-2 mt-1">
-              <span style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6c757d;">
-                Ítems de JUGADOS
-              </span>
-              <button type="button" class="btn btn-sm btn-success" id="btn_add_jugado"
-                      style="font-size: 0.75rem; padding: 3px 10px; border-radius: 8px;">
-                + Agregar ítem
-              </button>
-            </div>
-            <table class="table table-sm table-bordered align-middle mb-0 bg-white"
-                   style="border-radius: 8px; overflow: hidden; font-size: 0.84rem;">
-              <thead class="table-light">
-                <tr>
-                  <th style="font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;">Descripción</th>
-                  <th style="width:160px; font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;">Monto</th>
-                  <th style="width:44px;"></th>
-                </tr>
-              </thead>
-              <tbody id="jugados_items_body">
-                <tr id="jugado_empty_row">
-                  <td colspan="3" class="text-center text-muted py-2" style="font-size:0.82rem; font-style:italic;">
-                    Sin ítems — usa "+ Agregar ítem" para añadir
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </td>
-      </tr>
-
+    <tbody>
       <!-- SUBTOTAL -->
       <tr class="table-light">
         <td class="concept fw-bold">SUBTOTAL</td>
@@ -465,7 +357,7 @@
         <td class="notes-cell">{{ form.transfer_notas }}</td>
       </tr>
 
-      <!-- PRESTAMOS (3 columnas, NO 4) -->
+      <!-- PRESTAMOS -->
       <tr>
         <td class="concept">PRÉSTAMOS</td>
         <td>{{ form.prestamos }}</td>
@@ -595,9 +487,15 @@
           <i class="bi bi-lock me-1"></i> Faltan zonas por subir
         </button>
         {% endif %}
+        {% if cuadratura.pk %}
+        <a href="{% url 'control:cuadratura_diaria_detail' cuadratura.pk %}" class="btn-pg-secondary" style="text-decoration:none;">
+          Cancelar
+        </a>
+        {% else %}
         <a href="{% url 'control:cuadratura_diaria_list' %}" class="btn-pg-secondary" style="text-decoration:none;">
           Cancelar
         </a>
+        {% endif %}
       </div>
 
     </form>
@@ -605,6 +503,47 @@
 </div><!-- /pg-card-body -->
 </div><!-- /pg-card -->
 
+
+<!-- Modal advertencia cierre sesión -->
+<div class="modal fade" id="modalCierreSesion" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-warning">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>Advertencia
+        </h5>
+      </div>
+      <div class="modal-body text-center py-4">
+        <p class="fs-5 mb-1">Al guardar la caja <strong>su sesión se cerrará</strong>.</p>
+        <p class="text-muted small">¿Desea continuar?</p>
+      </div>
+      <div class="modal-footer justify-content-center gap-3">
+        <button type="button" class="btn btn-secondary"
+                data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-warning fw-bold"
+                id="btnConfirmarGuardar">
+          Sí, guardar y cerrar sesión
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal conteo regresivo -->
+<div class="modal fade" id="modalConteo" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center py-5">
+        <i class="bi bi-check-circle-fill text-success fs-1 mb-3 d-block"></i>
+        <p class="fs-5 mb-1">Caja guardada correctamente.</p>
+        <p class="text-muted">La sesión se cerrará en</p>
+        <p class="display-4 fw-bold text-warning" id="cuentaRegresiva">5</p>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
@@ -718,21 +657,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function addRow(nombre = "", monto = "") {
-      const emptyRow = document.getElementById(prefix + '_empty_row');
-      if (emptyRow) emptyRow.style.display = 'none';
-
       const tr = document.createElement("tr");
+      tr.setAttribute("data-item-row", "");
       tr.innerHTML = `
-        <td><input type="text" class="form-control form-control-sm" data-role="${prefix}-nombre" value="${nombre || ""}"></td>
-        <td><input type="text" class="form-control form-control-sm text-end" data-role="${prefix}-monto" value="${monto || ""}" inputmode="numeric" max="999999999" min="0"></td>
-        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" data-action="remove">✕</button></td>
+        <td style="font-size:0.85rem; color:#555;"></td>
+        <td><input type="number" data-role="${prefix}-monto" class="form-control form-control-sm text-end" value="${monto || 0}" readonly style="background:transparent; border:none;"></td>
+        <td class="d-flex align-items-center gap-1">
+          <input type="text" data-role="${prefix}-nombre" class="form-control form-control-sm flex-grow-1" value="${nombre || ""}" readonly style="background:transparent; border:none;">
+          <button type="button" class="btn btn-sm btn-outline-danger px-2" data-action="remove">✕</button>
+        </td>
       `;
 
       tr.querySelector("[data-action='remove']").addEventListener("click", () => {
         tr.remove();
-        const remaining = body.querySelectorAll(`tr:not(#${prefix}_empty_row)`);
-        const emptyRow = document.getElementById(prefix + '_empty_row');
-        if (emptyRow) emptyRow.style.display = remaining.length === 0 ? '' : 'none';
         recalcTotal();
       });
 
@@ -751,8 +688,28 @@ document.addEventListener("DOMContentLoaded", () => {
     GASTOS: setupDetalle({ tbodyId:"gastos_items_body", addBtnId:"btn_add_gasto", totalLabelId:"gastos_total_label", diaInputId:"id_gastos_dia", prefix:"gasto", collapseId:"collapse_gastos" }),
     SUELDOS: setupDetalle({ tbodyId:"sueldos_items_body", addBtnId:"btn_add_sueldo", totalLabelId:"sueldos_total_label", diaInputId:"id_sueldo_b_dia", prefix:"sueldo", collapseId:"collapse_sueldos" }),
     REGALOS: setupDetalle({ tbodyId:"regalos_items_body", addBtnId:"btn_add_regalo", totalLabelId:"regalos_total_label", diaInputId:"id_regalos_dia", prefix:"regalo", collapseId:"collapse_regalos" }),
-    JUGADOS: setupDetalle({ tbodyId:"jugados_items_body", addBtnId:"btn_add_jugado", totalLabelId:"jugados_total_label", diaInputId:"id_jugados_dia", prefix:"jugado", collapseId:"collapse_jugados" }),
   };
+
+  // Reemplazar listeners de los botones + para usar los inputs inline
+  (function() {
+    function wireAddBtn(btnId, montoInputId, detalleInputId, helper) {
+      const btn = document.getElementById(btnId);
+      if (!btn || !helper) return;
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+      newBtn.addEventListener('click', () => {
+        const monto = parseIntSafe(document.getElementById(montoInputId)?.value);
+        if (!monto) return;
+        const detalle = (document.getElementById(detalleInputId)?.value || '').trim();
+        helper.addRow(detalle, monto);
+        document.getElementById(montoInputId).value = '';
+        document.getElementById(detalleInputId).value = '';
+      });
+    }
+    wireAddBtn('btn_add_gasto',  'gasto_monto_input',  'gasto_detalle_input',  helpers.GASTOS);
+    wireAddBtn('btn_add_sueldo', 'sueldo_monto_input', 'sueldo_detalle_input', helpers.SUELDOS);
+    wireAddBtn('btn_add_regalo', 'regalo_monto_input', 'regalo_detalle_input', helpers.REGALOS);
+  })();
 
   {% if editar %}
   (function() {
@@ -768,7 +725,6 @@ document.addEventListener("DOMContentLoaded", () => {
       { tipo:"GASTOS",  diaId:"id_gastos_dia" },
       { tipo:"SUELDOS", diaId:"id_sueldo_b_dia" },
       { tipo:"REGALOS", diaId:"id_regalos_dia" },
-      { tipo:"JUGADOS", diaId:"id_jugados_dia" },
     ];
     conceptosSinDetalle.forEach(function(c) {
       const h = helpers[c.tipo];
@@ -781,7 +737,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    ['GASTOS', 'SUELDOS', 'REGALOS', 'JUGADOS'].forEach(function(tipo) {
+    ['GASTOS', 'SUELDOS', 'REGALOS'].forEach(function(tipo) {
       if (helpers[tipo]) helpers[tipo].recalcTotal();
     });
     setTimeout(recalcUI, 50);
@@ -815,20 +771,20 @@ function recalcUI() {
   const gastos = getValById("id_gastos_dia");
   const sueldos = getValById("id_sueldo_b_dia");
   const regalos = getValById("id_regalos_dia");
-  const jugados = getValById("id_jugados_dia");
+  const jugados = 0;
 
   const redbank = getValById("id_redbank_dia");
   const transfer = getValById("id_transfer_dia");
   const prestamos = getValById("id_prestamos");
 
-  const subtotal = sorteos + gastos + sueldos + regalos + jugados;
-  setVal(subtotalEl, subtotal);  
+  const subtotal = sorteos + gastos + sueldos + regalos;
+  setVal(subtotalEl, subtotal);
 
   const total = subtotal - redbank - transfer + prestamos;
   setVal(totalEl, total);
 
   const desglose = parseIntSafe(desgloseTotalEl?.value);
-  const totalCalculado = cajaAnteriorVal + numeralDiaVal + prestamos - sorteos - gastos - sueldos - regalos - jugados - redbank - transfer;
+  const totalCalculado = cajaAnteriorVal + numeralDiaVal + prestamos - sorteos - gastos - sueldos - regalos - redbank - transfer;
   console.log('[recalcUI] caja:', cajaAnteriorVal, 'numeral:', numeralDiaVal, 'gastos:', gastos, 'sueldos:', sueldos, 'redbank:', redbank, 'desglose:', desglose, 'totalCalculado:', totalCalculado);
   const descuadre = desglose - totalCalculado;
   setVal(descuadreEl, descuadre);
@@ -865,11 +821,27 @@ function recalcUI() {
     if (!container) return;
     container.innerHTML = "";
 
+    // Capturar ítem activo (no confirmado con "+") de cada sección
+    const seccionesPendientes = [
+      { montoId: 'gasto_monto_input',  detalleId: 'gasto_detalle_input',  tipo: 'GASTOS'  },
+      { montoId: 'sueldo_monto_input', detalleId: 'sueldo_detalle_input', tipo: 'SUELDOS' },
+      { montoId: 'regalo_monto_input', detalleId: 'regalo_detalle_input', tipo: 'REGALOS' },
+    ];
+    seccionesPendientes.forEach(sec => {
+      const montoEl   = document.getElementById(sec.montoId);
+      const detalleEl = document.getElementById(sec.detalleId);
+      const monto = parseInt(montoEl?.value || 0);
+      if (monto !== 0) {
+        if (helpers[sec.tipo]) helpers[sec.tipo].addRow(detalleEl?.value || '', monto);
+        montoEl.value = '';
+        if (detalleEl) detalleEl.value = '';
+      }
+    });
+
     const groups = [
       { tipo:"GASTOS",  tbody:"gastos_items_body",  nombreRole:"gasto-nombre",  montoRole:"gasto-monto" },
       { tipo:"SUELDOS", tbody:"sueldos_items_body", nombreRole:"sueldo-nombre", montoRole:"sueldo-monto" },
       { tipo:"REGALOS", tbody:"regalos_items_body", nombreRole:"regalo-nombre", montoRole:"regalo-monto" },
-      { tipo:"JUGADOS", tbody:"jugados_items_body", nombreRole:"jugado-nombre", montoRole:"jugado-monto" },
     ];
 
     let idx = 0;
@@ -906,7 +878,6 @@ function recalcUI() {
         'gastos_dia':   'gastos',
         'sueldo_b_dia': 'sueldo',
         'regalos_dia':  'regalo',
-        'jugados_dia':  'jugado',
       };
       for (const [fieldName, prefix] of Object.entries(camposTotales)) {
         const hiddenInput = document.querySelector(`input[name="${fieldName}"]`);
@@ -948,7 +919,7 @@ function recalcUI() {
   const idsToWatch = [
     "id_ef_20000","id_ef_10000","id_ef_5000","id_ef_2000","id_ef_1000","id_ef_monedas","id_ef_billetes_malos",
     "id_retiro_diario",
-    "id_sorteos_dia","id_gastos_dia","id_sueldo_b_dia","id_regalos_dia","id_jugados_dia",
+    "id_sorteos_dia","id_gastos_dia","id_sueldo_b_dia","id_regalos_dia",
     "id_redbank_dia","id_transfer_dia","id_prestamos",
   ];
 
@@ -974,44 +945,9 @@ function recalcUI() {
 
 
   // Escuchar cambios en el turno
-  const turnoSelectEl = document.getElementById("turnoSelect");
-  const fechaDisplayEl = document.getElementById("id_fecha_display");
-
-  function actualizarFechaDesTurno() {
-    if (!turnoSelectEl || !fechaInput) return;
-    const opt = turnoSelectEl.options[turnoSelectEl.selectedIndex];
-    if (opt && opt.dataset.fecha) {
-      fechaInput.value = opt.dataset.fecha;
-      if (fechaDisplayEl) fechaDisplayEl.value = opt.dataset.fechaDisplay || opt.dataset.fecha;
-    } else {
-      fechaInput.value = "";
-      if (fechaDisplayEl) fechaDisplayEl.value = "";
-    }
-  }
-
-  function filtrarTurnosPorSucursal() {
-    if (!turnoSelectEl || !sucursalSelect) return;
-    const sucId = sucursalSelect.value;
-    let resetear = false;
-    Array.from(turnoSelectEl.options).forEach(opt => {
-      if (!opt.value) return;
-      opt.hidden = sucId ? opt.dataset.sucursal !== sucId : false;
-      if (opt.selected && opt.hidden) resetear = true;
-    });
-    if (resetear) {
-      turnoSelectEl.value = "";
-      actualizarFechaDesTurno();
-    }
-  }
-
-  if (turnoSelectEl) {
-    turnoSelectEl.addEventListener("change", () => {
-      actualizarFechaDesTurno();
-      onHeaderChange();
-    });
-  }
-  if (sucursalSelect && turnoSelectEl) {
-    sucursalSelect.addEventListener("change", filtrarTurnosPorSucursal);
+  const turnoTipoEl = document.getElementById("id_turno_tipo");
+  if (turnoTipoEl) {
+    turnoTipoEl.addEventListener("change", onHeaderChange);
   }
 
   {% if cuadratura.pk %}
@@ -1029,6 +965,33 @@ function recalcUI() {
 
   // init
   onHeaderChange();
+
+  // ========= Modal cierre sesión (encargado/asistente) =========
+  const esEncargado = {{ es_encargado_o_asistente|yesno:"true,false" }};
+  if (esEncargado) {
+    const modalAdvertencia = new bootstrap.Modal(document.getElementById('modalCierreSesion'));
+    const modalConteo = new bootstrap.Modal(document.getElementById('modalConteo'));
+
+    formEl.addEventListener('submit', function(e) {
+      e.preventDefault();
+      modalAdvertencia.show();
+    });
+
+    document.getElementById('btnConfirmarGuardar').addEventListener('click', function() {
+      modalAdvertencia.hide();
+      modalConteo.show();
+      let cuenta = 5;
+      const el = document.getElementById('cuentaRegresiva');
+      const intervalo = setInterval(() => {
+        cuenta--;
+        el.textContent = cuenta;
+        if (cuenta <= 0) {
+          clearInterval(intervalo);
+          formEl.submit();
+        }
+      }, 1000);
+    });
+  }
 });
 </script>
 
