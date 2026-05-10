@@ -1,26 +1,60 @@
-Lee templates/cuadratura_diaria/create.html y control/urls.py.
+Lee templates/cuadratura_diaria/create.html.
 
-BUG: El botón "Volver" y "Cancelar" en el formulario de edición de caja 
-redirigen a la lista, pero deberían ir al detalle de la caja que se estaba 
-editando.
+El formulario se ve cortado en móvil porque la tabla de CAJA DIARIA 
+tiene columnas fijas que exceden el ancho de pantalla.
 
-FIX en create.html:
-Buscar los botones/links de "Volver" y "Cancelar". Actualmente apuntan a 
-algo como {% url 'control:cuadratura_diaria_list' %}.
+FIXES responsive para móvil:
 
-En modo edición (cuando cuadratura.pk existe), cambiar el href a la vista 
-de detalle de esa caja:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1) Envolver la tabla en div responsive
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Agregar div class="table-responsive" alrededor de la tabla principal 
+de caja diaria para que haga scroll horizontal en móvil en vez de cortar.
 
-  {% if cuadratura.pk %}
-    href="{% url 'control:cuadratura_diaria_detail' cuadratura.pk %}"
-  {% else %}
-    href="{% url 'control:cuadratura_diaria_list' %}"
-  {% endif %}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2) Ocultar columna NOTAS/DETALLE en móvil para filas simples
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+En el <th> y <td> de NOTAS/DETALLE de las filas simples (Sorteos, 
+Redbank, Transferencias, Préstamos) agregar class="d-none d-md-table-cell"
+para ocultarlos en pantallas pequeñas.
 
-Aplicar esto a AMBOS botones (Volver al inicio y Cancelar).
+Para GASTOS, SUELDOS y REGALOS mantener visible el input Detalle pero
+reducir su ancho mínimo en móvil con CSS.
 
-Verificar en urls.py cómo se llama la url del detalle 
-(puede ser cuadratura_diaria_detail, cuadratura_detail, etc.) 
-y adaptar el nombre exacto.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3) Agregar estilos responsive en <style>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  @media (max-width: 576px) {
+    /* Tabla más compacta */
+    .table td, .table th {
+      padding: 6px 8px;
+      font-size: 0.82rem;
+    }
+    /* Input de monto ocupa ancho disponible */
+    .table input[type="number"],
+    .table input[type="text"] {
+      min-width: 0 !important;
+      width: 100% !important;
+    }
+    /* Inputs de Gastos/Sueldos/Regalos en móvil: 
+       Monto angosto, Detalle flexible */
+    #gasto_monto_input, #sueldo_monto_input, #regalo_monto_input {
+      width: 80px !important;
+    }
+    #gasto_detalle_input, #sueldo_detalle_input, #regalo_detalle_input {
+      min-width: 0 !important;
+    }
+    /* Desglose de efectivo: 2 columnas en vez de 3 */
+    .desglose-grid {
+      grid-template-columns: 1fr 1fr !important;
+    }
+  }
 
-No tocar ninguna otra lógica.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4) Header de numerales (Numeral Turno / Numeral acumulado / Caja anterior)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Si los 3 inputs de numerales usan display flex en fila, agregar 
+flex-wrap: wrap y min-width: 80px a cada uno para que se acomoden 
+en 2 filas en pantallas pequeñas.
+
+No cambiar ninguna lógica JS ni de cálculo.

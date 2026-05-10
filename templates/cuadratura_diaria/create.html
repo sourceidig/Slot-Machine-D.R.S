@@ -85,7 +85,7 @@
   /* Layout tabla */
   .table { table-layout: fixed; }
   .table td:last-child, .table th:last-child { width: auto; }
-  .table-responsive { overflow-x: hidden !important; }
+  .table-responsive { overflow-x: auto; }
   .table { width: 100% !important; table-layout: fixed !important; }
 
   /* Notes cell */
@@ -95,6 +95,27 @@
     min-height: 30px !important;
     max-height: 30px !important;
     resize: none !important;
+  }
+
+  @media (max-width: 576px) {
+    .table td, .table th {
+      padding: 6px 8px;
+      font-size: 0.82rem;
+    }
+    .table input[type="number"],
+    .table input[type="text"] {
+      min-width: 0 !important;
+      width: 100% !important;
+    }
+    #gasto_monto_input, #sueldo_monto_input, #regalo_monto_input {
+      width: 80px !important;
+    }
+    #gasto_detalle_input, #sueldo_detalle_input, #regalo_detalle_input {
+      min-width: 0 !important;
+    }
+    .desglose-grid {
+      grid-template-columns: 1fr 1fr !important;
+    }
   }
 </style>
 
@@ -202,8 +223,8 @@
         <div class="col-12">
           <div class="section-title mb-1"></div>
           {% if cuadratura.pk %}<span id="modo_edicion" style="display:none;"></span>{% endif %}
-          <div class="d-flex gap-4">
-            <div>
+          <div class="d-flex gap-4" style="flex-wrap: wrap;">
+            <div style="min-width: 80px;">
               {% if cuadratura.pk %}
                 <input type="text" class="form-control" readonly
                        value="{{ cuadratura.numeral_dia|default:0 }}"
@@ -217,7 +238,7 @@
               <div class="small text-muted mt-1">Numeral Turno</div>
             </div>
             {% if not es_encargada %}
-            <div>
+            <div style="min-width: 80px;">
               {% if cuadratura.pk %}
                 <input type="text" class="form-control" readonly
                        value="{{ cuadratura.numeral_acumulado|default:0 }}"
@@ -233,7 +254,7 @@
             {% else %}
             <input type="hidden" id="id_numeral_acumulado" value="{% if cuadratura.pk %}{{ cuadratura.numeral_acumulado|default:0 }}{% else %}0{% endif %}">
             {% endif %}
-            <div>
+            <div style="min-width: 80px;">
               <input type="text" class="form-control" id="id_caja_anterior"
                      value="{{ caja_anterior }}" readonly
                      style="width:130px; font-size:0.85rem; text-align:right; background:#f1f5f9;">
@@ -260,7 +281,7 @@
       <tr>
         <th style="width: 220px;">Concepto</th>
         <th style="width: 190px;">Monto</th>
-        <th>Notas / Detalle</th>
+        <th class="d-none d-md-table-cell">Notas / Detalle</th>
       </tr>
     </thead>
 
@@ -269,7 +290,7 @@
       <tr>
         <td class="concept">SORTEOS</td>
         <td>{{ form.sorteos_dia }}</td>
-        <td class="notes-cell">{{ form.sorteos_notas }}</td>
+        <td class="notes-cell d-none d-md-table-cell">{{ form.sorteos_notas }}</td>
       </tr>
     </tbody>
 
@@ -347,21 +368,21 @@
       <tr>
         <td class="concept">REDBANK</td>
         <td>{{ form.redbank_dia }}</td>
-        <td class="notes-cell">{{ form.redbank_notas }}</td>
+        <td class="notes-cell d-none d-md-table-cell">{{ form.redbank_notas }}</td>
       </tr>
 
       <!-- TRANSFER -->
       <tr>
         <td class="concept">TRANSFERENCIAS</td>
         <td>{{ form.transfer_dia }}</td>
-        <td class="notes-cell">{{ form.transfer_notas }}</td>
+        <td class="notes-cell d-none d-md-table-cell">{{ form.transfer_notas }}</td>
       </tr>
 
       <!-- PRESTAMOS -->
       <tr>
         <td class="concept">PRÉSTAMOS</td>
         <td>{{ form.prestamos }}</td>
-        <td class="notes-cell">{{ form.prestamos_notas }}</td>
+        <td class="notes-cell d-none d-md-table-cell">{{ form.prestamos_notas }}</td>
       </tr>
 
       <!-- TOTAL -->
