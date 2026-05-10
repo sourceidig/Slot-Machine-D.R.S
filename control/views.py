@@ -1286,6 +1286,8 @@ def cuadratura_diaria_create(request):
     sucursal_fija = _sucursal_fija_para(request) if usa_sucursal_fija else None
     turno_tipo_fijo = None
     fecha_turno = timezone.localdate()
+    numeral_dia_inicial = 0
+    numeral_acum_inicial = 0
 
     if request.method == "POST":
         form = CuadraturaCajaDiariaForm(request.POST)
@@ -1455,10 +1457,15 @@ def cuadratura_diaria_create(request):
             fecha = fecha_turno if usa_sucursal_fija else timezone.now().date()
             caja_anterior, prestamos_acum_ant = _caja_anterior_en_ciclo(ref_sucursal, fecha)
             caja_inicial = int(ref_sucursal.caja_inicial or 0)
+            numeral_dia_inicial, numeral_acum_inicial = calcular_numerales_caja(
+                ref_sucursal, fecha, turno_tipo=turno_tipo_fijo
+            )
         else:
             caja_anterior = 0
             caja_inicial = 0
             prestamos_acum_ant = 0
+            numeral_dia_inicial = 0
+            numeral_acum_inicial = 0
 
     # Verificar zonas faltantes (solo para la sucursal relevante)
     fecha_hoy = timezone.localdate()
@@ -1492,6 +1499,8 @@ def cuadratura_diaria_create(request):
         "caja_anterior": caja_anterior,
         "caja_inicial": caja_inicial,
         "prestamos_acum_ant": prestamos_acum_ant,
+        "numeral_dia_inicial": numeral_dia_inicial,
+        "numeral_acum_inicial": numeral_acum_inicial,
         "zonas_faltantes": zonas_faltantes,
         "control_completo": len(zonas_faltantes) == 0,
         "sucursal_fija": sucursal_fija,

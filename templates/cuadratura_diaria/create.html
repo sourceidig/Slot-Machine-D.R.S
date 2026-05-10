@@ -689,6 +689,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const gananciaEl = document.getElementById("ganancia_display");
   const totalEfectivoEl = document.getElementById("total_efectivo_display");
 
+  // Pre-cargar valores del servidor si no hay id_fecha/id_sucursal (encargados)
+  if (!fechaInput || !sucursalSelect) {
+    const caEl = document.getElementById('id_caja_anterior');
+    const ndEl = document.getElementById('id_numeral_dia');
+    const naEl = document.getElementById('id_numeral_acumulado');
+    if (caEl) caEl.value = '{{ caja_anterior|default:0 }}';
+    if (ndEl) ndEl.value = '{{ numeral_dia_inicial|default:0 }}';
+    if (naEl) naEl.value = '{{ numeral_acum_inicial|default:0 }}';
+    recalcUI();
+  }
+
   // Helpers
   function parseIntSafe(v) {
     const n = parseInt((v ?? "")
