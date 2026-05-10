@@ -1051,6 +1051,16 @@ function recalcUI() {
     });
   });
 
+  // Fallback: agregar listeners por name si getElementById falla
+  ['ef_20000','ef_10000','ef_5000','ef_2000','ef_1000',
+   'ef_monedas','ef_billetes_malos'].forEach(function(name) {
+    var el = document.querySelector('input[name="' + name + '"]');
+    if (el && !el._rcListener) {
+      el._rcListener = true;
+      el.addEventListener('input', function() { recalcDesglose(); });
+    }
+  });
+
   document.getElementById("gasto_monto_input")?.addEventListener("input", recalcUI);
   document.getElementById("sueldo_monto_input")?.addEventListener("input", recalcUI);
   document.getElementById("regalo_monto_input")?.addEventListener("input", recalcUI);
@@ -1126,6 +1136,16 @@ function recalcUI() {
       }, 1000);
     });
   }
+
+  window.recalcDesglose = recalcDesglose;
+  window.recalcUI = recalcUI;
+
+  setTimeout(function() {
+    if (typeof recalcDesglose === 'function') {
+      recalcDesglose();
+      recalcUI();
+    }
+  }, 200);
 });
 </script>
 
