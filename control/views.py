@@ -5692,47 +5692,77 @@ def movimientos_list(request):
 
 @login_required
 def sesiones_admin(request):
-    """Vista exclusiva del admin para ver todos los registros de inicio y cierre de sesión."""
-    if request.user.role != "admin":
-        return HttpResponse("No autorizado", status=403)
+    from django.core.paginator import Paginator
+    from datetime import timedelta
 
-    filtro_usuario = request.GET.get("usuario", "")
-    filtro_rol     = request.GET.get("rol", "")
-    filtro_fecha   = request.GET.get("fecha", "")
-    filtro_estado  = request.GET.get("estado", "")
+    if request.user.role != 'admin':
+        return HttpResponse('No autorizado', status=403)
 
-    qs = RegistroSesion.objects.select_related("usuario", "sucursal", "turno").order_by("-hora_inicio")
+    filtro_usuario  = request.GET.get('usuario', '')
+    filtro_rol      = request.GET.get('rol', '')
+    filtro_sucursal = request.GET.get('sucursal', '')
+    filtro_estado   = request.GET.get('estado', '')
+    filtro_fecha    = request.GET.get('fecha', str(timezone.localdate()))
+
+    qs = RegistroSesion.objects.select_related(
+        'usuario', 'sucursal', 'turno'
+    ).order_by('-hora_inicio')
 
     if filtro_usuario:
         qs = qs.filter(usuario__username__icontains=filtro_usuario)
     if filtro_rol:
         qs = qs.filter(tipo_usuario=filtro_rol)
+    if filtro_sucursal:
+        qs = qs.filter(sucursal_id=filtro_sucursal)
     if filtro_fecha:
         qs = qs.filter(fecha=filtro_fecha)
-    if filtro_estado == "activa":
+    if filtro_estado == 'activa':
         qs = qs.filter(hora_cierre__isnull=True)
-    elif filtro_estado == "cerrada":
+    elif filtro_estado == 'cerrada':
         qs = qs.filter(hora_cierre__isnull=False)
 
-    from django.core.paginator import Paginator
-    paginator = Paginator(qs, 15)
-    page = request.GET.get("page", 1)
+    hoy = timezone.localdate()
+    limite_huerfana = timezone.now() - timedelta(hours=12)
+
+    sesiones_list = list(qs)
+    for s in sesiones_list:
+        s.es_huerfana = (
+            s.hora_cierre is None and
+            (s.fecha < hoy or s.hora_inicio < limite_huerfana)
+        )
+
+    def orden_sesion(s):
+        if s.hora_cierre is None and not s.es_huerfana:
+            return 0
+        if s.es_huerfana:
+            return 1
+        return 2
+
+    sesiones_list.sort(key=lambda s: (orden_sesion(s), -s.hora_inicio.timestamp()))
+
+    paginator = Paginator(sesiones_list, 20)
+    page = request.GET.get('page', 1)
     sesiones = paginator.get_page(page)
 
-    hoy = timezone.localdate()
-    activas_hoy  = RegistroSesion.objects.filter(fecha=hoy, hora_cierre__isnull=True).count()
-    cerradas_hoy = RegistroSesion.objects.filter(fecha=hoy, hora_cierre__isnull=False).count()
-    total_hoy    = RegistroSesion.objects.filter(fecha=hoy).count()
+    qs_stats = RegistroSesion.objects.filter(fecha=filtro_fecha) if filtro_fecha else RegistroSesion.objects.filter(fecha=hoy)
+    activas_hoy  = qs_stats.filter(hora_cierre__isnull=True).count()
+    cerradas_hoy = qs_stats.filter(hora_cierre__isnull=False).count()
+    total_hoy    = qs_stats.count()
 
-    return render(request, "control/sesiones_admin.html", {
-        "sesiones":          sesiones,
-        "page_obj":          sesiones,
-        "filtro_usuario":    filtro_usuario,
-        "filtro_rol":        filtro_rol,
-        "filtro_fecha":      filtro_fecha,
-        "filtro_estado":     filtro_estado,
-        "roles_disponibles": RegistroSesion.TIPO_CHOICES,
-        "activas_hoy":       activas_hoy,
-        "cerradas_hoy":      cerradas_hoy,
-        "total_hoy":         total_hoy,
+    sucursales = Sucursal.objects.filter(is_active=True).order_by('nombre')
+
+    return render(request, 'control/sesiones_admin.html', {
+        'sesiones':          sesiones,
+        'page_obj':          sesiones,
+        'filtro_usuario':    filtro_usuario,
+        'filtro_rol':        filtro_rol,
+        'filtro_sucursal':   filtro_sucursal,
+        'filtro_fecha':      filtro_fecha,
+        'filtro_estado':     filtro_estado,
+        'roles_disponibles': RegistroSesion.TIPO_CHOICES,
+        'activas_hoy':       activas_hoy,
+        'cerradas_hoy':      cerradas_hoy,
+        'total_hoy':         total_hoy,
+        'sucursales':        sucursales,
+        'fecha_mostrada':    filtro_fecha or str(hoy),
     })
