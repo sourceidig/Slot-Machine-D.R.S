@@ -1,30 +1,18 @@
-Solo modificar templates/cuadratura_diaria/detail.html
+Lee CLAUDE.md. Solo modificar templates/cuadratura_diaria/create.html.
 
-El botón o enlace "Volver" en el detail NO debe usar history.back().
-Debe navegar directo a la lista de cuadraturas, restaurando los 
-filtros guardados en sessionStorage (clave 'cuadratura_list_filters').
+En el JS, dentro del bloque donde se procesa la respuesta AJAX exitosa 
+(donde está setVal(cajaAnteriorEl, data.caja_anterior ?? 0)), 
+envolver ESA línea específica con una condición para que solo actualice 
+caja_anterior cuando NO estamos en modo edición (exclude_pk == 0):
 
-Reemplazar el enlace "Volver" del detail por esto:
+Buscar:
+        setVal(cajaAnteriorEl, data.caja_anterior ?? 0);
 
-<a href="{% url 'control:cuadratura_diaria_list' %}" 
-   id="btn-volver-lista">Volver</a>
+Reemplazar por:
+        if (!excludePk || excludePk <= 0) {
+          setVal(cajaAnteriorEl, data.caja_anterior ?? 0);
+        }
 
-<script>
-(function(){
-  var a = document.getElementById('btn-volver-lista');
-  if (!a) return;
-  try {
-    var saved = JSON.parse(sessionStorage.getItem('cuadratura_list_filters') || 'null');
-    if (saved && (saved.sucursal || saved.fecha_desde || saved.fecha_hasta)) {
-      var p = new URLSearchParams();
-      if (saved.sucursal)    p.set('sucursal', saved.sucursal);
-      if (saved.fecha_desde) p.set('fecha_desde', saved.fecha_desde);
-      if (saved.fecha_hasta) p.set('fecha_hasta', saved.fecha_hasta);
-      a.href = a.href.split('?')[0] + '?' + p.toString();
-    }
-  } catch(e) {}
-})();
-</script>
+La variable excludePk ya existe en el JS más arriba. No tocar nada más.
+Commit, push y bash 
 
-No tocar el botón Volver del edit (ese sí puede seguir con history.back()).
-No tocar views.py ni otros templates.

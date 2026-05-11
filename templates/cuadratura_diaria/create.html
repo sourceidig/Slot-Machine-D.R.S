@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block page_title %}Nueva Cuadratura Caja Diaria{% endblock %}
+{% block page_title %}Nueva Cuadratura Caja Turno{% endblock %}
 
 {% block content %}
 <style>
@@ -210,8 +210,7 @@
 
 <div class="pg-header pg-header-green">
   <div>
-    <h5><i class="bi bi-calculator me-2"></i>Cuadratura Caja Diaria</h5>
-    <div class="sub">Registro del movimiento diario de caja</div>
+    <h5><i class="bi bi-calculator me-2"></i>Cuadratura Caja Turno</h5>
   </div>
   {% if cuadratura.pk %}
   <a href="{% url 'control:cuadratura_diaria_detail' cuadratura.pk %}" class="btn btn-sm btn-light">
@@ -342,7 +341,7 @@
 
       <!-- Tabla principal (SIN acumulado) -->
       <div class="d-flex align-items-center justify-content-between mb-2">
-        <div class="section-title">Caja diaria</div>
+        <div class="section-title">Caja Turno</div>
       </div>
 
 <input type="hidden" id="id_gastos_dia" name="gastos_dia" value="0">
