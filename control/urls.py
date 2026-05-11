@@ -149,6 +149,7 @@ urlpatterns = [
 
     path('seleccionar-sucursal/', views.seleccionar_sucursal_view, name='seleccionar_sucursal'),
     path('seleccionar-turno/', views.seleccionar_turno_view, name='seleccionar_turno'),
+    path('turno/<int:turno_pk>/desbloquear/', views.desbloquear_usuario_turno, name='turno_desbloquear'),
     path('movimientos/', views.movimientos_list, name='movimientos_list'),
 
 

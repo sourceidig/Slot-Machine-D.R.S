@@ -86,6 +86,7 @@
               <th class="text-center">Estado</th>
               <th>Motivo cierre</th>
               <th>IP</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -151,10 +152,20 @@
                 {% endif %}
               </td>
               <td class="text-muted" style="font-size:11px;">{{ s.ip_cliente|default:"—" }}</td>
+              <td>
+                {% if request.user.role in 'admin,gerente' and s.turno and s.turno.estado == 'Abierto' and s.turno.usuario %}
+                  <a href="{% url 'control:turno_desbloquear' s.turno.pk %}"
+                     class="btn btn-warning btn-sm">
+                    <i class="bi bi-unlock"></i> Desbloquear
+                  </a>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
             </tr>
             {% empty %}
             <tr>
-              <td colspan="10" class="text-center text-muted py-4">
+              <td colspan="11" class="text-center text-muted py-4">
                 <i class="bi bi-inbox fs-4 d-block mb-2"></i>
                 No hay sesiones registradas con los filtros aplicados.
               </td>

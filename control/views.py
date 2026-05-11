@@ -947,6 +947,22 @@ def seleccionar_turno_view(request):
             messages.error(request, 'Debes seleccionar un turno válido.')
             return redirect('control:seleccionar_turno')
 
+        turno_activo = Turno.objects.filter(
+            usuario=user, estado='Abierto'
+        ).select_related('sucursal').first()
+        if turno_activo:
+            reg_id = request.session.get('registro_sesion_id')
+            if reg_id:
+                RegistroSesion.objects.filter(pk=reg_id).update(
+                    sucursal=turno_activo.sucursal, turno=turno_activo
+                )
+            messages.info(
+                request,
+                f'Retomando turno {turno_activo.tipo_turno} '
+                f'en {turno_activo.sucursal.nombre}.'
+            )
+            return redirect('control:turno')
+
         fecha = _fecha_para_tipo(tipo_turno)
         if Turno.objects.filter(sucursal=sucursal, fecha=fecha, tipo_turno=tipo_turno).exists():
             messages.error(request, f'El turno {tipo_turno} ya fue utilizado hoy en esta sucursal.')
@@ -996,6 +1012,31 @@ def seleccionar_turno_view(request):
         'opciones': opciones,
         'hoy': hoy,
     })
+
+
+@login_required
+@role_required(['admin', 'gerente'])
+def desbloquear_usuario_turno(request, turno_pk):
+    from django.contrib.sessions.models import Session
+
+    turno = get_object_or_404(Turno, pk=turno_pk, estado='Abierto')
+
+    if request.method == 'POST':
+        sesiones_eliminadas = 0
+        for sesion in Session.objects.filter(expire_date__gte=timezone.now()):
+            data = sesion.get_decoded()
+            if str(data.get('_auth_user_id')) == str(turno.usuario_id):
+                sesion.delete()
+                sesiones_eliminadas += 1
+        messages.success(
+            request,
+            f'Turno desbloqueado. '
+            f'{turno.usuario.get_full_name() or turno.usuario.username} '
+            f'puede volver a ingresar y retomará su turno automáticamente.'
+        )
+        return redirect('control:turno')
+
+    return render(request, 'turno/desbloquear_confirm.html', {'turno': turno})
 
 
 def _auto_iniciar_turno(request, user, sucursal):

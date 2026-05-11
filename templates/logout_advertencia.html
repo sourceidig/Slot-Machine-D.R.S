@@ -119,13 +119,14 @@
                       text-decoration:none;box-shadow:0 4px 16px rgba(201,168,76,.3);">
               <i class="bi bi-arrow-left-circle"></i> Volver y completar lecturas
             </a>
-            <a href="{% url 'control:logout' %}?confirmar=1"
-               style="display:flex;align-items:center;justify-content:center;gap:8px;
-                      height:44px;border-radius:9px;font-size:14px;font-weight:500;
-                      background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);
-                      color:#fca5a5;text-decoration:none;">
-              <i class="bi bi-box-arrow-right"></i> Cerrar sesión de todas formas
-            </a>
+            <div style="display:flex;align-items:center;gap:8px;padding:12px;
+                        background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);
+                        border-radius:9px;margin-top:4px;">
+              <i class="bi bi-lock-fill" style="color:#fca5a5;font-size:14px;flex-shrink:0;"></i>
+              <span style="color:#fca5a5;font-size:13px;line-height:1.4;">
+                No puedes cerrar sesión hasta completar todas las lecturas del turno.
+              </span>
+            </div>
           </div>
         </div>
         {% endif %}
