@@ -747,7 +747,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (data && data.ok) {
         setVal(numeralDiaEl, data.numeral_dia ?? 0);
         setVal(numeralAcumEl, data.numeral_acumulado ?? 0);
-        setVal(cajaAnteriorEl, data.caja_anterior ?? 0);
+        if (!excludePk || excludePk <= 0) {
+          setVal(cajaAnteriorEl, data.caja_anterior ?? 0);
+        }
         // Actualizar caja_inicial para recalcular ganancia correctamente
         const cajaInicialEl = document.getElementById("id_caja_inicial");
         if (cajaInicialEl) cajaInicialEl.value = data.caja_inicial ?? 0;
