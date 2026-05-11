@@ -891,7 +891,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     var total = getEf('ef_20000') + getEf('ef_10000') + getEf('ef_5000')
               + getEf('ef_2000')  + getEf('ef_1000')  + getEf('ef_monedas')
-              - getEf('ef_billetes_malos');
+              + getEf('ef_billetes_malos');
     var el = document.getElementById('id_desglose_total');
     if (el) el.value = total;
     if (typeof recalcUI === 'function') recalcUI();
