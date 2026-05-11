@@ -1,18 +1,19 @@
-Lee CLAUDE.md. Solo modificar templates/cuadratura_diaria/create.html.
+ARCHIVO: templates/base.html
+LÍNEAS A ELIMINAR: ~483 a ~492 (el bloque completo de beforeunload)
 
-En el JS, dentro del bloque donde se procesa la respuesta AJAX exitosa 
-(donde está setVal(cajaAnteriorEl, data.caja_anterior ?? 0)), 
-envolver ESA línea específica con una condición para que solo actualice 
-caja_anterior cuando NO estamos en modo edición (exclude_pk == 0):
+Eliminar exactamente este bloque, sin tocar nada más:
 
-Buscar:
-        setVal(cajaAnteriorEl, data.caja_anterior ?? 0);
+<script>
+(function() {
+  var tieneturno = document.body.getAttribute('data-turno-abierto') === '1';
+  if (!tieneturno) return;
+  window.addEventListener('beforeunload', function(e) {
+    e.preventDefault();
+    e.returnValue = '';
+  });
+})();
+</script>
 
-Reemplazar por:
-        if (!excludePk || excludePk <= 0) {
-          setVal(cajaAnteriorEl, data.caja_anterior ?? 0);
-        }
-
-La variable excludePk ya existe en el JS más arriba. No tocar nada más.
-Commit, push y bash 
-
+NO tocar el resto del base.html.
+NO modificar el atributo data-turno-abierto del body (puede usarse para otras cosas).
+NO tocar ninguna otra vista ni template.
