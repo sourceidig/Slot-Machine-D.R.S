@@ -1,50 +1,50 @@
-ARCHIVO: templates/cuadratura_diaria/create.html
+ARCHIVO: control/views.py
+FUNCIÓN: seleccionar_turno_view (~línea 882)
 
-BUSCAR exactamente estas líneas (~línea 1046):
+BUSCAR exactamente estas líneas (~línea 950):
 
-  if (btnIngresar) {
-    btnIngresar.addEventListener("click", () => {
-      recalcUI();
-      if (seccionResumen) {
-        seccionResumen.style.display = "block";
-        seccionResumen.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    });
-  }
+        turno_activo = Turno.objects.filter(
+            usuario=user, estado='Abierto'
+        ).select_related('sucursal').first()
+        if turno_activo:
+            reg_id = request.session.get('registro_sesion_id')
+            if reg_id:
+                RegistroSesion.objects.filter(pk=reg_id).update(
+                    sucursal=turno_activo.sucursal, turno=turno_activo
+                )
+            messages.info(
+                request,
+                f'Retomando turno {turno_activo.tipo_turno} '
+                f'en {turno_activo.sucursal.nombre}.'
+            )
+            return redirect('control:turno')
 
 REEMPLAZAR por:
 
-  if (btnIngresar) {
-    btnIngresar.addEventListener("click", () => {
-      recalcUI();
-      if (seccionResumen) {
-        seccionResumen.style.display = "block";
-        seccionResumen.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+        turno_activo = Turno.objects.filter(
+            usuario=user, estado='Abierto'
+        ).select_related('sucursal').first()
+        if turno_activo:
+            # Solo retomar si el turno es vigente:
+            # 1. La fecha debe corresponder al día actual para ese tipo de turno
+            # 2. No debe tener cuadratura de caja ya guardada (turno completado)
+            fecha_vigente = _fecha_para_tipo(turno_activo.tipo_turno)
+            tiene_cuadratura = turno_activo.cuadraturas_diarias.exists()
 
-      // Bloquear todo el formulario hacia arriba excepto retiro y observaciones
-      const retiroId   = "id_retiro_diario";
-      const obsId      = "id_observaciones";
-      const permitidos = new Set([retiroId, obsId]);
+            if turno_activo.fecha == fecha_vigente and not tiene_cuadratura:
+                reg_id = request.session.get('registro_sesion_id')
+                if reg_id:
+                    RegistroSesion.objects.filter(pk=reg_id).update(
+                        sucursal=turno_activo.sucursal, turno=turno_activo
+                    )
+                messages.info(
+                    request,
+                    f'Retomando turno {turno_activo.tipo_turno} '
+                    f'en {turno_activo.sucursal.nombre}.'
+                )
+                return redirect('control:turno')
+            # Si el turno es de otro día o ya tiene caja guardada,
+            # NO retomar — el encargado puede abrir un turno nuevo normalmente.
 
-      // Deshabilitar todos los inputs/textarea/select/button del formulario
-      // excepto los campos permitidos y los hidden (no romper el submit)
-      document.querySelectorAll(
-        "#cuadraturaDiariaForm input:not([type=hidden]), " +
-        "#cuadraturaDiariaForm textarea, " +
-        "#cuadraturaDiariaForm select, " +
-        "#cuadraturaDiariaForm button[type=button]"
-      ).forEach(el => {
-        if (permitidos.has(el.id)) return;   // dejar pasar retiro y observaciones
-        if (el.readOnly) return;              // ya readonly, no tocar
-        el.disabled = true;
-      });
-
-      // Ocultar el propio botón Ingresar
-      btnIngresar.style.display = "none";
-    });
-  }
-
-NO tocar nada más del archivo.
-NO tocar views.py ni models.py.
-NO agregar migraciones.
+NO tocar nada más de la función ni de views.py.
+NO crear migraciones.

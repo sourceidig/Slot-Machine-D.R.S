@@ -951,17 +951,26 @@ def seleccionar_turno_view(request):
             usuario=user, estado='Abierto'
         ).select_related('sucursal').first()
         if turno_activo:
-            reg_id = request.session.get('registro_sesion_id')
-            if reg_id:
-                RegistroSesion.objects.filter(pk=reg_id).update(
-                    sucursal=turno_activo.sucursal, turno=turno_activo
+            # Solo retomar si el turno es vigente:
+            # 1. La fecha debe corresponder al día actual para ese tipo de turno
+            # 2. No debe tener cuadratura de caja ya guardada (turno completado)
+            fecha_vigente = _fecha_para_tipo(turno_activo.tipo_turno)
+            tiene_cuadratura = turno_activo.cuadraturas_diarias.exists()
+
+            if turno_activo.fecha == fecha_vigente and not tiene_cuadratura:
+                reg_id = request.session.get('registro_sesion_id')
+                if reg_id:
+                    RegistroSesion.objects.filter(pk=reg_id).update(
+                        sucursal=turno_activo.sucursal, turno=turno_activo
+                    )
+                messages.info(
+                    request,
+                    f'Retomando turno {turno_activo.tipo_turno} '
+                    f'en {turno_activo.sucursal.nombre}.'
                 )
-            messages.info(
-                request,
-                f'Retomando turno {turno_activo.tipo_turno} '
-                f'en {turno_activo.sucursal.nombre}.'
-            )
-            return redirect('control:turno')
+                return redirect('control:turno')
+            # Si el turno es de otro día o ya tiene caja guardada,
+            # NO retomar — el encargado puede abrir un turno nuevo normalmente.
 
         fecha = _fecha_para_tipo(tipo_turno)
         if Turno.objects.filter(sucursal=sucursal, fecha=fecha, tipo_turno=tipo_turno).exists():
