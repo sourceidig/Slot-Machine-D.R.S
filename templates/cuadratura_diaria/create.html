@@ -1049,6 +1049,27 @@ function recalcUI() {
         seccionResumen.style.display = "block";
         seccionResumen.scrollIntoView({ behavior: "smooth", block: "start" });
       }
+
+      // Bloquear todo el formulario hacia arriba excepto retiro y observaciones
+      const retiroId   = "id_retiro_diario";
+      const obsId      = "id_observaciones";
+      const permitidos = new Set([retiroId, obsId]);
+
+      // Deshabilitar todos los inputs/textarea/select/button del formulario
+      // excepto los campos permitidos y los hidden (no romper el submit)
+      document.querySelectorAll(
+        "#cuadraturaDiariaForm input:not([type=hidden]), " +
+        "#cuadraturaDiariaForm textarea, " +
+        "#cuadraturaDiariaForm select, " +
+        "#cuadraturaDiariaForm button[type=button]"
+      ).forEach(el => {
+        if (permitidos.has(el.id)) return;   // dejar pasar retiro y observaciones
+        if (el.readOnly) return;              // ya readonly, no tocar
+        el.disabled = true;
+      });
+
+      // Ocultar el propio botón Ingresar
+      btnIngresar.style.display = "none";
     });
   }
 
