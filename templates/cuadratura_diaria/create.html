@@ -1013,8 +1013,13 @@ function recalcUI() {
     });
   }
 
-  if (formEl) {
-    formEl.addEventListener("submit", () => {
+    if (formEl) {
+      formEl.addEventListener("submit", () => {
+        // Re-habilitar todos los inputs deshabilitados por el botón "Ingresar"
+        // Los inputs disabled NO se envían con el formulario
+        formEl.querySelectorAll("input:disabled, textarea:disabled, select:disabled").forEach(el => {
+          el.disabled = false;
+        });
       // Garantizar que los hidden inputs de totales tengan valor antes de enviar
       const camposTotales = {
         'gastos_dia':   'gastos',
