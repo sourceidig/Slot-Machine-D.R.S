@@ -62,8 +62,8 @@
           <tr>
             <th>Fecha</th>
             <th>Local</th>
-            <th>Turno</th>
             <th>Usuario</th>
+            <th>Turno</th>
             <th class="text-end">Entrada</th>
             <th class="text-end">Salida</th>
             <th class="text-end">Total</th>
@@ -75,6 +75,7 @@
           <tr onclick="window.location='{% url 'control:controles_detail' c.id %}'">
             <td class="fw-semibold">{{ c.fecha_trabajo|date:"d/m/Y" }}</td>
             <td>{{ c.sucursal.nombre }}</td>
+            <td class="text-muted small">{{ c.creado_por.username }}</td>
             <td>
               {% if c.turno %}
                 <span class="badge"
@@ -88,7 +89,6 @@
                 <span class="text-muted small">—</span>
               {% endif %}
             </td>
-            <td class="text-muted small">{{ c.creado_por.username }}</td>
             <td class="text-end">{{ c.total_entrada|default:0|intcomma }}</td>
             <td class="text-end">{{ c.total_salida|default:0|intcomma }}</td>
             <td class="text-end fw-semibold {% if c.total_general >= 0 %}text-success{% else %}text-danger{% endif %}">
