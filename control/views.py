@@ -1954,8 +1954,7 @@ def cuadratura_diaria_edit(request, pk):
 @login_required
 def cuadratura_diaria_recalcular_todo(request):
     """
-    Recalcula total_efectivo y ganancia de TODAS las cuadraturas en orden cronológico.
-    Esto propaga correctamente la cadena: caja_anterior → ganancia → total_efectivo → siguiente día.
+    Recalcula totales y propaga _ant/_acum de TODAS las cuadraturas en orden cronológico.
     Solo accesible para admins.
     """
     if request.user.role != "admin":
@@ -1978,12 +1977,16 @@ def cuadratura_diaria_recalcular_todo(request):
         orden_turno=TURNO_ORDEN_Q
     ).order_by('fecha', 'orden_turno', 'creado_el')
     actualizadas = 0
+    prevs = {}  # sucursal_id → última cuadratura procesada de esa sucursal
 
     for c in cuadraturas:
         try:
+            prev = prevs.get(c.sucursal_id)
             _recalcular_totales(c, turno_tipo=c.turno.tipo_turno if c.turno else None)
+            _propagar_ant_acum(c, prev)
             c.actualizado_el = timezone.now()
             c.save()
+            prevs[c.sucursal_id] = c
             actualizadas += 1
         except Exception as e:
             messages.warning(request, f"Error en {c.sucursal} {c.fecha}: {e}")
