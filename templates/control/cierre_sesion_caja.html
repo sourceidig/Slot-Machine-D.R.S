@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caja guardada</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: rgba(0, 0, 0, 0.92);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: sans-serif;
+            color: #fff;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+        .check-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1.2rem;
+            color: #4caf50;
+        }
+        .titulo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+        .subtitulo {
+            font-size: 1.1rem;
+            color: #ccc;
+        }
+        .subtitulo strong {
+            color: #fff;
+            font-size: 1.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="check-icon">&#10003;</div>
+        <p class="titulo">Caja guardada exitosamente</p>
+        <p class="subtitulo">Tu sesión se cerrará en <strong id="cuenta">5</strong> segundos.</p>
+    </div>
+
+    <script>
+        var cuenta = 5;
+        var timer = setInterval(function () {
+            cuenta--;
+            var el = document.getElementById('cuenta');
+            if (el) el.textContent = cuenta;
+            if (cuenta <= 0) {
+                clearInterval(timer);
+                window.location.href = "{% url 'control:login' %}";
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

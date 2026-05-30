@@ -26,13 +26,12 @@
                         <th>Rol</th>
                         <th>Sucursal(es)</th>
                         <th>Estado</th>
-                        <th>Fecha Registro</th>                       
-                        <th>Acciones</th>
+                        <th>Fecha Registro</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for usuario in usuarios %}
-                        <tr>
+                        <tr style="cursor:pointer;" onclick="window.location.href='{% url 'control:usuario_detail' usuario.pk %}'">
                             <td><strong>{{ usuario.nombre }}</strong></td>
                             <td>{{ usuario.username }}</td>
                             <td>{{ usuario.email|default:"-" }}</td>
@@ -76,16 +75,10 @@
                                 {% endif %}
                             </td>
                             <td>{{ usuario.date_joined|date:"d/m/Y" }}</td>
-                            <td>
-                                <a href="{% url 'control:usuario_detail' usuario.pk %}" class="btn btn-sm btn-info text-white" title="Ver"><i class="bi bi-eye"></i></a>
-                                {% if user.role == 'admin' %}
-                                <a href="{% url 'control:usuario_edit' usuario.pk %}" class="btn btn-sm btn-warning" title="Editar"><i class="bi bi-pencil"></i></a>
-                                {% endif %}
-                            </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center text-muted">No hay usuarios registrados</td>
+                            <td colspan="7" class="text-center text-muted">No hay usuarios registrados</td>
                         </tr>
                     {% endfor %}
                 </tbody>

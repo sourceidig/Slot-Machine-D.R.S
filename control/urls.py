@@ -44,6 +44,7 @@ urlpatterns = [
     path("cuadratura-diaria/export-excel/", views.cuadratura_diaria_export_excel, name="cuadratura_diaria_export_excel"),
     path("cuadratura-diaria/recalcular/", views.cuadratura_diaria_recalcular_todo, name="cuadratura_diaria_recalcular"),
     path("logout-post-caja/", views.logout_post_caja, name="logout_post_caja"),
+    path("cierre-sesion-caja/", views.cierre_sesion_caja, name="cierre_sesion_caja"),
 
     # -------------------------
     # Cierre Turno (COLUMNA ROJA - ATENDEDORAS)  -> CierreTurno
@@ -87,12 +88,14 @@ urlpatterns = [
     path("ajax/cuadratura-diaria/numerales/", views.ajax_cuadratura_diaria_numerales, name="ajax_cuadratura_diaria_numerales"),
     path("ajax/turnos/", views.ajax_turnos_por_sucursal_fecha, name="ajax_turnos"),
     path("ajax/cuadratura-detalles/", views.ajax_cuadratura_detalles, name="ajax_cuadratura_detalles"),
+    path("ajax/check-turno-activo/", views.ajax_check_turno_activo, name="ajax_check_turno_activo"),
 
 
     path("api/ocr/procesar/", views.ocr_lectura, name="ocr_procesar"),
     path("api/ia/capturar/", views.ia_capturar_dummy, name="ia_capturar"),
     path("api/ocr-lectura/", views.ocr_lectura, name="ocr_lectura"),
     path("sesiones/", views.sesiones_admin, name="sesiones_admin"),
+    path("usuarios/<int:usuario_pk>/forzar-logout/", views.forzar_logout_usuario, name="forzar_logout_usuario"),
     path("api/ocr/debug/", views.ocr_debug, name="ocr_debug"),
 
     # -------------------------

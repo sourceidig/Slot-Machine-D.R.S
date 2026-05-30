@@ -52,16 +52,18 @@
           Caja anterior:&nbsp;<strong>${{ caja_anterior_desglose.total_efectivo|default:0|intcomma }}</strong>
         </span>
         <a href="{% url 'control:cuadratura_zona' turno_abierto.id %}" class="btn btn-primary btn-sm">
-          <i class="bi bi-calculator me-1"></i> Cuadratura
+          <i class="bi bi-calculator me-1"></i> Turno
         </a>
         <a href="{% url 'control:registro' %}" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-clipboard-data me-1"></i> Registro
+          <i class="bi bi-clipboard-data me-1"></i> Registro Numerales
         </a>
+        {% if request.user.role != 'encargado' %}
         <a href="{% url 'control:cerrar_turno_sin_cuadratura' turno_abierto.id %}"
            class="btn btn-outline-danger btn-sm"
            onclick="return confirm('¿Cerrar el turno sin cuadratura?')">
           <i class="bi bi-x-circle me-1"></i> Cerrar turno
         </a>
+        {% endif %}
       </div>
 
     </div>

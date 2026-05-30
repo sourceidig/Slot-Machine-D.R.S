@@ -7,24 +7,98 @@
 <style>
   @media print {
     .no-print { display: none !important; }
-    .card { border: none !important; box-shadow: none !important; }
   }
-  .kpi-card { border-radius: 10px; padding: 14px 18px; color: #fff; }
-  .section-header { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 6px 12px; border-radius: 4px; margin-bottom: 0; }
-  .table-informe td, .table-informe th { padding: 6px 10px; vertical-align: middle; }
-  .table-informe .col-concepto { width: 200px; font-weight: 600; }
-  .val-pos { color: #198754; font-weight: 600; }
-  .val-neg { color: #dc3545; font-weight: 600; }
-  .billete-box { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px 16px; text-align: center; }
-  .billete-box .denominacion { font-size: 0.8rem; color: #6c757d; font-weight: 600; }
-  .billete-box .cantidad { font-size: 1.4rem; font-weight: 700; color: #212529; }
-  .billete-box .monto { font-size: 0.75rem; color: #6c757d; }
+
+  /* KPI cards */
+  .metric-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 18px;
+  }
+  .metric-card .metric-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #64748b;
+    margin-bottom: 4px;
+  }
+  .metric-card .metric-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  /* Table */
+  .table-gastos td, .table-gastos th { padding: 7px 10px; vertical-align: middle; font-size: 0.88rem; }
+  .table-gastos .col-concepto { width: 160px; font-weight: 600; color: #1e293b; }
+  .col-acum { font-weight: 600; color: #1e293b; }
+  .val-pos  { color: #16a34a; font-weight: 600; }
+  .val-neg  { color: #dc2626; font-weight: 600; }
+
+  /* Informe panel rows */
+  .informe-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.87rem; }
+  .informe-row:last-child { border-bottom: none; }
+  .informe-row .ir-label { color: #64748b; min-width: 90px; }
+  .informe-row .ir-val   { font-weight: 600; color: #1e293b; }
+
+  /* Billete boxes */
+  .billete-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 8px; text-align: center; }
+  .billete-box .denom { font-size: 11px; color: #64748b; font-weight: 600; }
+  .billete-box .cant  { font-size: 26px; font-weight: 700; color: #1e293b; line-height: 1.2; }
+  .billete-box .monto { font-size: 12px; color: #64748b; }
+
+  /* Resumen general */
+  .resumen-pair { padding: 7px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem; }
+  .resumen-pair:last-child { border-bottom: none; }
+  .resumen-pair .rp-label { color: #64748b; }
+  .resumen-pair .rp-val   { font-weight: 700; color: #1e293b; }
+
+  /* Section title (usado solo dentro de cards como sublabel) */
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 10px;
+  }
+
+  /* Card headers oscuros */
+  .card-header-dark {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px 8px 0 0;
+  }
+
+  /* Botón dorado (Editar) */
+  .btn-dorado {
+    border: 1px solid #c9a84c;
+    color: #92400e;
+    background: transparent;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .btn-dorado:hover, .btn-dorado:focus {
+    background: #fef9c3;
+    border-color: #c9a84c;
+    color: #92400e;
+  }
 </style>
 
-<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+<!-- ══════════════════════════════════════════
+     1. BARRA DE BOTONES
+═══════════════════════════════════════════ -->
+<div class="d-flex flex-wrap align-items-center gap-2 mb-4 no-print">
   <a href="{% url 'control:cuadratura_diaria_list' %}"
-     id="btn-volver-lista" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left"></i> Volver al Listado
+     id="btn-volver-lista"
+     class="btn btn-outline-secondary fw-semibold" style="border-radius:10px;">
+    <i class="bi bi-arrow-left me-1"></i>Volver
   </a>
   <script>
   (function(){
@@ -42,346 +116,485 @@
     } catch(e) {}
   })();
   </script>
-  <div class="d-flex gap-2">
-    <a href="{% url 'control:cuadratura_diaria_edit' cuadratura.id %}" class="btn btn-warning btn-sm">
-      <i class="bi bi-pencil"></i> Editar
+
+  {% if anterior_caja %}
+    <a class="btn btn-outline-secondary fw-semibold" style="border-radius:10px;"
+       href="{% url 'control:cuadratura_diaria_detail' anterior_caja.pk %}"
+       title="{{ anterior_caja.fecha|date:'d/m/Y' }}">
+      <i class="bi bi-chevron-left"></i> Anterior
     </a>
-    {% if request.user.role == "admin" %}
-    <a href="{% url 'control:cuadratura_diaria_delete' cuadratura.id %}" class="btn btn-outline-danger btn-sm">
-      <i class="bi bi-trash"></i> Eliminar
-    </a>
-    {% endif %}
-    <button onclick="window.print()" class="btn btn-outline-dark btn-sm">
-      <i class="bi bi-printer"></i> Imprimir
+  {% else %}
+    <button class="btn btn-outline-secondary fw-semibold disabled" style="border-radius:10px;" disabled>
+      <i class="bi bi-chevron-left"></i> Anterior
     </button>
+  {% endif %}
+
+  {% if siguiente_caja %}
+    <a class="btn btn-outline-secondary fw-semibold" style="border-radius:10px;"
+       href="{% url 'control:cuadratura_diaria_detail' siguiente_caja.pk %}"
+       title="{{ siguiente_caja.fecha|date:'d/m/Y' }}">
+      Siguiente <i class="bi bi-chevron-right"></i>
+    </a>
+  {% else %}
+    <button class="btn btn-outline-secondary fw-semibold disabled" style="border-radius:10px;" disabled>
+      Siguiente <i class="bi bi-chevron-right"></i>
+    </button>
+  {% endif %}
+
+  <a href="{% url 'control:cuadratura_diaria_edit' cuadratura.id %}" class="btn btn-dorado">
+    <i class="bi bi-pencil me-1"></i>Editar
+  </a>
+
+  {% if request.user.role == "admin" %}
+  <a href="{% url 'control:cuadratura_diaria_delete' cuadratura.id %}"
+     class="btn btn-outline-danger fw-semibold" style="border-radius:10px;">
+    <i class="bi bi-trash me-1"></i>Eliminar
+  </a>
+  {% endif %}
+
+  <button onclick="window.print()" class="btn btn-outline-secondary fw-semibold" style="border-radius:10px;">
+    <i class="bi bi-printer me-1"></i>Imprimir
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     2. HEADER
+═══════════════════════════════════════════ -->
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+  <div>
+    <h4 class="fw-bold mb-1" style="color:#1e293b;">Cuadratura Caja Diaria</h4>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="fs-6" style="color:#64748b;">{{ cuadratura.sucursal.nombre }} &mdash; {{ cuadratura.fecha|date:"d/m/Y" }}</span>
+      {% if cuadratura.turno %}
+        {% if cuadratura.turno.tipo_turno == 'Mañana' %}
+          <span class="badge" style="background:#fef9c3;color:#854d0e;font-size:0.75rem;">{{ cuadratura.turno.tipo_turno }}</span>
+        {% elif cuadratura.turno.tipo_turno == 'Tarde' %}
+          <span class="badge" style="background:#dbeafe;color:#1e40af;font-size:0.75rem;">{{ cuadratura.turno.tipo_turno }}</span>
+        {% else %}
+          <span class="badge" style="background:#1e293b;color:#e2e8f0;font-size:0.75rem;">{{ cuadratura.turno.tipo_turno }}</span>
+        {% endif %}
+        {% if cuadratura.turno.estado == 'Abierto' %}
+          <span class="badge" style="background:#dcfce7;color:#166534;font-size:0.72rem;">{{ cuadratura.turno.estado }}</span>
+        {% else %}
+          <span class="badge" style="background:#f1f5f9;color:#64748b;font-size:0.72rem;">{{ cuadratura.turno.estado }}</span>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  <div class="text-end">
+    <div style="font-size:0.78rem;color:#64748b;">Registrado por</div>
+    <div class="fw-bold" style="color:#1e293b;">{{ cuadratura.usuario.nombre }}</div>
+    <div style="font-size:0.78rem;color:#64748b;">
+      <i class="bi bi-clock me-1"></i>
+      {% if hora_apertura %}{{ hora_apertura|date:"H:i" }}{% else %}?{% endif %}
+      &rarr; {{ cuadratura.creado_el|date:"H:i" }}
+    </div>
   </div>
 </div>
 
-<!-- HEADER -->
-<div class="card shadow-sm mb-3">
-  <div class="card-header bg-primary text-white py-3">
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h5 class="mb-0"><i class="bi bi-file-earmark-bar-graph me-2"></i>Cuadratura Caja Diaria</h5>
-        <small class="opacity-75">{{ cuadratura.sucursal.nombre }} &mdash; {{ cuadratura.fecha|date:"d \d\e F \d\e Y" }}</small>
+<!-- ══════════════════════════════════════════
+     3. KPIs
+═══════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md">
+    <div class="metric-card">
+      <div class="metric-label">Num. Turno</div>
+      <div class="metric-value">${{ cuadratura.numeral_dia|default:0|floatformat:0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="metric-card">
+      <div class="metric-label">Num. Acumulado</div>
+      <div class="metric-value">${{ cuadratura.numeral_acumulado|default:0|floatformat:0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="metric-card">
+      <div class="metric-label">Caja Anterior</div>
+      <div class="metric-value">${{ caja_anterior|default:0|floatformat:0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="metric-card">
+      <div class="metric-label">Efectivo del Turno</div>
+      <div class="metric-value" style="{% if cuadratura.total_efectivo > 0 %}color:#16a34a{% else %}color:#64748b{% endif %}">
+        ${{ cuadratura.total_efectivo|default:0|floatformat:0 }}
       </div>
-      <div class="text-end">
-        <small class="opacity-75 d-block">Registrado por</small>
-        <strong>{{ cuadratura.usuario.nombre }}</strong>
-        <small class="d-block opacity-75 mt-1">
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="metric-card">
+      <div class="metric-label">Ganancia</div>
+      <div class="metric-value" style="{% if cuadratura.ganancia < 0 %}color:#dc2626{% else %}color:#16a34a{% endif %}">
+        ${{ cuadratura.ganancia|default:0|floatformat:0 }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     4. LAYOUT PRINCIPAL — dos columnas
+═══════════════════════════════════════════ -->
+<div class="row g-4 mb-4">
+
+  <!-- TABLA DE GASTOS -->
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header-dark" style="background:#1e293b;">
+        <i class="bi bi-receipt me-2"></i>Detalle
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered table-hover table-gastos mb-0">
+          <thead style="background:#f8fafc;">
+            <tr style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#374151;">
+              <th class="col-concepto">Concepto</th>
+              <th class="text-end" style="width:120px;">Día</th>
+              <th class="text-end" style="width:110px;">Acumulado</th>
+              <th>Notas</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-concepto">Sorteos</td>
+              <td class="text-end">{{ cuadratura.sorteos_dia|default:0|floatformat:0 }}</td>
+              <td class="text-end col-acum">{{ cuadratura.sorteos_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.sorteos_notas }}</td>
+            </tr>
+            <tr>
+              <td class="col-concepto">Gastos</td>
+              <td class="text-end">
+                {{ cuadratura.gastos_dia|default:0|floatformat:0 }}
+                {% if detalles_gastos %}
+                <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.08);">
+                  {% for item in detalles_gastos %}
+                  <div class="d-flex justify-content-between gap-3" style="font-size:0.73rem;color:#9ca3af;font-weight:400;white-space:nowrap;">
+                    <span class="text-start">{{ item.nombre }}</span>
+                    <span>${{ item.monto|floatformat:0 }}</span>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </td>
+              <td class="text-end col-acum">{{ cuadratura.gastos_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.gastos_notas }}</td>
+            </tr>
+            <tr>
+              <td class="col-concepto">Sueldo</td>
+              <td class="text-end">
+                {{ cuadratura.sueldo_b_dia|default:0|floatformat:0 }}
+                {% if detalles_sueldos %}
+                <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.08);">
+                  {% for item in detalles_sueldos %}
+                  <div class="d-flex justify-content-between gap-3" style="font-size:0.73rem;color:#9ca3af;font-weight:400;white-space:nowrap;">
+                    <span class="text-start">{{ item.nombre }}</span>
+                    <span>${{ item.monto|floatformat:0 }}</span>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </td>
+              <td class="text-end col-acum">{{ cuadratura.sueldo_b_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.sueldo_b_notas }}</td>
+            </tr>
+            <tr>
+              <td class="col-concepto">Regalos</td>
+              <td class="text-end">
+                {{ cuadratura.regalos_dia|default:0|floatformat:0 }}
+                {% if detalles_regalos %}
+                <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.08);">
+                  {% for item in detalles_regalos %}
+                  <div class="d-flex justify-content-between gap-3" style="font-size:0.73rem;color:#9ca3af;font-weight:400;white-space:nowrap;">
+                    <span class="text-start">{{ item.nombre }}</span>
+                    <span>${{ item.monto|floatformat:0 }}</span>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </td>
+              <td class="text-end col-acum">{{ cuadratura.regalos_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.regalos_notas }}</td>
+            </tr>
+            {% with sub1_dia=cuadratura.sorteos_dia|add:cuadratura.gastos_dia %}
+            {% with sub1_dia2=sub1_dia|add:cuadratura.sueldo_b_dia %}
+            {% with sub1_dia3=sub1_dia2|add:cuadratura.regalos_dia %}
+            {% with sub1_acum=cuadratura.sorteos_acum|add:cuadratura.gastos_acum %}
+            {% with sub1_acum2=sub1_acum|add:cuadratura.sueldo_b_acum %}
+            {% with sub1_acum3=sub1_acum2|add:cuadratura.regalos_acum %}
+            <tr style="background:#f1f5f9;border-top:2px solid #1e293b;border-bottom:2px solid #1e293b;">
+              <td class="col-concepto" style="color:#1e293b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">SUBTOTAL</td>
+              <td class="text-end" style="color:#1e293b;font-weight:700;font-size:14px;">{{ sub1_dia3|floatformat:0 }}</td>
+              <td class="text-end" style="color:#1e293b;font-weight:700;font-size:14px;">{{ sub1_acum3|floatformat:0 }}</td>
+              <td></td>
+            </tr>
+            {% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}
+            <tr>
+              <td class="col-concepto">Redbank</td>
+              <td class="text-end">{{ cuadratura.redbank_dia|default:0|floatformat:0 }}</td>
+              <td class="text-end col-acum">{{ cuadratura.redbank_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.redbank_notas }}</td>
+            </tr>
+            <tr>
+              <td class="col-concepto">Transfer</td>
+              <td class="text-end">{{ cuadratura.transfer_dia|default:0|floatformat:0 }}</td>
+              <td class="text-end col-acum">{{ cuadratura.transfer_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.transfer_notas }}</td>
+            </tr>
+            {% with sub2_dia=cuadratura.redbank_dia|add:cuadratura.transfer_dia %}
+            {% with sub2_acum=cuadratura.redbank_acum|add:cuadratura.transfer_acum %}
+            <tr style="background:#f1f5f9;border-top:2px solid #1e293b;border-bottom:2px solid #1e293b;">
+              <td class="col-concepto" style="color:#1e293b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">SUBTOTAL</td>
+              <td class="text-end" style="color:#1e293b;font-weight:700;font-size:14px;">{{ sub2_dia|floatformat:0 }}</td>
+              <td class="text-end" style="color:#1e293b;font-weight:700;font-size:14px;">{{ sub2_acum|floatformat:0 }}</td>
+              <td></td>
+            </tr>
+            {% endwith %}{% endwith %}
+            <tr>
+              <td class="col-concepto">Taxi</td>
+              <td class="text-end">{{ cuadratura.taxi_dia|default:0|floatformat:0 }}</td>
+              <td class="text-end col-acum">{{ cuadratura.taxi_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.taxi_notas }}</td>
+            </tr>
+            <tr>
+              <td class="col-concepto">Jugados</td>
+              <td class="text-end">
+                {{ cuadratura.jugados_dia|default:0|floatformat:0 }}
+                {% if detalles_jugados %}
+                <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.08);">
+                  {% for item in detalles_jugados %}
+                  <div class="d-flex justify-content-between gap-3" style="font-size:0.73rem;color:#9ca3af;font-weight:400;white-space:nowrap;">
+                    <span class="text-start">{{ item.nombre }}</span>
+                    <span>${{ item.monto|floatformat:0 }}</span>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </td>
+              <td class="text-end col-acum">{{ cuadratura.jugados_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.jugados_notas }}</td>
+            </tr>
+            {% if cuadratura.otros_1_dia or cuadratura.otros_1_ant %}
+            <tr>
+              <td class="col-concepto">Otros</td>
+              <td class="text-end">{{ cuadratura.otros_1_dia|default:0|floatformat:0 }}</td>
+              <td class="text-end col-acum">{{ cuadratura.otros_1_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.otros_1_notas }}</td>
+            </tr>
+            {% endif %}
+            <tr style="background:#fefce8;">
+              <td class="col-concepto fw-bold" style="color:#dark;">DESCUADRE</td>
+              <td class="text-end fw-bold" {% if cuadratura.descuadre_dia %}style="color:#dc2626"{% else %}style="color:#9ca3af"{% endif %}>
+                {{ cuadratura.descuadre_dia|default:0|floatformat:0 }}
+              </td>
+              <td class="text-end fw-bold" style="color:#9ca3af;">{{ cuadratura.descuadre_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.descuadre_notas }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            {% with acum1=cuadratura.sorteos_acum|add:cuadratura.gastos_acum %}
+            {% with acum2=acum1|add:cuadratura.sueldo_b_acum %}
+            {% with acum3=acum2|add:cuadratura.redbank_acum %}
+            {% with acum4=acum3|add:cuadratura.regalos_acum %}
+            {% with acum5=acum4|add:cuadratura.taxi_acum %}
+            {% with acum6=acum5|add:cuadratura.jugados_acum %}
+            {% with acum7=acum6|add:cuadratura.transfer_acum %}
+            {% with acum8=acum7|add:cuadratura.otros_1_acum %}
+            {% with acum9=acum8|add:cuadratura.otros_2_acum %}
+            {% with acum10=acum9|add:cuadratura.otros_3_acum %}
+            {% with total_acum=acum10|add:cuadratura.descuadre_acum %}
+            <tr>
+              <td colspan="1" style="background:#1e293b; color:#f1f5f9; font-weight:700; font-size:13px; padding:8px 10px;">TOTAL</td>
+              <td class="text-end" style="background:#1e293b; color:#f1f5f9; font-weight:700; font-size:14px; padding:8px 10px;">${{ cuadratura.total_gastos_dia|floatformat:0 }}</td>
+              <td class="text-end" style="background:#1e293b; color:#f1f5f9; font-weight:700; font-size:14px; padding:8px 10px;">${{ total_acum|floatformat:0 }}</td>
+              <td style="background:#1e293b;"></td>
+            </tr>
+            {% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL INFORME -->
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header-dark" style="background:#1e293b;">
+        <i class="bi bi-info-circle me-2"></i>Informe
+      </div>
+      <div class="card-body">
+        <div class="informe-row">
+          <span class="ir-label"><i class="bi bi-calendar me-2" style="color:#94a3b8;"></i>Fecha</span>
+          <span class="ir-val ms-auto">{{ cuadratura.fecha|date:"d/m/Y" }}</span>
+        </div>
+        <div class="informe-row">
+          <span class="ir-label"><i class="bi bi-person me-2" style="color:#94a3b8;"></i>Usuario</span>
+          <span class="ir-val ms-auto">{{ cuadratura.usuario.nombre }}</span>
+        </div>
+        {% if cuadratura.turno %}
+        <div class="informe-row">
+          <span class="ir-label"><i class="bi bi-clock me-2" style="color:#94a3b8;"></i>Turno</span>
+          <span class="ir-val ms-auto d-flex align-items-center gap-1">
+            {{ cuadratura.turno.tipo_turno }}
+            {% if cuadratura.turno.estado == 'Abierto' %}
+              <span class="badge" style="background:#dcfce7;color:#166534;font-size:0.65rem;">{{ cuadratura.turno.estado }}</span>
+            {% else %}
+              <span class="badge" style="background:#f1f5f9;color:#64748b;font-size:0.65rem;">{{ cuadratura.turno.estado }}</span>
+            {% endif %}
+          </span>
+        </div>
+        {% endif %}
+        <div class="informe-row">
+          <span class="ir-label"><i class="bi bi-building me-2" style="color:#94a3b8;"></i>Sucursal</span>
+          <span class="ir-val ms-auto">{{ cuadratura.sucursal.nombre }}</span>
+        </div>
+
+        <hr class="my-3" style="border-color:#f1f5f9;">
+        <div class="section-title">Registrado</div>
+        <div class="fw-semibold mb-1" style="color:#1e293b;">{{ cuadratura.usuario.nombre }}</div>
+        <div style="font-size:0.82rem;color:#64748b;">
           <i class="bi bi-clock me-1"></i>
           {% if hora_apertura %}{{ hora_apertura|date:"H:i" }}{% else %}?{% endif %}
-          &rarr;
-          {{ cuadratura.creado_el|date:"H:i" }}
-        </small>
-        {% if cuadratura.turno %}
-        <small class="d-block mt-1">
-          <i class="bi bi-calendar-check me-1"></i>
-          Turno <strong>{{ cuadratura.turno.tipo_turno }}</strong>
-          <span class="badge {% if cuadratura.turno.estado == 'Abierto' %}bg-success{% else %}bg-secondary{% endif %} ms-1" style="font-size:0.65rem;">
-            {{ cuadratura.turno.estado }}
-          </span>
-        </small>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <!-- KPIs rápidos -->
-  <div class="card-body bg-light">
-    <div class="row g-3">
-      <div class="col-6 col-md-3">
-        <div class="kpi-card bg-info">
-          <div style="font-size:0.75rem;opacity:0.85;">Numeral Turno</div>
-          <div style="font-size:1.5rem;font-weight:700;">${{ cuadratura.numeral_dia|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="kpi-card bg-secondary">
-          <div style="font-size:0.75rem;opacity:0.85;">Numeral Acumulado</div>
-          <div style="font-size:1.5rem;font-weight:700;">${{ cuadratura.numeral_acumulado|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="kpi-card {% if cuadratura.ganancia >= 0 %}bg-success{% else %}bg-danger{% endif %}">
-          <div style="font-size:0.75rem;opacity:0.85;">Ganancia</div>
-          <div style="font-size:1.5rem;font-weight:700;">${{ cuadratura.ganancia|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="kpi-card bg-dark">
-          <div style="font-size:0.75rem;opacity:0.85;">Total Efectivo en Caja</div>
-          <div style="font-size:1.5rem;font-weight:700;">${{ cuadratura.total_efectivo|default:0|floatformat:0 }}</div>
+          &rarr; {{ cuadratura.creado_el|date:"H:i" }}
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- GASTOS -->
-<div class="card shadow-sm mb-3">
-  <div class="card-header p-0">
-    <div class="section-header bg-warning text-dark"><i class="bi bi-receipt me-1"></i>Gastos del Período</div>
-  </div>
-  <div class="card-body p-0">
-    <table class="table table-bordered table-hover table-informe mb-0">
-      <thead class="table-light">
-        <tr>
-          <th class="col-concepto">Concepto</th>
-          <th class="text-end">Anterior</th>
-          <th class="text-end">Día</th>
-          <th class="text-end">Acumulado</th>
-          <th>Notas</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% with gastos_items=cuadratura %}
-        <tr>
-          <td class="col-concepto">Sorteos</td>
-          <td class="text-end text-muted">{{ cuadratura.sorteos_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.sorteos_dia %}val-neg{% endif %}">{{ cuadratura.sorteos_dia|default:0|floatformat:0 }}</td>
-          <td class="text-end fw-semibold">{{ cuadratura.sorteos_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.sorteos_notas }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Gastos</td>
-          <td class="text-end text-muted">{{ cuadratura.gastos_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.gastos_dia %}val-neg{% endif %}">
-            {{ cuadratura.gastos_dia|default:0|floatformat:0 }}
-            {% if detalles_gastos %}
-            <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.12);">
-              {% for item in detalles_gastos %}
-              <div class="d-flex justify-content-between gap-3"
-                   style="font-size:0.75rem; color:#6c757d; font-weight:400; white-space:nowrap;">
-                <span class="text-start">{{ item.nombre }}</span>
-                <span>${{ item.monto|floatformat:0 }}</span>
-              </div>
-              {% endfor %}
-            </div>
-            {% endif %}
-          </td>
-          <td class="text-end fw-semibold">{{ cuadratura.gastos_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.gastos_notas }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Sueldo B</td>
-          <td class="text-end text-muted">{{ cuadratura.sueldo_b_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.sueldo_b_dia %}val-neg{% endif %}">
-            {{ cuadratura.sueldo_b_dia|default:0|floatformat:0 }}
-            {% if detalles_sueldos %}
-            <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.12);">
-              {% for item in detalles_sueldos %}
-              <div class="d-flex justify-content-between gap-3"
-                   style="font-size:0.75rem; color:#6c757d; font-weight:400; white-space:nowrap;">
-                <span class="text-start">{{ item.nombre }}</span>
-                <span>${{ item.monto|floatformat:0 }}</span>
-              </div>
-              {% endfor %}
-            </div>
-            {% endif %}
-          </td>
-          <td class="text-end fw-semibold">{{ cuadratura.sueldo_b_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.sueldo_b_notas }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Redbank</td>
-          <td class="text-end text-muted">{{ cuadratura.redbank_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.redbank_dia %}val-neg{% endif %}">{{ cuadratura.redbank_dia|default:0|floatformat:0 }}</td>
-          <td class="text-end fw-semibold">{{ cuadratura.redbank_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.redbank_notas }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Regalos</td>
-          <td class="text-end text-muted">{{ cuadratura.regalos_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.regalos_dia %}val-neg{% endif %}">
-            {{ cuadratura.regalos_dia|default:0|floatformat:0 }}
-            {% if detalles_regalos %}
-            <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.12);">
-              {% for item in detalles_regalos %}
-              <div class="d-flex justify-content-between gap-3"
-                   style="font-size:0.75rem; color:#6c757d; font-weight:400; white-space:nowrap;">
-                <span class="text-start">{{ item.nombre }}</span>
-                <span>${{ item.monto|floatformat:0 }}</span>
-              </div>
-              {% endfor %}
-            </div>
-            {% endif %}
-          </td>
-          <td class="text-end fw-semibold">{{ cuadratura.regalos_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.regalos_notas }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Taxi</td>
-          <td class="text-end text-muted">{{ cuadratura.taxi_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.taxi_dia %}val-neg{% endif %}">{{ cuadratura.taxi_dia|default:0|floatformat:0 }}</td>
-          <td class="text-end fw-semibold">{{ cuadratura.taxi_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.taxi_notas }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Jugados</td>
-          <td class="text-end text-muted">{{ cuadratura.jugados_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.jugados_dia %}val-neg{% endif %}">
-            {{ cuadratura.jugados_dia|default:0|floatformat:0 }}
-            {% if detalles_jugados %}
-            <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.12);">
-              {% for item in detalles_jugados %}
-              <div class="d-flex justify-content-between gap-3"
-                   style="font-size:0.75rem; color:#6c757d; font-weight:400; white-space:nowrap;">
-                <span class="text-start">{{ item.nombre }}</span>
-                <span>${{ item.monto|floatformat:0 }}</span>
-              </div>
-              {% endfor %}
-            </div>
-            {% endif %}
-          </td>
-          <td class="text-end fw-semibold">{{ cuadratura.jugados_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.jugados_notas }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Transfer</td>
-          <td class="text-end text-muted">{{ cuadratura.transfer_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.transfer_dia %}val-neg{% endif %}">{{ cuadratura.transfer_dia|default:0|floatformat:0 }}</td>
-          <td class="text-end fw-semibold">{{ cuadratura.transfer_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.transfer_notas }}</td>
-        </tr>
-        {% if cuadratura.otros_1_dia or cuadratura.otros_1_ant %}
-        <tr>
-          <td class="col-concepto">Otros</td>
-          <td class="text-end text-muted">{{ cuadratura.otros_1_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end {% if cuadratura.otros_1_dia %}val-neg{% endif %}">{{ cuadratura.otros_1_dia|default:0|floatformat:0 }}</td>
-          <td class="text-end fw-semibold">{{ cuadratura.otros_1_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.otros_1_notas }}</td>
-        </tr>
-        {% endif %}
-        <tr class="table-warning">
-          <td class="col-concepto fw-bold">DESCUADRE</td>
-          <td class="text-end text-muted">{{ cuadratura.descuadre_ant|default:0|floatformat:0 }}</td>
-          <td class="text-end fw-bold {% if cuadratura.descuadre_dia < 0 %}val-neg{% elif cuadratura.descuadre_dia > 0 %}val-pos{% endif %}">
-            {{ cuadratura.descuadre_dia|default:0|floatformat:0 }}
-          </td>
-          <td class="text-end fw-bold">{{ cuadratura.descuadre_acum|default:0|floatformat:0 }}</td>
-          <td class="text-muted small">{{ cuadratura.descuadre_notas }}</td>
-        </tr>
-        {% endwith %}
-      </tbody>
-      <tfoot class="table-dark">
-        <tr>
-          <td class="fw-bold">TOTAL GASTOS</td>
-          <td></td>
-          <td class="text-end fw-bold val-neg">${{ cuadratura.total_gastos_dia|floatformat:0 }}</td>
-          <td></td>
-          <td></td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
-
-<!-- DESGLOSE EFECTIVO -->
-<div class="card shadow-sm mb-3">
-  <div class="card-header p-0">
-    <div class="section-header bg-info text-white"><i class="bi bi-cash-stack me-1"></i>Desglose de Efectivo</div>
-  </div>
-  <div class="card-body">
-    <div class="row g-3 mb-3">
-      <div class="col-6 col-md-2">
-        <div class="billete-box">
-          <div class="denominacion">$20.000</div>
-          <div class="cantidad">{{ cuadratura.ef_20000|default:0 }}</div>
-          <div class="monto">= ${{ cuadratura.ef_20000|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-2">
-        <div class="billete-box">
-          <div class="denominacion">$10.000</div>
-          <div class="cantidad">{{ cuadratura.ef_10000|default:0 }}</div>
-          <div class="monto">= ${{ cuadratura.ef_10000|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-2">
-        <div class="billete-box">
-          <div class="denominacion">$5.000</div>
-          <div class="cantidad">{{ cuadratura.ef_5000|default:0 }}</div>
-          <div class="monto">= ${{ cuadratura.ef_5000|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-2">
-        <div class="billete-box">
-          <div class="denominacion">$2.000</div>
-          <div class="cantidad">{{ cuadratura.ef_2000|default:0 }}</div>
-          <div class="monto">= ${{ cuadratura.ef_2000|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-2">
-        <div class="billete-box">
-          <div class="denominacion">$1.000</div>
-          <div class="cantidad">{{ cuadratura.ef_1000|default:0 }}</div>
-          <div class="monto">= ${{ cuadratura.ef_1000|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-2">
-        <div class="billete-box">
-          <div class="denominacion">Monedas</div>
-          <div class="cantidad">{{ cuadratura.ef_monedas|default:0 }}</div>
-          <div class="monto">= ${{ cuadratura.ef_monedas|default:0|floatformat:0 }}</div>
-        </div>
-      </div>
+<!-- ══════════════════════════════════════════
+     5. DESGLOSE EFECTIVO
+═══════════════════════════════════════════ -->
+<div class="mb-4">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header-dark" style="background:#1e3a5f;">
+      <i class="bi bi-cash-stack me-2"></i>Desglose de Efectivo
     </div>
-    <div class="alert alert-dark d-flex justify-content-between mb-0 py-2">
-      <strong>Total Desglose</strong>
-      <strong class="fs-5">${{ cuadratura.desglose_efectivo_total|floatformat:0 }}</strong>
+    <div class="card-body">
+      <div class="row g-3 mb-3">
+        <div class="col-6 col-md-2">
+          <div class="billete-box">
+            <div class="denom">$20.000</div>
+            <div class="cant" style="{% if cuadratura.ef_20000 > 0 %}color:#16a34a{% else %}color:#1e293b{% endif %}">{{ cuadratura.ef_20000|default:0 }}</div>
+            <div class="monto">= ${{ cuadratura.ef_20000|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <div class="billete-box">
+            <div class="denom">$10.000</div>
+            <div class="cant" style="{% if cuadratura.ef_10000 > 0 %}color:#16a34a{% else %}color:#1e293b{% endif %}">{{ cuadratura.ef_10000|default:0 }}</div>
+            <div class="monto">= ${{ cuadratura.ef_10000|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <div class="billete-box">
+            <div class="denom">$5.000</div>
+            <div class="cant" style="{% if cuadratura.ef_5000 > 0 %}color:#16a34a{% else %}color:#1e293b{% endif %}">{{ cuadratura.ef_5000|default:0 }}</div>
+            <div class="monto">= ${{ cuadratura.ef_5000|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <div class="billete-box">
+            <div class="denom">$2.000</div>
+            <div class="cant" style="{% if cuadratura.ef_2000 > 0 %}color:#16a34a{% else %}color:#1e293b{% endif %}">{{ cuadratura.ef_2000|default:0 }}</div>
+            <div class="monto">= ${{ cuadratura.ef_2000|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <div class="billete-box">
+            <div class="denom">$1.000</div>
+            <div class="cant" style="{% if cuadratura.ef_1000 > 0 %}color:#16a34a{% else %}color:#1e293b{% endif %}">{{ cuadratura.ef_1000|default:0 }}</div>
+            <div class="monto">= ${{ cuadratura.ef_1000|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <div class="billete-box">
+            <div class="denom">Monedas</div>
+            <div class="cant" style="{% if cuadratura.ef_monedas > 0 %}color:#16a34a{% else %}color:#1e293b{% endif %}">{{ cuadratura.ef_monedas|default:0 }}</div>
+            <div class="monto">= ${{ cuadratura.ef_monedas|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex justify-content-end">
+        <div class="d-flex align-items-center gap-3 px-3 py-2 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;">
+          <span style="font-size:0.85rem;color:#64748b;font-weight:600;">Total Desglose</span>
+          <span style="font-weight:700;font-size:1.2rem;color:#1e293b;">${{ cuadratura.desglose_efectivo_total|floatformat:0 }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- RESUMEN FINANCIERO -->
-<div class="card shadow-sm mb-3">
-  <div class="card-header p-0">
-    <div class="section-header bg-success text-white"><i class="bi bi-bar-chart-line me-1"></i>Resumen Financiero</div>
-  </div>
-  <div class="card-body p-0">
-    <table class="table table-bordered table-informe mb-0">
-      <tbody>
-        <tr class="table-light">
-          <td class="col-concepto text-muted">Caja Anterior</td>
-          <td class="text-end">${{ caja_anterior|default:0|floatformat:0 }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Numeral Turno</td>
-          <td class="text-end {% if cuadratura.numeral_dia >= 0 %}val-pos{% else %}val-neg{% endif %}">${{ cuadratura.numeral_dia|default:0|floatformat:0 }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Total Gastos</td>
-          <td class="text-end val-neg">- ${{ cuadratura.total_gastos_dia|floatformat:0 }}</td>
-        </tr>
-        <tr class="table-light">
-          <td class="col-concepto fw-bold">Ganancia del Día</td>
-          <td class="text-end fw-bold {% if cuadratura.ganancia >= 0 %}val-pos{% else %}val-neg{% endif %}">
-            ${{ cuadratura.ganancia|default:0|floatformat:0 }}
-          </td>
-        </tr>
-        <tr>
-          <td class="col-concepto">Desglose Efectivo (contado)</td>
-          <td class="text-end">${{ cuadratura.desglose_efectivo_total|floatformat:0 }}</td>
-        </tr>
-        <tr>
-          <td class="col-concepto text-warning fw-bold">Retiro Diario</td>
-          <td class="text-end text-warning fw-bold">- ${{ cuadratura.retiro_diario|default:0|floatformat:0 }}</td>
-        </tr>
-        <tr class="table-success">
-          <td class="col-concepto fw-bold fs-6">TOTAL EFECTIVO EN CAJA</td>
-          <td class="text-end fw-bold fs-5">${{ cuadratura.total_efectivo|default:0|floatformat:0 }}</td>
-        </tr>
-      </tbody>
-    </table>
+<!-- ══════════════════════════════════════════
+     6. RESUMEN GENERAL DEL TURNO
+═══════════════════════════════════════════ -->
+<div class="mb-4">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header-dark" style="background:#065f46;">
+      <i class="bi bi-bar-chart-line me-2"></i>Resumen General del Turno
+    </div>
+    <div class="card-body">
+      <div class="row g-0">
+        <!-- Columna 1 -->
+        <div class="col-md-4 pe-md-4">
+          <div class="resumen-pair">
+            <div class="rp-label">Numeral turno</div>
+            <div class="rp-val">${{ cuadratura.numeral_dia|default:0|floatformat:0 }}</div>
+          </div>
+          <div class="resumen-pair">
+            <div class="rp-label">Total gastos</div>
+            <div class="rp-val" style="color:#dc2626;">- ${{ cuadratura.total_gastos_dia|floatformat:0 }}</div>
+          </div>
+          <div class="resumen-pair">
+            <div class="rp-label">Préstamos</div>
+            <div class="rp-val">${{ cuadratura.prestamos|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+        <!-- Columna 2 -->
+        <div class="col-md-4 px-md-4" style="border-left:1px solid #f1f5f9;border-right:1px solid #f1f5f9;">
+          <div class="resumen-pair">
+            <div class="rp-label">Caja anterior</div>
+            <div class="rp-val">${{ caja_anterior|default:0|floatformat:0 }}</div>
+          </div>
+          <div class="resumen-pair">
+            <div class="rp-label">Retiro diario</div>
+            <div class="rp-val">- ${{ cuadratura.retiro_diario|default:0|floatformat:0 }}</div>
+          </div>
+          <div class="resumen-pair">
+            <div class="rp-label">Billetes malos</div>
+            <div class="rp-val">${{ cuadratura.ef_billetes_malos|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+        <!-- Columna 3 -->
+        <div class="col-md-4 ps-md-4">
+          <div class="resumen-pair">
+            <div class="rp-label">Ganancia</div>
+            <div class="rp-val" style="{% if cuadratura.ganancia >= 0 %}color:#16a34a{% else %}color:#dc2626{% endif %};">
+              ${{ cuadratura.ganancia|default:0|floatformat:0 }}
+            </div>
+          </div>
+          <div class="resumen-pair">
+            <div class="rp-label">Total efectivo</div>
+            <div class="rp-val" style="{% if cuadratura.total_efectivo > 0 %}color:#16a34a{% else %}color:#1e293b{% endif %};">
+              ${{ cuadratura.total_efectivo|default:0|floatformat:0 }}
+            </div>
+          </div>
+          <div class="resumen-pair">
+            <div class="rp-label">Num. acumulado</div>
+            <div class="rp-val">${{ cuadratura.numeral_acumulado|default:0|floatformat:0 }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════
+     7. OBSERVACIONES
+═══════════════════════════════════════════ -->
 {% if cuadratura.observaciones %}
-<div class="card shadow-sm mb-3">
+<div class="card border-0 shadow-sm mb-4">
   <div class="card-body">
-    <h6 class="text-muted fw-bold mb-2"><i class="bi bi-chat-left-text me-1"></i>Observaciones</h6>
-    <p class="mb-0">{{ cuadratura.observaciones }}</p>
+    <div class="section-title">Observaciones</div>
+    <p class="mb-0" style="color:#1e293b;">{{ cuadratura.observaciones }}</p>
   </div>
 </div>
 {% endif %}

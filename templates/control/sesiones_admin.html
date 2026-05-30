@@ -170,11 +170,15 @@
               </td>
               <td class="text-muted" style="font-size:11px;">{{ s.ip_cliente|default:"—" }}</td>
               <td>
-                {% if request.user.role in 'admin,gerente' and s.turno and s.turno.estado == 'Abierto' and s.turno.usuario %}
-                  <a href="{% url 'control:turno_desbloquear' s.turno.pk %}"
-                     class="btn btn-warning btn-sm">
-                    <i class="bi bi-unlock"></i> Desbloquear
-                  </a>
+                {% if request.user.role in 'admin,gerente' and not s.hora_cierre %}
+                  <form method="post" action="{% url 'control:forzar_logout_usuario' s.usuario.pk %}"
+                        style="display:inline;"
+                        onsubmit="return confirm('¿Cerrar la sesión de {{ s.usuario.nombre|default:s.usuario.username }}?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm">
+                      <i class="bi bi-box-arrow-right"></i> Cerrar sesión
+                    </button>
+                  </form>
                 {% else %}
                   —
                 {% endif %}

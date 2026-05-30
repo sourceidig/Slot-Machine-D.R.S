@@ -29,6 +29,33 @@ class CurrentRequestMiddleware:
             _current_request_local.request = None
 
 
+class UltimaUrlMiddleware:
+    """
+    Guarda en turno.ultima_url la última URL visitada por el usuario,
+    para poder retomarlo al volver a iniciar sesión.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if (request.method == 'GET'
+                and request.user.is_authenticated
+                and request.user.role in ('encargado', 'asistente')):
+            path = request.path
+            EXCLUIR = ('/login', '/logout', '/static', '/media',
+                       '/ajax', '/api', '/admin', '/seleccionar')
+            if not any(path.startswith(p) for p in EXCLUIR):
+                try:
+                    from control.models import Turno
+                    Turno.objects.filter(
+                        usuario=request.user, estado='Abierto'
+                    ).update(ultima_url=path)
+                except Exception:
+                    pass
+        return response
+
+
 class SucursalEncargadoMiddleware:
     """
     Encargado: bloquea navegación hasta que tenga sucursal activa Y turno abierto.

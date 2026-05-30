@@ -72,6 +72,7 @@ def error_403(request, exception=None):
 #Recaudación/Dia 0
 #===========================
 @login_required
+@role_required(*ROLES_RECAUDACION)
 @transaction.atomic
 def iniciar_dia_0(request):
     if request.method != "POST":
@@ -239,6 +240,7 @@ def informe_recaudacion_detail(request, pk):
 
 
 @login_required
+@role_required(*ROLES_RECAUDACION)
 def cerrar_ciclo_y_generar_informe(request):
     """
     Cierra el ciclo actual de una sucursal:
@@ -259,6 +261,10 @@ def cerrar_ciclo_y_generar_informe(request):
 
     fecha_inicio = ciclo.inicio_ciclo
     fecha_cierre = timezone.localdate()
+
+    if InformeRecaudacion.objects.filter(sucursal=sucursal, fecha_cierre=fecha_cierre).exists():
+        messages.error(request, "Ya existe un informe de recaudación generado hoy para esta sucursal.")
+        return redirect("control:recaudacion")
 
     with transaction.atomic():
         # ── 1. Crear informe base ───────────────────────────────────────────
@@ -333,6 +339,11 @@ def cerrar_ciclo_y_generar_informe(request):
             .filter(sucursal=sucursal, fecha__gte=fecha_inicio, fecha__lte=fecha_cierre)
             .aggregate(s=Sum("retiro_diario"))["s"] or 0)
 
+        # Sumar ef_billetes_malos de todos los días del ciclo
+        billetes_malos_total = (CuadraturaCajaDiaria.objects
+            .filter(sucursal=sucursal, fecha__gte=fecha_inicio, fecha__lte=fecha_cierre)
+            .aggregate(s=Sum("ef_billetes_malos"))["s"] or 0)
+
         if ultima_cuad:
             InformeRecaudacionCaja.objects.create(
                 informe=informe,
@@ -347,7 +358,7 @@ def cerrar_ciclo_y_generar_informe(request):
                 regalos=int(ultima_cuad.regalos_acum or 0),
                 jugados=int(ultima_cuad.jugados_acum or 0),
                 otros=int((ultima_cuad.otros_1_acum or 0) + (ultima_cuad.otros_2_acum or 0)),
-                billetes_malos=int(ultima_cuad.ef_billetes_malos or 0),
+                billetes_malos=int(billetes_malos_total),
                 descuadre=int(ultima_cuad.descuadre_acum or 0),
                 total_caja=int(ultima_cuad.total_efectivo or 0),
             )
@@ -496,6 +507,10 @@ def _ejecutar_recaudacion_programada(sucursal, user):
             .filter(sucursal=sucursal, fecha__gte=fecha_inicio, fecha__lte=fecha_cierre)
             .aggregate(s=Sum("retiro_diario"))["s"] or 0)
 
+        billetes_malos_total = (CuadraturaCajaDiaria.objects
+            .filter(sucursal=sucursal, fecha__gte=fecha_inicio, fecha__lte=fecha_cierre)
+            .aggregate(s=Sum("ef_billetes_malos"))["s"] or 0)
+
         if ultima_cuad:
             InformeRecaudacionCaja.objects.create(
                 informe=informe,
@@ -510,7 +525,7 @@ def _ejecutar_recaudacion_programada(sucursal, user):
                 regalos=int(ultima_cuad.regalos_acum or 0),
                 jugados=int(ultima_cuad.jugados_acum or 0),
                 otros=int((ultima_cuad.otros_1_acum or 0) + (ultima_cuad.otros_2_acum or 0)),
-                billetes_malos=int(ultima_cuad.ef_billetes_malos or 0),
+                billetes_malos=int(billetes_malos_total),
                 descuadre=int(ultima_cuad.descuadre_acum or 0),
                 total_caja=int(ultima_cuad.total_efectivo or 0),
             )
@@ -659,6 +674,23 @@ def _redirect_por_rol(role, user):
     if user.role == 'tecnico':
         return redirect("control:maquinas_list")
     if user.role == 'asistente':
+        # Preferir el turno del encargado donde está asignado (zona o slot)
+        asig = (
+            AsignacionTurnoZona.objects
+            .filter(usuario=user, turno__estado='Abierto', turno__usuario__role='encargado')
+            .select_related('turno')
+            .first()
+        )
+        if not asig:
+            asig = (
+                AsignacionTurnoSlot.objects
+                .filter(usuario=user, turno__estado='Abierto', turno__usuario__role='encargado')
+                .select_related('turno')
+                .first()
+            )
+        if asig:
+            return redirect("control:cuadratura_zona", turno_id=asig.turno_id)
+        # Fallback al turno propio
         turno = Turno.objects.filter(usuario=user, estado="Abierto").first()
         if turno:
             return redirect("control:cuadratura_zona", turno_id=turno.id)
@@ -816,6 +848,9 @@ def _manejar_sucursal_post_login(request, user):
             sucursal = sucursales_con_asignacion[0]
             request.session['sucursal_activa_id'] = sucursal.pk
             _auto_iniciar_turno(request, user, sucursal)
+            turno_obj = Turno.objects.filter(usuario=user, estado='Abierto').first()
+            if turno_obj and turno_obj.ultima_url:
+                return redirect(turno_obj.ultima_url)
             return None
 
         request.session['sucursales_asistente_ids'] = [s.pk for s in sucursales_con_asignacion]
@@ -824,7 +859,36 @@ def _manejar_sucursal_post_login(request, user):
     # ── Encargado ──
     if len(sucursales) == 1:
         request.session['sucursal_activa_id'] = sucursales[0].pk
-    # Con 1 o más sucursales, siempre va a seleccionar_turno (que maneja ambos casos)
+    # Si ya tiene turno abierto con ultima_url, retomar directo
+    turno_obj = Turno.objects.filter(usuario=user, estado='Abierto').first()
+    if turno_obj and turno_obj.ultima_url:
+        request.session['sucursal_activa_id'] = turno_obj.sucursal_id
+        return redirect(turno_obj.ultima_url)
+
+    # Encargado que trabajaba como asistente de otro turno
+    if not turno_obj:
+        sucursal_ids = [s.pk for s in sucursales]
+        asig_zona = (
+            AsignacionTurnoZona.objects
+            .filter(usuario=user, turno__estado='Abierto', turno__sucursal_id__in=sucursal_ids)
+            .select_related('turno__sucursal')
+            .first()
+        )
+        asig_slot = None
+        if not asig_zona:
+            asig_slot = (
+                AsignacionTurnoSlot.objects
+                .filter(usuario=user, turno__estado='Abierto', turno__sucursal_id__in=sucursal_ids)
+                .select_related('turno__sucursal')
+                .first()
+            )
+        turno_ajeno = asig_zona or asig_slot
+        if turno_ajeno:
+            turno_ref = turno_ajeno.turno
+            request.session['modo_asistente_turno_id'] = turno_ref.pk
+            request.session['sucursal_activa_id'] = turno_ref.sucursal_id
+            return redirect('control:turno')
+
     return redirect("control:seleccionar_turno")
 
 
@@ -860,6 +924,9 @@ def seleccionar_sucursal_view(request):
             return redirect("control:seleccionar_turno")
         if user.role == 'asistente':
             _auto_iniciar_turno(request, user, sucursal)
+            turno_obj = Turno.objects.filter(usuario=user, estado='Abierto').first()
+            if turno_obj and turno_obj.ultima_url:
+                return redirect(turno_obj.ultima_url)
         return _redirect_por_rol(user.role, user)
 
     if request.method == 'POST':
@@ -872,6 +939,9 @@ def seleccionar_sucursal_view(request):
                 return redirect("control:seleccionar_turno")
             if user.role == 'asistente':
                 _auto_iniciar_turno(request, user, sucursal)
+                turno_obj = Turno.objects.filter(usuario=user, estado='Abierto').first()
+                if turno_obj and turno_obj.ultima_url:
+                    return redirect(turno_obj.ultima_url)
             return _redirect_por_rol(user.role, user)
         else:
             messages.error(request, 'Debes seleccionar una sucursal válida.')
@@ -896,6 +966,11 @@ def seleccionar_turno_view(request):
 
     sucursales = list(user.sucursales.filter(is_active=True).order_by('nombre'))
     if not sucursales:
+        reg_id = request.session.get('registro_sesion_id')
+        if reg_id:
+            RegistroSesion.objects.filter(pk=reg_id).update(
+                hora_cierre=timezone.now(), motivo_cierre='sin_sucursal'
+            )
         auth_logout(request)
         messages.error(request, 'No tienes sucursales activas asignadas.')
         return redirect('control:login')
@@ -968,9 +1043,13 @@ def seleccionar_turno_view(request):
                     f'Retomando turno {turno_activo.tipo_turno} '
                     f'en {turno_activo.sucursal.nombre}.'
                 )
+                if turno_activo.ultima_url:
+                    return redirect(turno_activo.ultima_url)
                 return redirect('control:turno')
             # Si el turno es de otro día o ya tiene caja guardada,
-            # NO retomar — el encargado puede abrir un turno nuevo normalmente.
+            # cerrarlo automáticamente para que pueda abrir uno nuevo.
+            turno_activo.estado = 'Cerrado'
+            turno_activo.save(update_fields=['estado'])
 
         fecha = _fecha_para_tipo(tipo_turno)
         if Turno.objects.filter(sucursal=sucursal, fecha=fecha, tipo_turno=tipo_turno).exists():
@@ -1118,24 +1197,14 @@ def logout_view(request):
                 "maquinas_total": maquinas_total,
                 "lecturas_registradas": lecturas_registradas,
                 "completo": maquinas_sin_lectura == 0,
+                "turno_permanece_abierto": True,
             })
 
-        # Confirmó → cerrar turno si está abierto
-        if turno_abierto:
-            total = LecturaMaquina.objects.filter(turno=turno_abierto).aggregate(
-                total_sum=Sum("total")
-            )["total_sum"] or 0
-            turno_abierto.estado = "Cerrado"
-            turno_abierto.total_cierre = Decimal(str(total))
-            turno_abierto.save()
-
     # Cerrar registro de sesión
-    from django.utils import timezone as tz
-    reg_id = request.session.get('registro_sesion_id')
-    if reg_id:
-        RegistroSesion.objects.filter(pk=reg_id, hora_cierre__isnull=True).update(
-            hora_cierre=tz.now()
-        )
+    RegistroSesion.objects.filter(
+        usuario=request.user,
+        hora_cierre__isnull=True
+    ).update(hora_cierre=timezone.now(), motivo_cierre='logout')
 
     logout(request)
     return redirect("control:login")
@@ -1318,6 +1387,24 @@ def _recalcular_totales(cuadratura, turno_tipo=None):
 
     return cuadratura
 
+def _propagar_ant_acum(cuadratura, prev):
+    """
+    Copia los _acum de 'prev' como _ant de 'cuadratura',
+    luego recalcula sus _acum = _ant + _dia.
+    Si prev es None, todos los _ant quedan en 0.
+    """
+    CONCEPTOS = [
+        'sorteos', 'gastos', 'sueldo_b', 'redbank', 'regalos',
+        'taxi', 'jugados', 'transfer', 'otros_1', 'otros_2',
+        'otros_3', 'descuadre',
+    ]
+    for c in CONCEPTOS:
+        ant_val = getattr(prev, f'{c}_acum', 0) or 0 if prev else 0
+        setattr(cuadratura, f'{c}_ant', ant_val)
+        dia_val = getattr(cuadratura, f'{c}_dia', 0) or 0
+        setattr(cuadratura, f'{c}_acum', ant_val + dia_val)
+
+
 def _sucursal_fija_para(request):
     """Devuelve la Sucursal fija para roles con local asignado (supervisor/encargado)."""
     if request.user.role == 'encargado':
@@ -1449,6 +1536,33 @@ def cuadratura_diaria_create(request):
                 if "OTROS" in tipos_con_detalle:
                     cuadratura.otros_1_dia  = _sum_tipo(cuadratura, "OTROS")
 
+                # Propagar _ant desde la cuadratura anterior del ciclo
+                _TURNO_Q_CREATE = Case(
+                    When(turno__tipo_turno='Mañana', then=Value(0)),
+                    When(turno__tipo_turno='Tarde',  then=Value(1)),
+                    When(turno__tipo_turno='Noche',  then=Value(2)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
+                _tipo_turno_prev_create = cuadratura.turno.tipo_turno if cuadratura.turno else None
+                _orden_prev_create = _TURNO_ORDEN.get(_tipo_turno_prev_create, 0)
+                _turnos_ant_create = [t for t, o in _TURNO_ORDEN.items() if o < _orden_prev_create]
+                _prev_filter_create = (
+                    Q(fecha__lt=cuadratura.fecha) |
+                    Q(fecha=cuadratura.fecha, turno__tipo_turno__in=_turnos_ant_create)
+                ) if _tipo_turno_prev_create and _turnos_ant_create else Q(fecha__lt=cuadratura.fecha)
+                _prev = (
+                    CuadraturaCajaDiaria.objects
+                    .filter(sucursal=cuadratura.sucursal)
+                    .filter(_prev_filter_create)
+                    .exclude(pk=cuadratura.pk)
+                    .select_related('turno')
+                    .annotate(orden_turno=_TURNO_Q_CREATE)
+                    .order_by('-fecha', '-orden_turno', '-creado_el')
+                    .first()
+                )
+                _propagar_ant_acum(cuadratura, _prev)
+
                 # Recalcular totales ahora que está todo seteado
                 _recalcular_totales(cuadratura, turno_tipo=cuadratura.turno.tipo_turno if cuadratura.turno else None)
 
@@ -1463,19 +1577,50 @@ def cuadratura_diaria_create(request):
                     default=Value(0),
                     output_field=IntegerField(),
                 )
+                _tipo_turno_nuevo = cuadratura.turno.tipo_turno if cuadratura.turno else None
+                _orden_nuevo = _TURNO_ORDEN.get(_tipo_turno_nuevo, -1)
+                _turnos_post_dia = [t for t, o in _TURNO_ORDEN.items() if o > _orden_nuevo]
+                _qs_filter_create = (
+                    Q(fecha__gt=cuadratura.fecha) |
+                    Q(fecha=cuadratura.fecha, turno__tipo_turno__in=_turnos_post_dia)
+                ) if _tipo_turno_nuevo and _turnos_post_dia else Q(fecha__gt=cuadratura.fecha)
                 dias_siguientes = CuadraturaCajaDiaria.objects.filter(
                     sucursal=cuadratura.sucursal,
-                    fecha__gt=cuadratura.fecha
-                ).select_related('turno').annotate(orden_turno=_TURNO_Q).order_by('fecha', 'orden_turno', 'creado_el')
+                ).filter(_qs_filter_create).select_related('turno').annotate(orden_turno=_TURNO_Q).order_by('fecha', 'orden_turno', 'creado_el')
+                cuadratura_anterior_casc = cuadratura
                 for siguiente in dias_siguientes:
+                    _propagar_ant_acum(siguiente, cuadratura_anterior_casc)
                     _recalcular_totales(siguiente, turno_tipo=siguiente.turno.tipo_turno if siguiente.turno else None)
                     siguiente.actualizado_el = timezone.now()
                     siguiente.save()
+                    cuadratura_anterior_casc = siguiente
+
+            if cuadratura.turno_id:
+                turno = cuadratura.turno
+                turno.estado = 'Cerrado'
+                if not turno.total_cierre:
+                    from django.db.models import Sum as _SumCaja
+                    total = LecturaMaquina.objects.filter(
+                        turno=turno
+                    ).aggregate(s=_SumCaja('total'))['s'] or 0
+                    turno.total_cierre = total
+                turno.ultima_url = ''
+                turno.save(update_fields=['estado', 'total_cierre', 'ultima_url'])
+                _cerrar_sesion_todos_turno(
+                    turno=turno,
+                    excluir_usuario=request.user,
+                )
 
             messages.success(request, "Cuadratura guardada (creada o actualizada) exitosamente.")
             if request.user.role in ['encargado', 'asistente']:
-                request.session['pendiente_cierre_sesion'] = True
-                return redirect('control:logout_post_caja')
+                from django.contrib.sessions.models import Session
+                current_key = request.session.session_key
+                if current_key:
+                    Session.objects.filter(session_key=current_key).delete()
+                RegistroSesion.objects.filter(
+                    usuario=request.user, hora_cierre__isnull=True
+                ).update(hora_cierre=timezone.now(), motivo_cierre='cierre_caja')
+                return redirect('control:cierre_sesion_caja')
             return redirect("control:cuadratura_diaria_list")
 
         # Si el formulario no es válido
@@ -1632,6 +1777,28 @@ def cuadratura_diaria_detail(request, pk):
     for d in cuadratura.detalles.all().order_by("tipo", "creado_en"):
         detalles_agrupados[d.tipo].append({"nombre": d.nombre, "monto": d.monto})
 
+    _base_nav = CuadraturaCajaDiaria.objects.filter(sucursal=cuadratura.sucursal).exclude(pk=cuadratura.pk)
+    anterior_caja = (
+        _base_nav
+        .filter(
+            Q(fecha__lt=cuadratura.fecha) |
+            Q(fecha=cuadratura.fecha, id__lt=cuadratura.pk)
+        )
+        .order_by('-fecha', '-id')
+        .only('id', 'fecha')
+        .first()
+    )
+    siguiente_caja = (
+        _base_nav
+        .filter(
+            Q(fecha__gt=cuadratura.fecha) |
+            Q(fecha=cuadratura.fecha, id__gt=cuadratura.pk)
+        )
+        .order_by('fecha', 'id')
+        .only('id', 'fecha')
+        .first()
+    )
+
     return render(request, "cuadratura_diaria/detail.html", {
         "cuadratura":       cuadratura,
         "caja_anterior":    caja_anterior,
@@ -1640,6 +1807,8 @@ def cuadratura_diaria_detail(request, pk):
         "detalles_sueldos": detalles_agrupados["SUELDOS"],
         "detalles_regalos": detalles_agrupados["REGALOS"],
         "detalles_jugados": detalles_agrupados["JUGADOS"],
+        "anterior_caja":    anterior_caja,
+        "siguiente_caja":   siguiente_caja,
     })
 @login_required
 @role_required('admin', 'gerente', 'supervisor')
@@ -1680,19 +1849,32 @@ def cuadratura_diaria_edit(request, pk):
                 if "OTROS" in tipos_con_detalle:
                     c.otros_1_dia   = _sum_tipo(c, "OTROS")
 
-                # Recalcular acumulados con los valores correctos
-                c.sorteos_acum   = (c.sorteos_ant or 0)   + (c.sorteos_dia or 0)
-                c.gastos_acum    = (c.gastos_ant or 0)    + (c.gastos_dia or 0)
-                c.sueldo_b_acum  = (c.sueldo_b_ant or 0)  + (c.sueldo_b_dia or 0)
-                c.redbank_acum   = (c.redbank_ant or 0)   + (c.redbank_dia or 0)
-                c.regalos_acum   = (c.regalos_ant or 0)   + (c.regalos_dia or 0)
-                c.taxi_acum      = (c.taxi_ant or 0)      + (c.taxi_dia or 0)
-                c.jugados_acum   = (c.jugados_ant or 0)   + (c.jugados_dia or 0)
-                c.transfer_acum  = (c.transfer_ant or 0)  + (c.transfer_dia or 0)
-                c.otros_1_acum   = (c.otros_1_ant or 0)   + (c.otros_1_dia or 0)
-                c.otros_2_acum   = (c.otros_2_ant or 0)   + (c.otros_2_dia or 0)
-                c.otros_3_acum   = (c.otros_3_ant or 0)   + (c.otros_3_dia or 0)
-                c.descuadre_acum = (c.descuadre_ant or 0) + (c.descuadre_dia or 0)
+                # Propagar _ant/_acum desde la cuadratura inmediatamente anterior
+                _TURNO_Q_EDIT = Case(
+                    When(turno__tipo_turno='Mañana', then=Value(0)),
+                    When(turno__tipo_turno='Tarde',  then=Value(1)),
+                    When(turno__tipo_turno='Noche',  then=Value(2)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
+                _tipo_turno_prev_edit = c.turno.tipo_turno if c.turno else None
+                _orden_prev_edit = _TURNO_ORDEN.get(_tipo_turno_prev_edit, 0)
+                _turnos_ant_edit = [t for t, o in _TURNO_ORDEN.items() if o < _orden_prev_edit]
+                _prev_filter_edit = (
+                    Q(fecha__lt=c.fecha) |
+                    Q(fecha=c.fecha, turno__tipo_turno__in=_turnos_ant_edit)
+                ) if _tipo_turno_prev_edit and _turnos_ant_edit else Q(fecha__lt=c.fecha)
+                _prev_edit = (
+                    CuadraturaCajaDiaria.objects
+                    .filter(sucursal=c.sucursal)
+                    .filter(_prev_filter_edit)
+                    .exclude(pk=c.pk)
+                    .select_related('turno')
+                    .annotate(orden_turno=_TURNO_Q_EDIT)
+                    .order_by('-fecha', '-orden_turno', '-creado_el')
+                    .first()
+                )
+                _propagar_ant_acum(c, _prev_edit)
 
                 # Recalcular ganancia, numeral_dia, descuadre y total_efectivo
                 _recalcular_totales(c, turno_tipo=c.turno.tipo_turno if c.turno else None)
@@ -1717,15 +1899,24 @@ def cuadratura_diaria_edit(request, pk):
                     default=Value(0),
                     output_field=IntegerField(),
                 )
+                _tipo_turno_edit = c.turno.tipo_turno if c.turno else None
+                _orden_edit = _TURNO_ORDEN.get(_tipo_turno_edit, -1)
+                _turnos_post_edit = [t for t, o in _TURNO_ORDEN.items() if o > _orden_edit]
+                _qs_filter_edit = (
+                    Q(fecha__gt=c.fecha) |
+                    Q(fecha=c.fecha, turno__tipo_turno__in=_turnos_post_edit)
+                ) if _tipo_turno_edit and _turnos_post_edit else Q(fecha__gt=c.fecha)
                 dias_siguientes = CuadraturaCajaDiaria.objects.filter(
                     sucursal=c.sucursal,
-                    fecha__gt=c.fecha
-                ).select_related('turno').annotate(orden_turno=_TURNO_Q).order_by('fecha', 'orden_turno', 'creado_el')
+                ).filter(_qs_filter_edit).select_related('turno').annotate(orden_turno=_TURNO_Q).order_by('fecha', 'orden_turno', 'creado_el')
 
+                cuadratura_anterior = c
                 for siguiente in dias_siguientes:
+                    _propagar_ant_acum(siguiente, cuadratura_anterior)
                     _recalcular_totales(siguiente, turno_tipo=siguiente.turno.tipo_turno if siguiente.turno else None)
                     siguiente.actualizado_el = timezone.now()
                     siguiente.save()
+                    cuadratura_anterior = siguiente
 
             messages.success(request, "Cuadratura actualizada y días siguientes recalculados.")
             return redirect("control:cuadratura_diaria_detail", pk=c.pk)
@@ -1806,6 +1997,21 @@ def logout_post_caja(request):
     from django.contrib.auth import logout
     logout(request)
     return redirect('control:login')
+
+
+def cierre_sesion_caja(request):
+    # La sesión ya fue destruida antes de llegar acá.
+    # Si por alguna razón aún está activa, hacer logout defensivo.
+    if request.user.is_authenticated:
+        try:
+            RegistroSesion.objects.filter(
+                usuario=request.user, hora_cierre__isnull=True
+            ).update(hora_cierre=timezone.now(), motivo_cierre='cierre_caja')
+        except Exception:
+            pass
+        from django.contrib.auth import logout as auth_logout
+        auth_logout(request)
+    return render(request, 'control/cierre_sesion_caja.html')
 
 
 @login_required
@@ -2568,6 +2774,71 @@ def guardar_asignaciones(request, turno_id):
     return redirect("control:turno")
 
 
+def _cerrar_sesion_todos_turno(turno, excluir_usuario=None):
+    """
+    Cierra la sesión de todos los usuarios involucrados en el turno
+    (AsignacionTurnoZona y AsignacionTurnoSlot), excluyendo a excluir_usuario.
+    Setea flag en caché para que el polling JS muestre el overlay de countdown.
+    """
+    try:
+        from django.contrib.sessions.models import Session
+        from django.core.cache import cache
+        from django.db.models import Sum as _Sum
+        from decimal import Decimal
+
+        uids = set()
+        if turno.usuario_id:
+            uids.add(turno.usuario_id)
+        for a in AsignacionTurnoZona.objects.filter(turno=turno).select_related('usuario'):
+            if a.usuario_id:
+                uids.add(a.usuario_id)
+        for a in AsignacionTurnoSlot.objects.filter(turno=turno).select_related('usuario'):
+            if a.usuario_id:
+                uids.add(a.usuario_id)
+
+        if excluir_usuario:
+            uids.discard(excluir_usuario.pk)
+
+        from .models import Usuario
+        for uid in uids:
+            try:
+                u = Usuario.objects.get(pk=uid)
+
+                # a) Cerrar turno abierto
+                turnos_abiertos = Turno.objects.filter(usuario=u, estado='Abierto')
+                for t in turnos_abiertos:
+                    total = LecturaMaquina.objects.filter(turno=t).aggregate(s=_Sum('total'))['s'] or 0
+                    t.estado = 'Cerrado'
+                    t.total_cierre = Decimal(str(total))
+                    t.ultima_url = ''
+                    t.save()
+
+                # b) Cerrar RegistroSesion
+                RegistroSesion.objects.filter(
+                    usuario=u, hora_cierre__isnull=True
+                ).update(hora_cierre=timezone.now(), motivo_cierre='cierre_caja')
+
+                # c) Eliminar sesiones Django activas
+                keys = []
+                for session in Session.objects.filter(expire_date__gte=timezone.now()):
+                    try:
+                        data = session.get_decoded()
+                        if str(data.get('_auth_user_id')) == str(u.pk):
+                            keys.append(session.session_key)
+                    except Exception:
+                        pass
+                if keys:
+                    Session.objects.filter(session_key__in=keys).delete()
+
+                # d) Flag en caché para el polling JS
+                cache.set(f'turno_cerrado_{u.pk}', True, timeout=300)
+
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def _cerrar_sesion_asistentes_sin_asignacion(turno):
     """
     Después de guardar asignaciones, revisa asistentes con turno abierto
@@ -3134,6 +3405,16 @@ def ajax_turnos_por_sucursal_fecha(request):
         for t in turnos
     ]
     return JsonResponse({"turnos": data})
+
+
+@login_required
+def ajax_check_turno_activo(request):
+    from django.core.cache import cache
+    flag = cache.get(f'turno_cerrado_{request.user.pk}')
+    if flag:
+        cache.delete(f'turno_cerrado_{request.user.pk}')
+        return JsonResponse({'activo': False})
+    return JsonResponse({'activo': True})
 
 
 # views.py
@@ -5698,6 +5979,46 @@ def movimientos_list(request):
 # ============================================
 # SESIONES ADMIN
 # ============================================
+
+@login_required
+@role_required('admin', 'gerente')
+def forzar_logout_usuario(request, usuario_pk):
+    """
+    Admin fuerza el cierre de sesión de un usuario específico.
+    El turno del usuario NO se cierra (puede retomarlo al volver a iniciar sesión).
+    """
+    if request.method != 'POST':
+        return redirect('control:sesiones_admin')
+
+    from django.contrib.sessions.models import Session
+    from django.core.cache import cache
+
+    usuario = get_object_or_404(Usuario, pk=usuario_pk)
+
+    # 1. Eliminar sesiones Django activas del usuario
+    for sesion in Session.objects.filter(expire_date__gte=timezone.now()):
+        try:
+            data = sesion.get_decoded()
+            if str(data.get('_auth_user_id')) == str(usuario.pk):
+                sesion.delete()
+        except Exception:
+            pass
+
+    # 2. Flag de caché para que el polling JS muestre el countdown si está activo
+    cache.set(f'turno_cerrado_{usuario.pk}', True, timeout=300)
+
+    # 3. Cerrar RegistroSesion activo
+    RegistroSesion.objects.filter(
+        usuario=usuario, hora_cierre__isnull=True
+    ).update(hora_cierre=timezone.now(), motivo_cierre='forzado_admin')
+
+    messages.success(
+        request,
+        f'Sesión de {usuario.nombre or usuario.username} cerrada correctamente. '
+        f'Su turno permanece abierto y podrá retomarlo al iniciar sesión.'
+    )
+    return redirect('control:sesiones_admin')
+
 
 @login_required
 def sesiones_admin(request):

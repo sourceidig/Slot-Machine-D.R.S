@@ -1,50 +1,81 @@
-ARCHIVO: control/views.py
-FUNCIÓN: seleccionar_turno_view (~línea 882)
+Analiza y repara el módulo de recaudación de Plaza Games DRS.
+El proyecto es Django 4.1 + MariaDB. Una sola app: control/.
 
-BUSCAR exactamente estas líneas (~línea 950):
+PASO 1 — LEE estos archivos en orden:
+  control/views.py  (funciones: iniciar_dia_0, cerrar_ciclo_y_generar_informe,
+                     _ejecutar_recaudacion_programada, _chequear_programaciones,
+                     cuadratura_diaria_create, cuadratura_diaria_edit,
+                     _recalcular_totales, _propagar_ant_acum si existe)
+  control/utils.py  (calcular_numerales_caja, get_referencia_anterior)
+  control/models.py (CuadraturaCajaDiaria, CicloRecaudacion,
+                     InformeRecaudacion, InformeRecaudacionCaja,
+                     InformeRecaudacionLinea)
+  control/signals.py
+  CLAUDE.md
 
-        turno_activo = Turno.objects.filter(
-            usuario=user, estado='Abierto'
-        ).select_related('sucursal').first()
-        if turno_activo:
-            reg_id = request.session.get('registro_sesion_id')
-            if reg_id:
-                RegistroSesion.objects.filter(pk=reg_id).update(
-                    sucursal=turno_activo.sucursal, turno=turno_activo
-                )
-            messages.info(
-                request,
-                f'Retomando turno {turno_activo.tipo_turno} '
-                f'en {turno_activo.sucursal.nombre}.'
-            )
-            return redirect('control:turno')
+PASO 2 — DIAGNÓSTICO: identifica todos los bugs en el flujo completo de
+recaudación, que abarca:
+  A) Acumulados de cuadratura diaria (_ant/_acum por concepto)
+  B) Cascade al editar una cuadratura (días/turnos siguientes)
+  C) Generación del InformeRecaudacionCaja al cerrar ciclo
+  D) Versión programada (_ejecutar_recaudacion_programada) vs manual
+  E) Seguridad (decoradores faltantes)
+  F) Protección contra duplicados
 
-REEMPLAZAR por:
+Documenta cada bug con: archivo, línea aproximada, descripción, impacto.
 
-        turno_activo = Turno.objects.filter(
-            usuario=user, estado='Abierto'
-        ).select_related('sucursal').first()
-        if turno_activo:
-            # Solo retomar si el turno es vigente:
-            # 1. La fecha debe corresponder al día actual para ese tipo de turno
-            # 2. No debe tener cuadratura de caja ya guardada (turno completado)
-            fecha_vigente = _fecha_para_tipo(turno_activo.tipo_turno)
-            tiene_cuadratura = turno_activo.cuadraturas_diarias.exists()
+PASO 3 — PRUEBAS: escribe y corre tests en control/tests.py usando
+settings=slot_machine_drs.settings_test (SQLite, sin MariaDB).
+Crea fixtures mínimas necesarias. Prueba al menos:
+  - Acumulados en cadena: crear 3 cuadraturas consecutivas y verificar
+    que _acum de la tercera = suma de los 3 _dia
+  - Editar la primera cuadratura y verificar que las dos siguientes
+    recalculan correctamente en cascada
+  - Dos turnos el mismo día (Mañana y Tarde): editar Mañana y verificar
+    que Tarde recalcula
+  - cerrar_ciclo_y_generar_informe: verificar que billetes_malos en el
+    informe = suma de todos los días, no solo el último
+  - Protección duplicados: llamar cerrar_ciclo dos veces el mismo día
 
-            if turno_activo.fecha == fecha_vigente and not tiene_cuadratura:
-                reg_id = request.session.get('registro_sesion_id')
-                if reg_id:
-                    RegistroSesion.objects.filter(pk=reg_id).update(
-                        sucursal=turno_activo.sucursal, turno=turno_activo
-                    )
-                messages.info(
-                    request,
-                    f'Retomando turno {turno_activo.tipo_turno} '
-                    f'en {turno_activo.sucursal.nombre}.'
-                )
-                return redirect('control:turno')
-            # Si el turno es de otro día o ya tiene caja guardada,
-            # NO retomar — el encargado puede abrir un turno nuevo normalmente.
+PASO 4 — ARREGLA todos los bugs confirmados por los tests.
+Los bugs conocidos son (pero puede haber más):
 
-NO tocar nada más de la función ni de views.py.
-NO crear migraciones.
+  BUG 1 — _ant/_acum no se propagan en cascade del edit
+  En cuadratura_diaria_edit, el loop "for siguiente in dias_siguientes"
+  llama _recalcular_totales(siguiente) pero esa función no actualiza
+  _ant ni _acum. Crear función _propagar_ant_acum(cuadratura, prev) que
+  copie _acum de prev como _ant de cuadratura y recalcule _acum = _ant + _dia
+  para los 12 conceptos: sorteos, gastos, sueldo_b, redbank, regalos,
+  taxi, jugados, transfer, otros_1, otros_2, otros_3, descuadre.
+  Usarla en: create (reemplazando el bloque manual), edit (antes del
+  loop y dentro del loop en cadena).
+
+  BUG 2 — cascade en edit no incluye turnos posteriores del mismo día
+  El filtro usa fecha__gt=c.fecha. Agregar Q(fecha=c.fecha,
+  turno__tipo_turno__in=turnos_posteriores) donde turnos_posteriores
+  son los turnos con orden mayor al turno de c (Mañana=0, Tarde=1, Noche=2).
+
+  BUG 3 — billetes_malos en InformeRecaudacionCaja toma solo el último día
+  Cambiar int(ultima_cuad.ef_billetes_malos or 0) por Sum de todos los
+  días del ciclo, igual que ya se hace con retiro_diario.
+  Aplicar en AMBAS funciones: cerrar_ciclo_y_generar_informe y
+  _ejecutar_recaudacion_programada.
+
+  BUG 4 — cerrar_ciclo_y_generar_informe sin protección duplicados
+  Agregar check antes de la transacción:
+  if InformeRecaudacion.objects.filter(sucursal=sucursal,
+     fecha_cierre=timezone.localdate()).exists(): → error + redirect
+
+  BUG 5 — iniciar_dia_0 y cerrar_ciclo_y_generar_informe sin @role_required
+  Agregar @role_required(*ROLES_RECAUDACION) a ambas funciones.
+
+PASO 5 — Corre los tests nuevamente. Todos deben pasar.
+Si alguno falla, corrige el código hasta que pasen.
+
+RESTRICCIONES:
+- No crear ni modificar migrations
+- No tocar templates
+- No cambiar la fórmula RTP ni get_referencia_anterior
+- No modificar modelos
+- Todos los cambios en control/views.py únicamente (excepto los tests
+  que van en control/tests.py)

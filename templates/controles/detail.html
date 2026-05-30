@@ -44,6 +44,11 @@
       <a class="btn btn-outline-primary fw-semibold px-4" style="border-radius:10px;" href="{% url 'control:controles_list' %}">
         <i class="bi bi-archive me-1"></i>Ver controles
       </a>
+      {% if control.turno %}
+      <a class="btn btn-outline-success fw-semibold px-4" style="border-radius:10px;" href="{% url 'control:cuadratura_diaria_create' %}">
+        <i class="bi bi-cash-coin me-1"></i>Caja Turno
+      </a>
+      {% endif %}
       {% if request.user.role == "admin" %}
       <button type="button" class="btn btn-outline-danger fw-semibold px-4" style="border-radius:10px;"
               data-bs-toggle="modal" data-bs-target="#modalEliminarControl">

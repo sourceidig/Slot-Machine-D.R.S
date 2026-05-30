@@ -17,6 +17,7 @@ from .models import (
     ControlLecturasLinea,
     CuadraturaCajaDiaria,
     InformeRecaudacion,
+    InformeRecaudacionCaja,
     InformeRecaudacionLinea,
     LecturaMaquina,
     Maquina,
@@ -1777,3 +1778,292 @@ class RegistroActividadSignalTest(TestCase):
         )
         despues = RegistroActividad.objects.filter(modulo="Encuadre Admin").count()
         self.assertEqual(antes, despues)
+
+
+# ─────────────────────────────────────────────
+# Recaudación — propagación de acumulados
+# ─────────────────────────────────────────────
+
+from .views import _propagar_ant_acum
+
+
+class PropagacionAcumuladosTest(TestCase):
+    """
+    _propagar_ant_acum copia _acum de prev como _ant del siguiente y recalcula _acum = _ant + _dia.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+
+    def _make_c(self, fecha, **kwargs):
+        return CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=fecha, **kwargs
+        )
+
+    def test_cadena_tres_cuadraturas_acum_igual_suma_dias(self):
+        """
+        3 cuadraturas consecutivas: _acum de la tercera = suma de los 3 _dia.
+        """
+        c1 = self._make_c(DATE_PREV2, sorteos_dia=100)
+        c2 = self._make_c(DATE_PREV,  sorteos_dia=50)
+        c3 = self._make_c(DATE_CURR,  sorteos_dia=75)
+
+        _propagar_ant_acum(c1, None)
+        _propagar_ant_acum(c2, c1)
+        _propagar_ant_acum(c3, c2)
+
+        self.assertEqual(c1.sorteos_ant,  0)
+        self.assertEqual(c1.sorteos_acum, 100)
+        self.assertEqual(c2.sorteos_ant,  100)
+        self.assertEqual(c2.sorteos_acum, 150)
+        self.assertEqual(c3.sorteos_ant,  150)
+        self.assertEqual(c3.sorteos_acum, 225)
+        self.assertEqual(c3.sorteos_acum, c1.sorteos_dia + c2.sorteos_dia + c3.sorteos_dia)
+
+    def test_propagar_con_prev_none_pone_ant_cero(self):
+        """Sin prev, _ant=0 y _acum=_dia."""
+        c = self._make_c(DATE_CURR, sorteos_dia=80, gastos_dia=20)
+        _propagar_ant_acum(c, None)
+        self.assertEqual(c.sorteos_ant,  0)
+        self.assertEqual(c.sorteos_acum, 80)
+        self.assertEqual(c.gastos_ant,   0)
+        self.assertEqual(c.gastos_acum,  20)
+
+
+# ─────────────────────────────────────────────
+# Recaudación — cascade edit (días consecutivos)
+# ─────────────────────────────────────────────
+
+class CascadeEditDiasConsecutivosTest(TestCase):
+    """
+    Editar la primera cuadratura propaga _ant/_acum a las dos siguientes.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+        self.admin = make_usuario("admin_casc_cons")
+        self.admin.role = "admin"
+        self.admin.save()
+
+        # C1 -> C2 -> C3 con valores iniciales conocidos
+        self.c1 = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=DATE_PREV2,
+            sorteos_dia=100, sorteos_ant=0, sorteos_acum=100,
+        )
+        self.c2 = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=DATE_PREV,
+            sorteos_dia=50, sorteos_ant=100, sorteos_acum=150,
+        )
+        self.c3 = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=DATE_CURR,
+            sorteos_dia=75, sorteos_ant=150, sorteos_acum=225,
+        )
+
+    def _edit_post(self, fecha, **fields):
+        data = {
+            'fecha':    fecha.isoformat(),
+            'sucursal': self.sucursal.pk,
+        }
+        data.update(fields)
+        return data
+
+    def test_edit_primera_propaga_a_c2_y_c3(self):
+        """
+        Editar C1 (sorteos_dia 100→200) debe actualizar C2.sorteos_ant=200
+        y C3.sorteos_ant=250, C3.sorteos_acum=325 en cascada.
+        """
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/cuadratura-diaria/{self.c1.pk}/editar/",
+            data=self._edit_post(DATE_PREV2, sorteos_dia=200),
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.c2.refresh_from_db()
+        self.c3.refresh_from_db()
+
+        self.assertEqual(self.c2.sorteos_ant,  200)
+        self.assertEqual(self.c2.sorteos_acum, 250)   # 200 + 50
+        self.assertEqual(self.c3.sorteos_ant,  250)
+        self.assertEqual(self.c3.sorteos_acum, 325)   # 200 + 50 + 75
+
+
+# ─────────────────────────────────────────────
+# Recaudación — cascade mismo día (BUG 2)
+# ─────────────────────────────────────────────
+
+class CascadeMismoDiaTest(TestCase):
+    """
+    BUG 2: la cascada debe incluir los turnos posteriores del mismo día.
+    Editar Mañana debe recalcular Tarde del mismo día.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+        self.admin = make_usuario("admin_mismo_dia")
+        self.admin.role = "admin"
+        self.admin.save()
+        self.usuario = make_usuario("usr_mismo_dia")
+
+        self.turno_m = make_turno(
+            self.sucursal, self.usuario,
+            fecha=DATE_CURR, tipo="Mañana", estado="Cerrado",
+        )
+        self.turno_t = make_turno(
+            self.sucursal, self.usuario,
+            fecha=DATE_CURR, tipo="Tarde", estado="Cerrado",
+        )
+
+        self.c_m = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=DATE_CURR, turno=self.turno_m,
+            sorteos_dia=100, sorteos_ant=0, sorteos_acum=100,
+        )
+        self.c_t = CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=DATE_CURR, turno=self.turno_t,
+            sorteos_dia=50, sorteos_ant=100, sorteos_acum=150,
+        )
+
+    def _edit_post(self, fecha, **fields):
+        data = {
+            'fecha':    fecha.isoformat(),
+            'sucursal': self.sucursal.pk,
+        }
+        data.update(fields)
+        return data
+
+    def test_editar_manana_actualiza_tarde_mismo_dia(self):
+        """
+        Editar Mañana (sorteos_dia 100→200): Tarde debe quedar
+        sorteos_ant=200, sorteos_acum=250.
+        """
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/cuadratura-diaria/{self.c_m.pk}/editar/",
+            data=self._edit_post(DATE_CURR, sorteos_dia=200),
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.c_t.refresh_from_db()
+        self.assertEqual(self.c_t.sorteos_ant,  200)
+        self.assertEqual(self.c_t.sorteos_acum, 250)   # 200 + 50
+
+
+# ─────────────────────────────────────────────
+# Recaudación — cerrar ciclo
+# ─────────────────────────────────────────────
+
+class CerrarCicloTest(TestCase):
+    """
+    cerrar_ciclo_y_generar_informe: billetes_malos y protección de duplicados.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+        self.admin = make_usuario("admin_ciclo")
+        self.admin.role = "admin"
+        self.admin.save()
+        self.ciclo = CicloRecaudacion.objects.create(
+            sucursal=self.sucursal,
+            inicio_ciclo=DATE_PREV2,
+            creado_por=self.admin,
+        )
+
+    def _post_cerrar(self):
+        return self.client.post(
+            "/recaudacion/cerrar-ciclo/",
+            data={'sucursal_id': self.sucursal.pk},
+        )
+
+    def test_billetes_malos_es_suma_de_todos_los_dias(self):
+        """
+        billetes_malos en InformeRecaudacionCaja debe ser la suma de
+        ef_billetes_malos de todos los días del ciclo, no solo el último.
+        """
+        CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=DATE_PREV2, ef_billetes_malos=1_000,
+        )
+        CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=DATE_PREV,  ef_billetes_malos=2_000,
+        )
+        CuadraturaCajaDiaria.objects.create(
+            sucursal=self.sucursal, fecha=DATE_CURR,  ef_billetes_malos=3_000,
+        )
+
+        self.client.force_login(self.admin)
+        self._post_cerrar()
+
+        informe = InformeRecaudacion.objects.filter(sucursal=self.sucursal).first()
+        self.assertIsNotNone(informe)
+        caja = InformeRecaudacionCaja.objects.filter(informe=informe).first()
+        self.assertIsNotNone(caja)
+        self.assertEqual(caja.billetes_malos, 6_000)   # 1000 + 2000 + 3000
+
+    def test_proteccion_duplicados_mismo_dia(self):
+        """
+        Llamar cerrar_ciclo dos veces el mismo día no debe crear un
+        segundo InformeRecaudacion.
+        """
+        self.client.force_login(self.admin)
+
+        self._post_cerrar()
+        count_first = InformeRecaudacion.objects.filter(sucursal=self.sucursal).count()
+        self.assertEqual(count_first, 1)
+
+        # Segunda llamada: debe ser rechazada
+        self._post_cerrar()
+        count_second = InformeRecaudacion.objects.filter(sucursal=self.sucursal).count()
+        self.assertEqual(count_second, 1)
+
+
+# ─────────────────────────────────────────────
+# Recaudación — control de acceso (BUG 5)
+# ─────────────────────────────────────────────
+
+class RecaudacionRoleTest(TestCase):
+    """
+    iniciar_dia_0 y cerrar_ciclo_y_generar_informe requieren rol admin.
+    """
+
+    def setUp(self):
+        self.sucursal = make_sucursal()
+        self.gerente = make_usuario("ger_recaud")
+        self.gerente.role = "gerente"
+        self.gerente.sucursales.add(self.sucursal)
+        self.gerente.save()
+
+        self.admin = make_usuario("adm_recaud")
+        self.admin.role = "admin"
+        self.admin.save()
+
+        CicloRecaudacion.objects.create(
+            sucursal=self.sucursal,
+            inicio_ciclo=DATE_PREV2,
+            creado_por=self.admin,
+        )
+
+    def test_gerente_no_puede_iniciar_dia_0(self):
+        """Gerente no tiene permiso para iniciar_dia_0 → 403."""
+        self.client.force_login(self.gerente)
+        response = self.client.post(
+            "/recaudacion/iniciar-dia-0/",
+            data={'sucursal_id': self.sucursal.pk, 'fecha_inicio': '2025-01-01'},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_puede_iniciar_dia_0(self):
+        """Admin tiene permiso para iniciar_dia_0 → no es 403."""
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/recaudacion/iniciar-dia-0/",
+            data={'sucursal_id': self.sucursal.pk, 'fecha_inicio': '2025-01-01'},
+        )
+        self.assertNotEqual(response.status_code, 403)
+
+    def test_gerente_no_puede_cerrar_ciclo(self):
+        """Gerente no tiene permiso para cerrar el ciclo → 403."""
+        self.client.force_login(self.gerente)
+        response = self.client.post(
+            "/recaudacion/cerrar-ciclo/",
+            data={'sucursal_id': self.sucursal.pk},
+        )
+        self.assertEqual(response.status_code, 403)

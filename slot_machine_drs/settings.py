@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'control.middleware.CurrentRequestMiddleware',
+    'control.middleware.UltimaUrlMiddleware',
     'control.middleware.AlertaSesionCerradaMiddleware',
     'control.middleware.SucursalEncargadoMiddleware',
     'control.middleware.ErrorHandlerMiddleware',

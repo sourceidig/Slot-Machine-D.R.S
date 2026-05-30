@@ -44,8 +44,13 @@
           </div>
 
           <p style="color:#a09890;font-size:14px;line-height:1.6;margin-bottom:22px;">
-            Todas las lecturas del turno están registradas. Al cerrar sesión el turno quedará
-            <strong style="color:#4ade80;">cerrado correctamente</strong>.
+            Todas las lecturas del turno están registradas.
+            {% if turno_permanece_abierto %}
+            Tu turno <strong style="color:#c9a84c;">permanecerá abierto</strong>.
+            Al volver a iniciar sesión podrás continuar desde donde lo dejaste.
+            {% else %}
+            Al cerrar sesión el turno quedará <strong style="color:#4ade80;">cerrado correctamente</strong>.
+            {% endif %}
           </p>
 
           <div style="display:flex;flex-direction:column;gap:10px;">
@@ -104,12 +109,26 @@
             </div>
           </div>
 
-          <p style="color:#a09890;font-size:14px;line-height:1.6;margin-bottom:22px;">
+          <p style="color:#a09890;font-size:14px;line-height:1.6;margin-bottom:{% if turno_permanece_abierto %}14px{% else %}22px{% endif %};">
             Tienes <strong style="color:#fb923c;">{{ maquinas_sin_lectura }}
             máquina{{ maquinas_sin_lectura|pluralize:"s" }}</strong> sin lectura.
+            {% if not turno_permanece_abierto %}
             Si cierras sesión ahora, el turno se cerrará con los datos actuales y
             <strong style="color:#f0ece4;">no podrás retomarlo</strong>.
+            {% endif %}
           </p>
+
+          {% if turno_permanece_abierto %}
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;
+                      background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);
+                      border-radius:9px;margin-bottom:18px;">
+            <i class="bi bi-info-circle-fill" style="color:#c9a84c;font-size:14px;flex-shrink:0;margin-top:2px;"></i>
+            <span style="color:#c9a84c;font-size:13px;line-height:1.5;">
+              Tu turno <strong>permanecerá abierto</strong>. Al volver a iniciar sesión
+              podrás continuar desde donde lo dejaste.
+            </span>
+          </div>
+          {% endif %}
 
           <div style="display:flex;flex-direction:column;gap:10px;">
             <a href="{% url 'control:turno' %}"
@@ -119,6 +138,15 @@
                       text-decoration:none;box-shadow:0 4px 16px rgba(201,168,76,.3);">
               <i class="bi bi-arrow-left-circle"></i> Volver y completar lecturas
             </a>
+            {% if turno_permanece_abierto %}
+            <a href="{% url 'control:logout' %}?confirmar=1"
+               style="display:flex;align-items:center;justify-content:center;gap:8px;
+                      height:44px;border-radius:9px;font-size:14px;font-weight:500;
+                      border:1.5px solid rgba(201,168,76,.15);background:transparent;
+                      color:#7a7570;text-decoration:none;">
+              <i class="bi bi-box-arrow-right"></i> Cerrar sesión de todos modos
+            </a>
+            {% else %}
             <div style="display:flex;align-items:center;gap:8px;padding:12px;
                         background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);
                         border-radius:9px;margin-top:4px;">
@@ -127,6 +155,7 @@
                 No puedes cerrar sesión hasta completar todas las lecturas del turno.
               </span>
             </div>
+            {% endif %}
           </div>
         </div>
         {% endif %}

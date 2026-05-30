@@ -204,6 +204,7 @@ class Turno(models.Model):
 
     observaciones = models.TextField(blank=True, verbose_name="Observaciones")
     total_cierre = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True, verbose_name="Total de Cierre")
+    ultima_url = models.CharField(max_length=500, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
 
     class Meta:
