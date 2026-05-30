@@ -175,7 +175,7 @@
                 {% if request.user.role in 'admin,gerente' and not s.hora_cierre %}
                   <form method="post" action="{% url 'control:forzar_logout_usuario' s.usuario.pk %}"
                         style="display:inline;"
-                        onsubmit="return confirm('¿Cerrar la sesión de {{ s.usuario.nombre|default:s.usuario.username }}?')">
+                        onsubmit="return confirm('¿Cerrar la sesión de {{ s.usuario.nombre|default:s.usuario.username|escapejs }}?')">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-danger btn-sm">
                       <i class="bi bi-box-arrow-right"></i> Cerrar sesión
@@ -185,7 +185,7 @@
                 {% if request.user.role == 'admin' and s.turno and s.turno.estado == 'Abierto' %}
                   <form method="post" action="{% url 'control:limpiar_turno_sesion' s.pk %}"
                         style="display:inline;"
-                        onsubmit="return confirm('¿Limpiar el turno {{ s.turno.tipo_turno }} de {{ s.usuario.nombre|default:s.usuario.username }}?\n\nSe eliminará el turno y se liberará el horario.')">
+                        onsubmit="return confirm('¿Limpiar el turno {{ s.turno.tipo_turno|escapejs }} de {{ s.usuario.nombre|default:s.usuario.username|escapejs }}?\n\nSe eliminará el turno y se liberará el horario.')">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-warning btn-sm">
                       <i class="bi bi-eraser-fill"></i> Limpiar turno
