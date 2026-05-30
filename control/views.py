@@ -24,7 +24,10 @@ import json
 import re
 import base64
 import io
+import logging
 from collections import Counter
+
+logger = logging.getLogger('django')
 
 import numpy as np
 from PIL import Image, ImageOps
@@ -437,13 +440,20 @@ def _ejecutar_recaudacion_programada(sucursal, user):
     """
     ciclo = getattr(sucursal, "ciclo_recaudacion", None)
     if not ciclo:
+        logger.warning("[PROG-DEBUG] _ejecutar_recaudacion_programada: sucursal=%s SIN ciclo_recaudacion", sucursal)
         return None
 
     fecha_inicio = ciclo.inicio_ciclo
     fecha_cierre = timezone.localdate()
 
+    logger.warning(
+        "[PROG-DEBUG] _ejecutar_recaudacion_programada: sucursal=%s fecha_inicio=%s fecha_cierre=%s",
+        sucursal, fecha_inicio, fecha_cierre,
+    )
+
     # No cerrar si ya existe un informe para este cierre
     if InformeRecaudacion.objects.filter(sucursal=sucursal, fecha_cierre=fecha_cierre).exists():
+        logger.warning("[PROG-DEBUG] YA existe InformeRecaudacion para sucursal=%s fecha_cierre=%s — skip", sucursal, fecha_cierre)
         return None
 
     with transaction.atomic():
@@ -566,21 +576,42 @@ def _chequear_programaciones(user):
     hora_ahora = ahora.time()
     dia_hoy    = hoy.day  # 1-31
 
+    logger.warning(
+        "[PROG-DEBUG] _chequear_programaciones llamado — user=%s ahora=%s dia_hoy=%s hora_ahora=%s",
+        user, ahora, dia_hoy, hora_ahora,
+    )
+
+    progs = ProgramacionRecaudacion.objects.filter(activa=True).select_related("sucursal")
+    logger.warning("[PROG-DEBUG] programaciones activas encontradas: %d", progs.count())
+
     nuevos = []
-    for prog in ProgramacionRecaudacion.objects.filter(activa=True).select_related("sucursal"):
+    for prog in progs:
         # Ajuste para meses cortos: si dia_del_mes=31 y el mes tiene 28, ejecutar el último día
         import calendar
         ultimo_dia = calendar.monthrange(hoy.year, hoy.month)[1]
         dia_efectivo = min(prog.dia_del_mes, ultimo_dia)
 
+        logger.warning(
+            "[PROG-DEBUG] sucursal=%s | dia_configurado=%d dia_efectivo=%d dia_hoy=%d | hora_prog=%s hora_ahora=%s",
+            prog.sucursal, prog.dia_del_mes, dia_efectivo, dia_hoy, prog.hora, hora_ahora,
+        )
+
         if dia_efectivo != dia_hoy:
+            logger.warning("[PROG-DEBUG] SKIP — dia_efectivo(%d) != dia_hoy(%d)", dia_efectivo, dia_hoy)
             continue
         if hora_ahora < prog.hora:
+            logger.warning("[PROG-DEBUG] SKIP — hora_ahora(%s) < hora_prog(%s)", hora_ahora, prog.hora)
             continue
+
+        logger.warning("[PROG-DEBUG] EJECUTANDO recaudacion para sucursal=%s", prog.sucursal)
         informe = _ejecutar_recaudacion_programada(prog.sucursal, user)
         if informe:
+            logger.warning("[PROG-DEBUG] informe generado pk=%s", informe.pk)
             nuevos.append(informe)
+        else:
+            logger.warning("[PROG-DEBUG] _ejecutar_recaudacion_programada devolvió None (ya existe o sin ciclo)")
 
+    logger.warning("[PROG-DEBUG] _chequear_programaciones finalizado — nuevos=%d", len(nuevos))
     return nuevos
 
 
