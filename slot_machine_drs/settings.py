@@ -71,6 +71,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 
                 'control.context_processors.sidebar_menu',
+                'control.context_processors.notificacion_recaudacion',
             ],
         },
     },

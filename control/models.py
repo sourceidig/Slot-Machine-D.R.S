@@ -706,8 +706,13 @@ class InformeRecaudacion(models.Model):
     total_entrada        = models.BigIntegerField(default=0)
     total_salida         = models.BigIntegerField(default=0)
 
-    # Notificación post-recaudación: True cuando el primer usuario la vio y cerró
+    # Notificación post-recaudación
     notificacion_consumida = models.BooleanField(default=False)
+    # Turno que "tomó" la notificación (se asigna al primer turno post-recaudación)
+    notif_turno = models.ForeignKey(
+        'Turno', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='notificaciones_recaudacion',
+    )
 
     class Meta:
         ordering = ["-fecha_cierre", "-creado_en"]

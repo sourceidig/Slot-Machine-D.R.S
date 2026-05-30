@@ -558,6 +558,25 @@ def _ejecutar_recaudacion_programada(sucursal, user):
     return informe
 
 
+def _reclamar_notificaciones_turno(sucursal, turno):
+    """
+    Al abrir un nuevo turno de encargado:
+    1. Consume notificaciones de turnos anteriores de esa sucursal.
+    2. Asigna al turno nuevo las notificaciones sin turno aún.
+    """
+    InformeRecaudacion.objects.filter(
+        sucursal=sucursal,
+        notificacion_consumida=False,
+        notif_turno__isnull=False,
+    ).exclude(notif_turno=turno).update(notificacion_consumida=True)
+
+    InformeRecaudacion.objects.filter(
+        sucursal=sucursal,
+        notif_turno__isnull=True,
+        notificacion_consumida=False,
+    ).update(notif_turno=turno)
+
+
 def _chequear_programaciones(user):
     """
     Verifica programaciones de recaudación activas y ejecuta las que correspondan.
@@ -585,19 +604,10 @@ def _chequear_programaciones(user):
 
 @login_required
 def dismiss_notificacion_recaudacion(request, pk):
-    """El primer usuario que la ve la marca como consumida."""
     if request.method == "POST":
         InformeRecaudacion.objects.filter(pk=pk, notificacion_consumida=False).update(
             notificacion_consumida=True
         )
-        # Limpiar sesión
-        ids = request.session.get("notif_recaudacion_ids", [])
-        ids = [i for i in ids if i != pk]
-        if ids:
-            request.session["notif_recaudacion_ids"] = ids
-        else:
-            request.session.pop("notif_recaudacion_ids", None)
-        request.session.modified = True
     next_url = request.POST.get("next", "/")
     return redirect(next_url)
 
@@ -1051,6 +1061,7 @@ def seleccionar_turno_view(request):
         try:
             turno.full_clean()
             turno.save()
+            _reclamar_notificaciones_turno(sucursal, turno)
             reg_id = request.session.get('registro_sesion_id')
             if reg_id:
                 RegistroSesion.objects.filter(pk=reg_id).update(sucursal=sucursal, turno=turno)
