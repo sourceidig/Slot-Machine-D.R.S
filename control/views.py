@@ -580,8 +580,10 @@ def _reclamar_notificaciones_turno(sucursal, turno):
 def _chequear_programaciones(user):
     """
     Verifica programaciones de recaudación activas y ejecuta las que correspondan.
-    Se llama desde RecaudacionProgramadaMiddleware (máximo una vez por hora via cache).
+    Se llama desde RecaudacionProgramadaMiddleware en cada request autenticado.
+    Cache lock por sucursal (1800s) evita ejecutar más de una vez cada 30 min.
     """
+    from django.core.cache import cache
     ahora      = timezone.localtime(timezone.now())
     hoy        = ahora.date()
     hora_ahora = ahora.time()
@@ -595,6 +597,10 @@ def _chequear_programaciones(user):
             continue
         if hora_ahora < prog.hora:
             continue
+        cache_key = f"recaudacion_check_{prog.sucursal_id}"
+        if cache.get(cache_key):
+            continue
+        cache.set(cache_key, True, 1800)
         informe = _ejecutar_recaudacion_programada(prog.sucursal, user)
         if informe:
             nuevos.append(informe)

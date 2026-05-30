@@ -173,24 +173,21 @@ class AlertaSesionCerradaMiddleware:
 
 class RecaudacionProgramadaMiddleware:
     """
-    Verifica programaciones automáticas de recaudación en cada request,
-    pero usa un cache lock de 1 hora para no golpear la DB en cada request.
-    Resuelve el problema de que la verificación solo corría al hacer login.
+    Verifica programaciones automáticas de recaudación en cada request autenticado.
+    El lock de 30 min por sucursal se maneja en _chequear_programaciones con
+    cache key "recaudacion_check_{sucursal_id}".
     """
-    CACHE_KEY = "prog_rec_check"
-    CACHE_TTL = 3600  # 1 hora
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.user.is_authenticated and not cache.get(self.CACHE_KEY):
-            cache.set(self.CACHE_KEY, True, self.CACHE_TTL)
+        if request.user.is_authenticated:
             try:
                 from control.views import _chequear_programaciones
                 _chequear_programaciones(request.user)
             except Exception as e:
-                _logger.error("RecaudacionProgramadaMiddleware: error en chequeo: %s", e, exc_info=True)
+                _logger.error("RecaudacionProgramadaMiddleware: %s", e, exc_info=True)
         return self.get_response(request)
 
 
