@@ -188,6 +188,7 @@ class RecaudacionProgramadaMiddleware:
                 _chequear_programaciones(request.user)
             except Exception as e:
                 _logger.error("RecaudacionProgramadaMiddleware: %s", e, exc_info=True)
+        # get_response se llama siempre, independiente de lo que ocurra arriba
         return self.get_response(request)
 
 
