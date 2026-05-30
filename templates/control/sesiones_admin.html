@@ -155,16 +155,22 @@
                 {% endif %}
               </td>
               <td>
-                {% if s.motivo_cierre == "sin_asignacion" %}
-                  <span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Sin asignación</span>
-                {% elif s.motivo_cierre == "manual" %}
-                  <span class="text-muted small">Manual</span>
-                {% elif s.motivo_cierre == "timeout" %}
-                  <span class="text-danger small"><i class="bi bi-clock me-1"></i>Timeout</span>
-                {% elif s.motivo_cierre == "desbloqueo" %}
-                  <span class="text-info small"><i class="bi bi-unlock me-1"></i>Desbloqueado por admin</span>
+                {% if s.motivo_cierre == "logout" %}
+                  <span class="badge bg-primary">Cierre normal</span>
+                {% elif s.motivo_cierre == "cierre_caja" %}
+                  <span class="badge bg-success">Fin de turno</span>
+                {% elif s.motivo_cierre == "forzado_admin" or s.motivo_cierre == "desbloqueo" %}
+                  <span class="badge bg-warning text-dark">Cerrado por admin</span>
                 {% elif s.motivo_cierre == "turno_limpiado_admin" %}
-                  <span class="text-warning small"><i class="bi bi-eraser-fill me-1"></i>Turno limpiado</span>
+                  <span class="badge" style="background:#fd7e14;color:#fff;">Turno limpiado</span>
+                {% elif s.motivo_cierre == "timeout" %}
+                  <span class="badge bg-secondary">Sesión expirada</span>
+                {% elif s.motivo_cierre == "nueva_sesion" %}
+                  <span class="badge bg-secondary">Conexión perdida</span>
+                {% elif s.hora_cierre %}
+                  <span class="badge bg-light text-muted border">Cierre automático</span>
+                {% elif s.es_huerfana %}
+                  <span class="badge bg-secondary">Sesión expirada</span>
                 {% else %}
                   <span class="text-muted small">—</span>
                 {% endif %}
