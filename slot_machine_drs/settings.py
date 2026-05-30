@@ -51,6 +51,7 @@ MIDDLEWARE = [
     'control.middleware.CurrentRequestMiddleware',
     'control.middleware.UltimaUrlMiddleware',
     'control.middleware.AlertaSesionCerradaMiddleware',
+    'control.middleware.RecaudacionProgramadaMiddleware',
     'control.middleware.SucursalEncargadoMiddleware',
     'control.middleware.ErrorHandlerMiddleware',
 ]
