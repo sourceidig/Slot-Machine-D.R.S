@@ -95,6 +95,7 @@ urlpatterns = [
     path("api/ia/capturar/", views.ia_capturar_dummy, name="ia_capturar"),
     path("api/ocr-lectura/", views.ocr_lectura, name="ocr_lectura"),
     path("sesiones/", views.sesiones_admin, name="sesiones_admin"),
+    path("sesiones/<int:sesion_pk>/limpiar-turno/", views.limpiar_turno_sesion, name="limpiar_turno_sesion"),
     path("usuarios/<int:usuario_pk>/forzar-logout/", views.forzar_logout_usuario, name="forzar_logout_usuario"),
     path("api/ocr/debug/", views.ocr_debug, name="ocr_debug"),
 

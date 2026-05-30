@@ -164,6 +164,8 @@
                   <span class="text-danger small"><i class="bi bi-clock me-1"></i>Timeout</span>
                 {% elif s.motivo_cierre == "desbloqueo" %}
                   <span class="text-info small"><i class="bi bi-unlock me-1"></i>Desbloqueado por admin</span>
+                {% elif s.motivo_cierre == "turno_limpiado_admin" %}
+                  <span class="text-warning small"><i class="bi bi-eraser-fill me-1"></i>Turno limpiado</span>
                 {% else %}
                   <span class="text-muted small">—</span>
                 {% endif %}
@@ -179,6 +181,19 @@
                       <i class="bi bi-box-arrow-right"></i> Cerrar sesión
                     </button>
                   </form>
+                {% endif %}
+                {% if request.user.role == 'admin' and s.turno and s.turno.estado == 'Abierto' %}
+                  <form method="post" action="{% url 'control:limpiar_turno_sesion' s.pk %}"
+                        style="display:inline;"
+                        onsubmit="return confirm('¿Limpiar el turno {{ s.turno.tipo_turno }} de {{ s.usuario.nombre|default:s.usuario.username }}?\n\nSe eliminará el turno y se liberará el horario.')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-warning btn-sm">
+                      <i class="bi bi-eraser-fill"></i> Limpiar turno
+                    </button>
+                  </form>
+                {% endif %}
+                {% if not s.hora_cierre and request.user.role in 'admin,gerente' %}
+                {% elif request.user.role == 'admin' and s.turno and s.turno.estado == 'Abierto' %}
                 {% else %}
                   —
                 {% endif %}
