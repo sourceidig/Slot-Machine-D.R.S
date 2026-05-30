@@ -95,7 +95,6 @@
               <th class="text-center">Duración</th>
               <th class="text-center">Estado</th>
               <th>Motivo cierre</th>
-              <th>IP</th>
               <th></th>
             </tr>
           </thead>
@@ -170,7 +169,6 @@
                   <span class="text-muted small">—</span>
                 {% endif %}
               </td>
-              <td class="text-muted" style="font-size:11px;">{{ s.ip_cliente|default:"—" }}</td>
               <td>
                 {% if request.user.role in 'admin,gerente' and not s.hora_cierre %}
                   <form method="post" action="{% url 'control:forzar_logout_usuario' s.usuario.pk %}"
@@ -201,7 +199,7 @@
             </tr>
             {% empty %}
             <tr>
-              <td colspan="12" class="text-center text-muted py-4">
+              <td colspan="11" class="text-center text-muted py-4">
                 <i class="bi bi-inbox fs-4 d-block mb-2"></i>
                 No hay sesiones registradas con los filtros aplicados.
               </td>
