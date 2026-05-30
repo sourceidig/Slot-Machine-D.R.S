@@ -767,13 +767,11 @@ def login_view(request):
 
             redir = _manejar_sucursal_post_login(request, user)
 
-            # Si no hubo redirección, actualizar sucursal y turno ahora
+            # Si no hubo redirección, actualizar sucursal en el registro de sesión
             if not redir:
                 sucursal_id = request.session.get('sucursal_activa_id')
-                turno_obj = Turno.objects.filter(usuario=user, estado="Abierto").first()
                 RegistroSesion.objects.filter(pk=registro.pk).update(
                     sucursal_id=sucursal_id or None,
-                    turno=turno_obj,
                 )
                 return _redirect_por_rol(user.role, user)
             return redir
@@ -867,6 +865,11 @@ def _manejar_sucursal_post_login(request, user):
     turno_obj = Turno.objects.filter(usuario=user, estado='Abierto').first()
     if turno_obj and turno_obj.ultima_url:
         request.session['sucursal_activa_id'] = turno_obj.sucursal_id
+        reg_id = request.session.get('registro_sesion_id')
+        if reg_id:
+            RegistroSesion.objects.filter(pk=reg_id).update(
+                sucursal_id=turno_obj.sucursal_id, turno=turno_obj
+            )
         return redirect(turno_obj.ultima_url)
 
     # Encargado que trabajaba como asistente de otro turno
@@ -891,6 +894,11 @@ def _manejar_sucursal_post_login(request, user):
             turno_ref = turno_ajeno.turno
             request.session['modo_asistente_turno_id'] = turno_ref.pk
             request.session['sucursal_activa_id'] = turno_ref.sucursal_id
+            reg_id = request.session.get('registro_sesion_id')
+            if reg_id:
+                RegistroSesion.objects.filter(pk=reg_id).update(
+                    sucursal_id=turno_ref.sucursal_id, turno=turno_ref
+                )
             return redirect('control:turno')
 
     return redirect("control:seleccionar_turno")
@@ -6025,6 +6033,25 @@ def forzar_logout_usuario(request, usuario_pk):
         f'Sesión de {usuario.nombre or usuario.username} cerrada correctamente. '
         f'Su turno permanece abierto y podrá retomarlo al iniciar sesión.'
     )
+    return redirect('control:sesiones_admin')
+
+
+@login_required
+@role_required(['admin'])
+def limpiar_turno_sesion(request, sesion_pk):
+    if request.method != 'POST':
+        return redirect('control:sesiones_admin')
+    sesion = get_object_or_404(RegistroSesion, pk=sesion_pk)
+    turno = sesion.turno
+    if not turno or turno.estado != 'Abierto':
+        messages.error(request, 'La sesión no tiene un turno abierto asociado.')
+        return redirect('control:sesiones_admin')
+    if not sesion.hora_cierre:
+        sesion.hora_cierre = timezone.now()
+    sesion.motivo_cierre = 'turno_limpiado_admin'
+    sesion.save(update_fields=['hora_cierre', 'motivo_cierre'])
+    turno.delete()
+    messages.success(request, 'Turno limpiado correctamente.')
     return redirect('control:sesiones_admin')
 
 
