@@ -2330,23 +2330,6 @@ def dashboard_view(request):
     from decimal import Decimal
     hoy = timezone.localdate()
 
-    # ── Totales globales ────────────────────────────────────────────────────
-    global_agg = ControlLecturasLinea.objects.aggregate(
-        total_entrada = Sum("entrada_parcial"),
-        total_salida  = Sum("salida_parcial"),
-        total_neto    = Sum("total"),
-    )
-    global_kpis = {k: (v or 0) for k, v in global_agg.items()}
-    for k in global_kpis:
-        global_kpis[k] = global_kpis[k] or 0
-
-    if global_kpis["total_entrada"] and global_kpis["total_entrada"] > 0:
-        global_kpis["rtp_global"] = round(
-            (global_kpis["total_entrada"] - global_kpis["total_salida"]) / global_kpis["total_entrada"] * 100, 2
-        )
-    else:
-        global_kpis["rtp_global"] = 0
-
     # ── Retiros y prestamos acumulados ──────────────────────────────────────
     total_retiros   = AsignacionTurnoZona.objects.aggregate(s=Sum("retiros"))["s"] or 0
     total_prestamos = AsignacionTurnoZona.objects.aggregate(s=Sum("prestamo"))["s"] or 0
@@ -2370,10 +2353,12 @@ def dashboard_view(request):
         else:
             rtp_turno = None
 
-        # RTP histórico
-        agg_h = LecturaMaquina.objects.filter(sucursal=suc).aggregate(
-            ent=Sum("entrada_dia"), sal=Sum("salida_dia")
-        )
+        # RTP histórico (filtrado por ciclo activo de la sucursal)
+        inicio_suc = get_inicio_ciclo(suc)
+        qs_hist = LecturaMaquina.objects.filter(sucursal=suc)
+        if inicio_suc:
+            qs_hist = qs_hist.filter(fecha_trabajo__gte=inicio_suc)
+        agg_h = qs_hist.aggregate(ent=Sum("entrada_dia"), sal=Sum("salida_dia"))
         h_ent = agg_h["ent"] or 0
         h_sal = agg_h["sal"] or 0
         rtp_hist = round((h_ent - h_sal) / h_ent * 100, 2) if h_ent > 0 else None
@@ -2516,9 +2501,11 @@ def dashboard_view(request):
             else:
                 btn_numeral = btn_ganancia = btn_rtp = None
 
-        acum = ControlLecturasLinea.objects.filter(
-            control__sucursal=sucursal
-        ).aggregate(
+        inicio_suc = get_inicio_ciclo(sucursal)
+        qs_acum = ControlLecturasLinea.objects.filter(control__sucursal=sucursal)
+        if inicio_suc:
+            qs_acum = qs_acum.filter(control__fecha_trabajo__gte=inicio_suc)
+        acum = qs_acum.aggregate(
             ent=Sum("entrada_parcial"),
             sal=Sum("salida_parcial"),
             tot=Sum("total"),
@@ -2561,6 +2548,17 @@ def dashboard_view(request):
             "btn_ganancia":    btn_ganancia,
             "btn_rtp":         btn_rtp,
         })
+
+    # ── KPIs globales calculados desde los acumulados por ciclo de cada sucursal
+    _g_ent = sum(s["acum_ent"] for s in sucursales_data)
+    _g_sal = sum(s["acum_sal"] for s in sucursales_data)
+    _g_tot = sum(s["acum_tot"] for s in sucursales_data)
+    global_kpis = {
+        "total_entrada": _g_ent,
+        "total_salida":  _g_sal,
+        "total_neto":    _g_tot,
+        "rtp_global":    round((_g_ent - _g_sal) / _g_ent * 100, 2) if _g_ent > 0 else 0,
+    }
 
     return render(request, "dashboard.html", {
         "hoy":                  hoy,
