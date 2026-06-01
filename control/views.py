@@ -3365,8 +3365,6 @@ _TURNO_ORDEN = {'Mañana': 0, 'Tarde': 1, 'Noche': 2}
 
 def _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=None, turno_tipo=None):
     inicio_ciclo = get_inicio_ciclo(sucursal)
-    if inicio_ciclo and fecha <= inicio_ciclo:
-        return int(sucursal.caja_inicial or 0), 0
 
     qs = CuadraturaCajaDiaria.objects.filter(
         sucursal=sucursal,
@@ -3390,6 +3388,9 @@ def _caja_anterior_en_ciclo(sucursal, fecha, exclude_pk=None, turno_tipo=None):
 
     prev = qs.order_by("-fecha", "-creado_el").first()
     if prev:
+        # Cuadratura del día de inicio del ciclo sin datos reales: tratar como primera del ciclo.
+        if inicio_ciclo and prev.fecha == inicio_ciclo and not int(prev.total_efectivo or 0):
+            return int(sucursal.caja_inicial or 0), 0
         return int(prev.total_efectivo or 0), int(prev.prestamos_acum or 0)
     return int(sucursal.caja_inicial or 0), 0
 
