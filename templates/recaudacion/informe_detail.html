@@ -289,7 +289,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Préstamos día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.prestamos }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.prestamos %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.prestamos }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
@@ -303,7 +303,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Retiro día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end" style="color:#dc2626;">{{ c.retiro_diario }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.retiro_diario %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end" style="color:#dc2626;">{{ c.retiro_diario }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
@@ -317,7 +317,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Redbank día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.redbank_dia }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.redbank_dia %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.redbank_dia }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
@@ -331,7 +331,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Transfer día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.transfer_dia }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.transfer_dia %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.transfer_dia }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
@@ -345,7 +345,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Sueldo día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.sueldo_b_dia }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.sueldo_b_dia %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.sueldo_b_dia }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
@@ -359,7 +359,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Sorteos día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.sorteos_dia }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.sorteos_dia %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.sorteos_dia }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
@@ -373,7 +373,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Gastos día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.gastos_dia }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.gastos_dia %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.gastos_dia }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
@@ -387,7 +387,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Regalos día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.regalos_dia }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.regalos_dia %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.regalos_dia }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
@@ -401,7 +401,7 @@
               <td colspan="2" class="p-0">
                 <table class="caja-sub-table w-100">
                   <thead><tr><th>Fecha</th><th class="text-end">Jugados día</th></tr></thead>
-                  <tbody>{% for c in cuadraturas_ciclo %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.jugados_dia }}</td></tr>{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
+                  <tbody>{% for c in cuadraturas_ciclo %}{% if c.jugados_dia %}<tr><td>{{ c.fecha|date:"d/m/Y" }}</td><td class="text-end">{{ c.jugados_dia }}</td></tr>{% endif %}{% empty %}<tr><td colspan="2" style="color:#9ca3af;text-align:center;">Sin registros</td></tr>{% endfor %}</tbody>
                 </table>
               </td>
             </tr>
