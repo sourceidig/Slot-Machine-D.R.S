@@ -280,6 +280,16 @@ def cerrar_ciclo_y_generar_informe(request):
 
         # ── 2. Líneas por máquina ───────────────────────────────────────────
         maquinas = Maquina.objects.filter(sucursal=sucursal, is_active=True).select_related("zona").annotate(estado_ord=_estado_ord()).order_by("estado_ord", "zona__orden", "numero_maquina")
+
+        cierres_en_ciclo = (CierreMaquina.objects
+            .filter(
+                sucursal=sucursal,
+                fecha__gte=fecha_inicio,
+                fecha__lte=fecha_cierre,
+            )
+            .select_related("maquina", "maquina__zona", "zona")
+        )
+
         bulk_lineas = []
         total_entrada = 0
         total_salida  = 0
@@ -315,6 +325,42 @@ def cerrar_ciclo_y_generar_informe(request):
                 informe=informe,
                 zona=maq.zona,
                 zona_nombre=maq.zona.nombre if maq.zona else "",
+                numero_maquina=maq.numero_maquina,
+                codigo_interno=maq.codigo_interno or "",
+                servidor=maq.servidor or "",
+                juego=maq.nombre_juego or "",
+                hist_entrada_inicio=hist_e_inicio,
+                hist_salida_inicio=hist_s_inicio,
+                hist_entrada_cierre=hist_e_cierre,
+                hist_salida_cierre=hist_s_cierre,
+                parcial_entrada=parcial_e,
+                parcial_salida=parcial_s,
+                total=total_maq,
+            ))
+
+        for cierre in cierres_en_ciclo:
+            maq = cierre.maquina
+
+            hist_e_inicio = int(maq.contador_inicial_entrada or 0)
+            hist_s_inicio = int(maq.contador_inicial_salida  or 0)
+            hist_e_cierre = int(cierre.entrada_final or 0)
+            hist_s_cierre = int(cierre.salida_final  or 0)
+
+            parcial_e = hist_e_cierre - hist_e_inicio
+            parcial_s = hist_s_cierre - hist_s_inicio
+            total_maq = parcial_e - parcial_s
+
+            if parcial_e == 0 and parcial_s == 0:
+                continue
+
+            total_entrada += parcial_e
+            total_salida  += parcial_s
+
+            zona = cierre.zona or maq.zona
+            bulk_lineas.append(InformeRecaudacionLinea(
+                informe=informe,
+                zona=zona,
+                zona_nombre=zona.nombre if zona else "",
                 numero_maquina=maq.numero_maquina,
                 codigo_interno=maq.codigo_interno or "",
                 servidor=maq.servidor or "",
@@ -1491,8 +1537,8 @@ def cuadratura_diaria_create(request):
 
                 if request.user.role in ['encargado', 'asistente']:
                     control_existe = ControlLecturas.objects.filter(
-                        turno=cuadratura.turno,
                         sucursal=sucursal,
+                        fecha_trabajo=cuadratura.turno.fecha,
                     ).exists()
                     if not control_existe:
                         messages.error(request, "Debes guardar el Control de Lecturas antes de registrar la caja.")
@@ -1894,8 +1940,8 @@ def cuadratura_diaria_edit(request, pk):
 
                 if request.user.role in ['encargado', 'asistente']:
                     control_existe = ControlLecturas.objects.filter(
-                        turno=c.turno,
                         sucursal=c.sucursal,
+                        fecha_trabajo=c.turno.fecha,
                     ).exists()
                     if not control_existe:
                         messages.error(request, "Debes guardar el Control de Lecturas antes de registrar la caja.")
