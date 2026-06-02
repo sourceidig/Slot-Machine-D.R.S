@@ -431,9 +431,9 @@ def cerrar_ciclo_y_generar_informe(request):
                 contador_inicial_salida=linea.hist_salida_cierre,
             )
 
-        # ── 6. Actualizar inicio_ciclo a hoy ───────────────────────────────
+        # ── 6. Actualizar inicio_ciclo al día siguiente al cierre ─────────
         CicloRecaudacion.objects.filter(sucursal=sucursal).update(
-            inicio_ciclo=fecha_cierre,
+            inicio_ciclo=fecha_cierre + timedelta(days=1),
             creado_por=request.user,
         )
 
@@ -597,7 +597,7 @@ def _ejecutar_recaudacion_programada(sucursal, user):
             )
 
         CicloRecaudacion.objects.filter(sucursal=sucursal).update(
-            inicio_ciclo=fecha_cierre,
+            inicio_ciclo=fecha_cierre + timedelta(days=1),
             creado_por=user,
         )
 
@@ -1596,6 +1596,7 @@ def cuadratura_diaria_create(request):
                     cuadratura.otros_1_dia  = _sum_tipo(cuadratura, "OTROS")
 
                 # Propagar _ant desde la cuadratura anterior del ciclo
+                _inicio_ciclo_create = get_inicio_ciclo(cuadratura.sucursal)
                 _TURNO_Q_CREATE = Case(
                     When(turno__tipo_turno='Mañana', then=Value(0)),
                     When(turno__tipo_turno='Tarde',  then=Value(1)),
@@ -1610,7 +1611,7 @@ def cuadratura_diaria_create(request):
                     Q(fecha__lt=cuadratura.fecha) |
                     Q(fecha=cuadratura.fecha, turno__tipo_turno__in=_turnos_ant_create)
                 ) if _tipo_turno_prev_create and _turnos_ant_create else Q(fecha__lt=cuadratura.fecha)
-                _prev = (
+                _prev_qs_create = (
                     CuadraturaCajaDiaria.objects
                     .filter(sucursal=cuadratura.sucursal)
                     .filter(_prev_filter_create)
@@ -1618,8 +1619,10 @@ def cuadratura_diaria_create(request):
                     .select_related('turno')
                     .annotate(orden_turno=_TURNO_Q_CREATE)
                     .order_by('-fecha', '-orden_turno', '-creado_el')
-                    .first()
                 )
+                if _inicio_ciclo_create:
+                    _prev_qs_create = _prev_qs_create.filter(fecha__gte=_inicio_ciclo_create)
+                _prev = _prev_qs_create.first()
                 _propagar_ant_acum(cuadratura, _prev)
 
                 # Recalcular totales ahora que está todo seteado
@@ -1646,6 +1649,8 @@ def cuadratura_diaria_create(request):
                 dias_siguientes = CuadraturaCajaDiaria.objects.filter(
                     sucursal=cuadratura.sucursal,
                 ).filter(_qs_filter_create).select_related('turno').annotate(orden_turno=_TURNO_Q).order_by('fecha', 'orden_turno', 'creado_el')
+                if _inicio_ciclo_create:
+                    dias_siguientes = dias_siguientes.filter(fecha__gte=_inicio_ciclo_create)
                 cuadratura_anterior_casc = cuadratura
                 for siguiente in dias_siguientes:
                     _propagar_ant_acum(siguiente, cuadratura_anterior_casc)
@@ -1909,6 +1914,7 @@ def cuadratura_diaria_edit(request, pk):
                     c.otros_1_dia   = _sum_tipo(c, "OTROS")
 
                 # Propagar _ant/_acum desde la cuadratura inmediatamente anterior
+                _inicio_ciclo_edit = get_inicio_ciclo(c.sucursal)
                 _TURNO_Q_EDIT = Case(
                     When(turno__tipo_turno='Mañana', then=Value(0)),
                     When(turno__tipo_turno='Tarde',  then=Value(1)),
@@ -1923,7 +1929,7 @@ def cuadratura_diaria_edit(request, pk):
                     Q(fecha__lt=c.fecha) |
                     Q(fecha=c.fecha, turno__tipo_turno__in=_turnos_ant_edit)
                 ) if _tipo_turno_prev_edit and _turnos_ant_edit else Q(fecha__lt=c.fecha)
-                _prev_edit = (
+                _prev_qs_edit = (
                     CuadraturaCajaDiaria.objects
                     .filter(sucursal=c.sucursal)
                     .filter(_prev_filter_edit)
@@ -1931,8 +1937,10 @@ def cuadratura_diaria_edit(request, pk):
                     .select_related('turno')
                     .annotate(orden_turno=_TURNO_Q_EDIT)
                     .order_by('-fecha', '-orden_turno', '-creado_el')
-                    .first()
                 )
+                if _inicio_ciclo_edit:
+                    _prev_qs_edit = _prev_qs_edit.filter(fecha__gte=_inicio_ciclo_edit)
+                _prev_edit = _prev_qs_edit.first()
                 _propagar_ant_acum(c, _prev_edit)
 
                 # Recalcular ganancia, numeral_dia, descuadre y total_efectivo
@@ -1968,6 +1976,8 @@ def cuadratura_diaria_edit(request, pk):
                 dias_siguientes = CuadraturaCajaDiaria.objects.filter(
                     sucursal=c.sucursal,
                 ).filter(_qs_filter_edit).select_related('turno').annotate(orden_turno=_TURNO_Q).order_by('fecha', 'orden_turno', 'creado_el')
+                if _inicio_ciclo_edit:
+                    dias_siguientes = dias_siguientes.filter(fecha__gte=_inicio_ciclo_edit)
 
                 cuadratura_anterior = c
                 for siguiente in dias_siguientes:
