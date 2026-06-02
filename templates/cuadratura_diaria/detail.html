@@ -349,28 +349,16 @@
             </tr>
             {% endwith %}{% endwith %}
             <tr>
-              <td class="col-concepto">Taxi</td>
-              <td class="text-end">{{ cuadratura.taxi_dia|default:0|floatformat:0 }}</td>
-              <td class="text-end col-acum">{{ cuadratura.taxi_acum|default:0|floatformat:0 }}</td>
-              <td class="small" style="color:#64748b;">{{ cuadratura.taxi_notas }}</td>
+              <td class="col-concepto">Préstamos</td>
+              <td class="text-end">{{ cuadratura.prestamos|default:0|floatformat:0 }}</td>
+              <td class="text-end col-acum">{{ cuadratura.prestamos_acum|default:0|floatformat:0 }}</td>
+              <td class="small" style="color:#64748b;">{{ cuadratura.prestamos_notas }}</td>
             </tr>
             <tr>
-              <td class="col-concepto">Jugados</td>
-              <td class="text-end">
-                {{ cuadratura.jugados_dia|default:0|floatformat:0 }}
-                {% if detalles_jugados %}
-                <div class="mt-1 pt-1" style="border-top:1px solid rgba(0,0,0,.08);">
-                  {% for item in detalles_jugados %}
-                  <div class="d-flex justify-content-between gap-3" style="font-size:0.73rem;color:#9ca3af;font-weight:400;white-space:nowrap;">
-                    <span class="text-start">{{ item.nombre }}</span>
-                    <span>${{ item.monto|floatformat:0 }}</span>
-                  </div>
-                  {% endfor %}
-                </div>
-                {% endif %}
-              </td>
-              <td class="text-end col-acum">{{ cuadratura.jugados_acum|default:0|floatformat:0 }}</td>
-              <td class="small" style="color:#64748b;">{{ cuadratura.jugados_notas }}</td>
+              <td class="col-concepto">Retiros</td>
+              <td class="text-end">{{ cuadratura.retiro_diario|default:0|floatformat:0 }}</td>
+              <td class="text-end col-acum"></td>
+              <td class="small" style="color:#64748b;"></td>
             </tr>
             {% if cuadratura.otros_1_dia or cuadratura.otros_1_ant %}
             <tr>
@@ -389,26 +377,6 @@
               <td class="small" style="color:#64748b;">{{ cuadratura.descuadre_notas }}</td>
             </tr>
           </tbody>
-          <tfoot>
-            {% with acum1=cuadratura.sorteos_acum|add:cuadratura.gastos_acum %}
-            {% with acum2=acum1|add:cuadratura.sueldo_b_acum %}
-            {% with acum3=acum2|add:cuadratura.redbank_acum %}
-            {% with acum4=acum3|add:cuadratura.regalos_acum %}
-            {% with acum5=acum4|add:cuadratura.taxi_acum %}
-            {% with acum6=acum5|add:cuadratura.jugados_acum %}
-            {% with acum7=acum6|add:cuadratura.transfer_acum %}
-            {% with acum8=acum7|add:cuadratura.otros_1_acum %}
-            {% with acum9=acum8|add:cuadratura.otros_2_acum %}
-            {% with acum10=acum9|add:cuadratura.otros_3_acum %}
-            {% with total_acum=acum10|add:cuadratura.descuadre_acum %}
-            <tr>
-              <td colspan="1" style="background:#1e293b; color:#f1f5f9; font-weight:700; font-size:13px; padding:8px 10px;">TOTAL</td>
-              <td class="text-end" style="background:#1e293b; color:#f1f5f9; font-weight:700; font-size:14px; padding:8px 10px;">${{ cuadratura.total_gastos_dia|floatformat:0 }}</td>
-              <td class="text-end" style="background:#1e293b; color:#f1f5f9; font-weight:700; font-size:14px; padding:8px 10px;">${{ total_acum|floatformat:0 }}</td>
-              <td style="background:#1e293b;"></td>
-            </tr>
-            {% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}
-          </tfoot>
         </table>
       </div>
     </div>
