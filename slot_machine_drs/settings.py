@@ -25,12 +25,6 @@ ALLOWED_HOSTS = [
     '*',
 ]
 
-import os
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://slotadmindrs.cl').split(',')
-]
-
 
 # Application definition
 
@@ -194,11 +188,6 @@ LOGGING = {
         },
     },
 }
-CSRF_TRUSTED_ORIGINS = [
-    'https://pazagamesdrs.cl',
-    'http://pazagamesdrs.cl',
-]
-
 # ══ Security Headers ══════════════════════════════════════════════════════════
 SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
@@ -219,6 +208,13 @@ PERMISSIONS_POLICY = {
     "microphone": [],
     "geolocation": [],
 }
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://slotadmindrs.cl',
+    'https://www.slotadmindrs.cl',
+    'https://pazagamesdrs.cl',
+    'http://pazagamesdrs.cl',
+]
 
 # S3 Static Files
 if not DEBUG:
